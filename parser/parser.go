@@ -198,7 +198,8 @@ func AnalyzeJSONFiles(dataRoot string) (*AnalysisResult, error) {
 		}
 		fname := info.Name()
 
-		if fname == "system.txt" {
+		lowerFname := strings.ToLower(fname)
+		if lowerFname == "system.txt" || strings.HasPrefix(lowerFname, "system_") || strings.HasPrefix(lowerFname, "_system") {
 			data, _ := ioutil.ReadFile(path)
 			ip := ExtractIPFromPath(path)
 			if ip == "unknown" {
@@ -208,8 +209,8 @@ func AnalyzeJSONFiles(dataRoot string) (*AnalysisResult, error) {
 			return nil
 		}
 
-		isJson := strings.HasSuffix(fname, ".json") && fname != "system.json" && !strings.HasPrefix(strings.ToLower(fname), "_system")
-		isTxt := strings.HasSuffix(fname, ".txt") && fname != "system.txt" && !strings.HasSuffix(fname, ".txt.txt")
+		isJson := strings.HasSuffix(lowerFname, ".json") && lowerFname != "system.json" && !strings.HasPrefix(lowerFname, "_system") && !strings.HasPrefix(lowerFname, "system_")
+		isTxt := strings.HasSuffix(lowerFname, ".txt") && lowerFname != "system.txt" && !strings.HasSuffix(lowerFname, ".txt.txt") && !strings.HasPrefix(lowerFname, "_system") && !strings.HasPrefix(lowerFname, "system_")
 
 		if !isJson && !isTxt {
 			return nil
