@@ -14,8 +14,15 @@ import (
 )
 
 func main() {
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [data_dir] [report_dir]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "       %s -data <dir> -output-dir <dir>\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Options:\n")
+		flag.PrintDefaults()
+	}
+
 	dataDir := flag.String("data", "./data", "Local data root directory")
-	reportDir := flag.String("output-dir", "./性能测试报告", "Output report directory")
+	reportDir := flag.String("output-dir", "./output", "Output report directory")
 	flag.Parse()
 
 	// Handle args like the shell script
@@ -42,55 +49,55 @@ func main() {
 	fmt.Printf("[INFO] JSON analysis complete. Total: %d, OK: %d, Failed: %d\n", res.FilesTotal, res.FilesOK, res.FilesFailed)
 
 	// 2. Generate Excel
-        excelPath := filepath.Join(*reportDir, "fio_summary.xlsx")
-        if envPath := os.Getenv("FIO_SUMMARY_XLSX"); envPath != "" {
-                excelPath = envPath
-        }
-        groupedRows, err := report.GenerateExcel(res, excelPath)
-        if err != nil {
-                fmt.Printf("[WARN] Failed to generate Excel: %v\n", err)
-        } else {
-                fmt.Printf("[INFO] Excel summary generated: %s\n", excelPath)
-        }
+	excelPath := filepath.Join(*reportDir, "fio_summary.xlsx")
+	if envPath := os.Getenv("FIO_SUMMARY_XLSX"); envPath != "" {
+		excelPath = envPath
+	}
+	groupedRows, err := report.GenerateExcel(res, excelPath)
+	if err != nil {
+		fmt.Printf("[WARN] Failed to generate Excel: %v\n", err)
+	} else {
+		fmt.Printf("[INFO] Excel summary generated: %s\n", excelPath)
+	}
 
 	// 3. Build chart groups from logs
 	chartGroups := parser.BuildChartGroups(*dataDir)
 	fmt.Printf("[INFO] Found %d chart groups from logs\n", len(chartGroups))
 
 	// 4. Generate HTML
-        htmlPath := filepath.Join(*reportDir, "fio_report.html")
-        if err := report.GenerateHTML(chartGroups, res.SystemTexts, groupedRows, htmlPath); err != nil {
-                fmt.Printf("[WARN] Failed to generate HTML: %v\n", err)
-        } else {
-                fmt.Printf("[INFO] HTML report generated: %s\n", htmlPath)
-        }
+	htmlPath := filepath.Join(*reportDir, "fio_report.html")
+	if err := report.GenerateHTML(chartGroups, res.SystemTexts, groupedRows, htmlPath); err != nil {
+		fmt.Printf("[WARN] Failed to generate HTML: %v\n", err)
+	} else {
+		fmt.Printf("[INFO] HTML report generated: %s\n", htmlPath)
+	}
 
-        // 5. Download echarts.min.js for offline viewing
-        echartsPath := filepath.Join(*reportDir, "echarts.min.js")
-        if err := downloadEcharts(echartsPath); err != nil {
-                fmt.Printf("[WARN] Failed to fetch echarts.min.js: %v\n", err)
-        } else {
-                fmt.Printf("[INFO] Downloaded echarts.min.js to %s\n", echartsPath)
-        }
+	// 5. Download echarts.min.js for offline viewing
+	echartsPath := filepath.Join(*reportDir, "echarts.min.js")
+	if err := downloadEcharts(echartsPath); err != nil {
+		fmt.Printf("[WARN] Failed to fetch echarts.min.js: %v\n", err)
+	} else {
+		fmt.Printf("[INFO] Downloaded echarts.min.js to %s\n", echartsPath)
+	}
 }
 
 func downloadEcharts(destPath string) error {
-        if _, err := os.Stat(destPath); err == nil {
-                return nil // already exists
-        }
-        
-        resp, err := http.Get("https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js")
-        if err != nil {
-                return err
-        }
-        defer resp.Body.Close()
+	if _, err := os.Stat(destPath); err == nil {
+		return nil // already exists
+	}
 
-        out, err := os.Create(destPath)
-        if err != nil {
-                return err
-        }
-        defer out.Close()
+	resp, err := http.Get("https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js")
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
 
-        _, err = io.Copy(out, resp.Body)
-        return err
+	out, err := os.Create(destPath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	return err
 }
