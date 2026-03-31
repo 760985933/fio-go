@@ -11,9 +11,9 @@ import (
 	"fio-go/parser"
 )
 
-func GenerateExcel(res *parser.AnalysisResult, outPath string) error {
-	f := excelize.NewFile()
-	defer f.Close()
+func GenerateExcel(res *parser.AnalysisResult, outPath string) ([]models.GroupedMetric, error) {
+        f := excelize.NewFile()
+        defer f.Close()
 
 	sheetNodes := "节点汇总"
 	sheetMerged := "性能汇总(合并)"
@@ -21,14 +21,17 @@ func GenerateExcel(res *parser.AnalysisResult, outPath string) error {
 	sheetOS := "OS配置"
 
 	f.SetSheetName("Sheet1", sheetMerged)
-	f.NewSheet(sheetData)
-	f.NewSheet(sheetNodes)
+        f.NewSheet(sheetData)
+        f.NewSheet(sheetNodes)
 
-	// Sort BS
-	var bsKeys []string
-	for k := range res.Aggregated {
-		bsKeys = append(bsKeys, k)
-	}
+        // Generate data for nodes and data sheets
+        var groupedRows []models.GroupedMetric
+
+        // Sort BS
+        var bsKeys []string
+        for k := range res.Aggregated {
+                bsKeys = append(bsKeys, k)
+        }
 	sort.Slice(bsKeys, func(i, j int) bool {
 		return parser.BSToBytes(bsKeys[i]) < parser.BSToBytes(bsKeys[j])
 	})
@@ -53,27 +56,49 @@ func GenerateExcel(res *parser.AnalysisResult, outPath string) error {
 		Font: &excelize.Font{Bold: true},
 	})
 
-	var groupedRows []models.GroupedMetric
-
 	rowIdx := 2
 	for _, bs := range bsKeys {
-		scenarios := res.Aggregated[bs]
-
-		var jobs []string
-		for k := range scenarios {
-			jobs = append(jobs, k)
+		jobMap := res.Aggregated[bs]
+		jobKeys := make([]string, 0, len(jobMap))
+		for j := range jobMap {
+			jobKeys = append(jobKeys, j)
 		}
-		sort.Slice(jobs, func(i, j int) bool {
-			rw1 := parser.RWRank(scenarios[jobs[i]][0].RW)
-			rw2 := parser.RWRank(scenarios[jobs[j]][0].RW)
-			if rw1 == rw2 {
-				return jobs[i] < jobs[j]
+		sort.Slice(jobKeys, func(i, j int) bool {
+			// get one node to check RW
+			var rw1, rw2 string
+			for _, n := range jobMap[jobKeys[i]] {
+				rw1 = n.RW
+				break
 			}
-			return rw1 < rw2
+			for _, n := range jobMap[jobKeys[j]] {
+				rw2 = n.RW
+				break
+			}
+			r1 := parser.RWRank(rw1)
+			r2 := parser.RWRank(rw2)
+			if r1 == r2 {
+				return jobKeys[i] < jobKeys[j]
+			}
+			return r1 < r2
 		})
 
-		for _, jobname := range jobs {
-			nodes := scenarios[jobname]
+		for _, jobname := range jobKeys {
+			ipMap := jobMap[jobname]
+
+			// Collect nodes from ipMap
+			var nodes []models.NodeMetric
+			for _, metric := range ipMap {
+				nodes = append(nodes, metric)
+			}
+
+			if len(nodes) == 0 {
+				continue
+			}
+
+			// Sort nodes by IP
+			sort.Slice(nodes, func(i, j int) bool {
+				return nodes[i].IP < nodes[j].IP
+			})
 
 			var rIopsSum, wIopsSum, rBwSum, wBwSum, rLatSum, wLatSum float64
 			rw := nodes[0].RW
@@ -169,5 +194,8 @@ func GenerateExcel(res *parser.AnalysisResult, outPath string) error {
 		}
 	}
 
-	return f.SaveAs(outPath)
+	// 4. Generate Merged Sheet
+        generateMergedSheet(f, sheetMerged, groupedRows)
+
+        return groupedRows, f.SaveAs(outPath)
 }

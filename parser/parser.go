@@ -32,6 +32,10 @@ func parseValueFloat(val interface{}) float64 {
 	switch v := val.(type) {
 	case float64:
 		return v
+	case int:
+		return float64(v)
+	case int64:
+		return float64(v)
 	case string:
 		f, _ := strconv.ParseFloat(v, 64)
 		return f
@@ -166,24 +170,24 @@ func ParseFioJSON(fpath string) (*FioResult, error) {
 }
 
 type AnalysisResult struct {
-	FilesTotal  int
-	FilesOK     int
-	FilesFailed int
-	Aggregated  map[string]map[string][]models.NodeMetric
-	SystemTexts map[string]string
-	NumJobsMap  map[string]int
+        FilesTotal  int
+        FilesOK     int
+        FilesFailed int
+        Aggregated  map[string]map[string]map[string]models.NodeMetric
+        SystemTexts map[string]string
+        NumJobsMap  map[string]int
 }
 
 func MakeNumJobsKey(bs, rw string, iodepth int) string {
-	return fmt.Sprintf("%s|%s|%d", bs, rw, iodepth)
+        return fmt.Sprintf("%s|%s|%d", bs, rw, iodepth)
 }
 
 func AnalyzeJSONFiles(dataRoot string) (*AnalysisResult, error) {
-	res := &AnalysisResult{
-		Aggregated:  make(map[string]map[string][]models.NodeMetric),
-		SystemTexts: make(map[string]string),
-		NumJobsMap:  make(map[string]int),
-	}
+        res := &AnalysisResult{
+                Aggregated:  make(map[string]map[string]map[string]models.NodeMetric),
+                SystemTexts: make(map[string]string),
+                NumJobsMap:  make(map[string]int),
+        }
 
 	err := filepath.Walk(dataRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -256,9 +260,12 @@ func AnalyzeJSONFiles(dataRoot string) (*AnalysisResult, error) {
 			}
 
 			if res.Aggregated[bs] == nil {
-				res.Aggregated[bs] = make(map[string][]models.NodeMetric)
+				res.Aggregated[bs] = make(map[string]map[string]models.NodeMetric)
 			}
-			res.Aggregated[bs][jobname] = append(res.Aggregated[bs][jobname], metric)
+			if res.Aggregated[bs][jobname] == nil {
+				res.Aggregated[bs][jobname] = make(map[string]models.NodeMetric)
+			}
+			res.Aggregated[bs][jobname][ip] = metric
 		}
 
 		return nil

@@ -2,7 +2,7 @@ package report
 
 import (
 	"encoding/json"
-	"fmt"
+	"html"
 	"os"
 	"sort"
 	"strings"
@@ -11,9 +11,12 @@ import (
 	"fio-go/models"
 )
 
-func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, outPath string) error {
+func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, groupedRows []models.GroupedMetric, outPath string) error {
 	ts := time.Now().Format("2006-01-02 15:04:05")
 
+	if groups == nil {
+		groups = []models.ChartGroup{}
+	}
 	jsGroups, _ := json.Marshal(groups)
 
 	sysHtml := ""
@@ -26,14 +29,10 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, out
 
 		var cards []string
 		for _, ip := range ips {
-			txt := systemTexts[ip]
-			cards = append(cards, fmt.Sprintf(`
-<div style='border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;padding:12px;'>
-	<div style='font-weight:600;color:#374151;margin-bottom:8px;'>%s</div>
-	<pre style='white-space:pre-wrap;font-family:Menlo,monospace;font-size:12px;line-height:1.5;color:#111827;'>%s</pre>
-</div>`, ip, strings.ReplaceAll(strings.ReplaceAll(txt, "<", "&lt;"), ">", "&gt;")))
+			txt := html.EscapeString(systemTexts[ip])
+			cards = append(cards, "<div style='border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;padding:12px;'><div style='font-weight:600;color:#374151;margin-bottom:8px;'>"+html.EscapeString(ip)+"</div><pre style='white-space:pre-wrap;font-family:Menlo,monospace;font-size:12px;line-height:1.5;color:#111827;'>"+txt+"</pre></div>")
 		}
-		sysHtml = "<h2>系统信息</h2><div style=\"display:grid;grid-template-columns:repeat(3,1fr);gap:16px;\">" + strings.Join(cards, "") + "</div>"
+		sysHtml = "<h2>系统信息</h2><div style=\"display:grid;grid-template-columns:repeat(3,1fr);gap:16px;\">" + strings.Join(cards, "") + "</div>\n"
 	}
 
 	htmlStr := `<!DOCTYPE html>
@@ -50,12 +49,19 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, out
     th { background: #f3f3f3; }
     h3 { color: #409EFF; }
     .chart { width: 100%; height: 320px; margin: 16px 0; }
+    .bw-toggle { margin: 8px 0; }
   </style>
 </head>
 <body>
   <h1 style="text-align:center">FIO性能报告</h1>
   <p>生成时间: ` + ts + `</p>
 
+  <h2>性能汇总</h2>
+  <div class="bw-toggle">带宽单位：
+    <label><input type="radio" name="bw_unit" onclick="setMiBps(true);" checked> MiBps</label>
+    <label style="margin-left:12px"><input type="radio" name="bw_unit" onclick="setMiBps(false);"> MBps</label>
+  </div>
+  ` + generateHtmlSummaryTables(groupedRows) + `
   ` + sysHtml + `
 
   <h2>术语解释</h2>
@@ -82,6 +88,22 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, out
       clat: 'CLAT 完成延迟(ms)',
       slat: 'SLAT 提交延迟(ms)'
     };
+
+    let __isMiBps = true;
+    function setMiBps(v) {
+      __isMiBps = !!v;
+      switch_bw_unit();
+    }
+    function switch_bw_unit() {
+      document.querySelectorAll('th.bwth').forEach(th => {
+        th.textContent = __isMiBps ? '带宽(MiBps)' : '带宽(MBps)';
+      });
+      document.querySelectorAll('td.bwv').forEach(td => {
+        const base = parseFloat(td.getAttribute('data-mib'));
+        if (isNaN(base)) return;
+        td.textContent = (__isMiBps ? base : base * 1.048576).toFixed(2);
+      });
+    }
 
     function toLineData(pairs) {
       if (!pairs) return [];
@@ -131,6 +153,10 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, out
             xAxis: { type: 'value', name: 's' },
             yAxis: { type: 'value', name: yName },
             legend: { top: 0 },
+            toolbox: { right: 10, feature: {
+              dataZoom: {}, magicType: { type: ['line','bar'] }, restore: {}, saveAsImage: {}
+            } },
+            dataZoom: [ { type: 'inside' }, { type: 'slider' } ],
             series: hostSeries
           });
         });
@@ -139,6 +165,7 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, out
 
     createGroups();
     renderGroups();
+    switch_bw_unit();
   </script>
 </body>
 </html>`
