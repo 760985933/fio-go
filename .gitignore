@@ -1,0 +1,11 @@
+# OS generated files
+.DS_Store
+**/ .DS_Store
+
+# Binaries
+fio-go
+
+# Reports and generated outputs
+output/fio_report.html
+output/fio_summary.xlsx
+output/echarts.min.js
