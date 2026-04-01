@@ -573,11 +573,18 @@ function renderExecutionTasks() {
       const hostRow = document.createElement("div");
       hostRow.className = "execution-host-row";
 
+      // 状态小圆点
+      const statusDot = document.createElement("span");
+      statusDot.className = `status-dot dot-${hostCfg.status || "gray"}`;
+      statusDot.title = hostCfg.statusMsg || "未测试连接";
+
       const hostInput = document.createElement("input");
       hostInput.placeholder = "主机/IP";
       hostInput.value = hostCfg.host || "";
       hostInput.oninput = (event) => {
         hostCfg.host = event.target.value;
+        hostCfg.status = "gray"; // 修改后重置状态
+        statusDot.className = "status-dot dot-gray";
         scheduleExecutionTasksSave();
       };
 
@@ -587,6 +594,8 @@ function renderExecutionTasks() {
       portInput.value = String(hostCfg.port || 22);
       portInput.oninput = (event) => {
         hostCfg.port = Number(event.target.value) || 22;
+        hostCfg.status = "gray";
+        statusDot.className = "status-dot dot-gray";
         scheduleExecutionTasksSave();
       };
 
@@ -595,6 +604,8 @@ function renderExecutionTasks() {
       userInput.value = hostCfg.user || "root";
       userInput.oninput = (event) => {
         hostCfg.user = event.target.value;
+        hostCfg.status = "gray";
+        statusDot.className = "status-dot dot-gray";
         scheduleExecutionTasksSave();
       };
 
@@ -604,6 +615,8 @@ function renderExecutionTasks() {
       passwordInput.value = hostCfg.password || "";
       passwordInput.oninput = (event) => {
         hostCfg.password = event.target.value;
+        hostCfg.status = "gray";
+        statusDot.className = "status-dot dot-gray";
         scheduleExecutionTasksSave();
       };
 
@@ -623,10 +636,49 @@ function renderExecutionTasks() {
         showHostLogModal(task.id, `${hostCfg.user}@${hostCfg.host}:${hostCfg.port}`);
       };
 
+      const testConnBtn = document.createElement("button");
+      testConnBtn.className = "btn success small";
+      testConnBtn.textContent = "测试连接";
+      testConnBtn.onclick = async () => {
+        testConnBtn.disabled = true;
+        testConnBtn.textContent = "测试中...";
+        statusDot.className = "status-dot dot-gray";
+        
+        try {
+          const res = await fetch("/api/execute", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "check_connectivity",
+              task: { id: task.id, hosts: [hostCfg] }
+            }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            hostCfg.status = "green";
+            hostCfg.statusMsg = "连接成功";
+          } else {
+            hostCfg.status = "red";
+            hostCfg.statusMsg = `连接失败: ${data.error || "未知错误"}`;
+          }
+        } catch (err) {
+          hostCfg.status = "red";
+          hostCfg.statusMsg = `请求失败: ${err.message}`;
+        } finally {
+          testConnBtn.disabled = false;
+          testConnBtn.textContent = "测试连接";
+          statusDot.className = `status-dot dot-${hostCfg.status}`;
+          statusDot.title = hostCfg.statusMsg;
+          scheduleExecutionTasksSave();
+        }
+      };
+
+      hostRow.appendChild(statusDot);
       hostRow.appendChild(hostInput);
       hostRow.appendChild(portInput);
       hostRow.appendChild(userInput);
       hostRow.appendChild(passwordInput);
+      hostRow.appendChild(testConnBtn);
       hostRow.appendChild(viewLogBtn);
       hostRow.appendChild(removeBtn);
       hostList.appendChild(hostRow);

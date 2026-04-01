@@ -192,6 +192,43 @@ body {
   gap: 8px;
 }
 
+/* Connectivity status dots */
+.status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.dot-gray { background-color: #999; }
+.dot-green { background-color: #28a745; box-shadow: 0 0 5px #28a745; }
+.dot-red { background-color: #dc3545; box-shadow: 0 0 5px #dc3545; }
+
+.host-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.host-status-wrap {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+}
+
+.host-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-mini {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
 .execution-task-log {
   margin-top: 12px;
   border: 1px solid var(--border);

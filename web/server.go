@@ -588,6 +588,27 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 
 	var results []executor.ExecutionResult
 	switch req.Action {
+	case "check_connectivity":
+		host := req.Task.Hosts[0] // 假设前端只发一个过来
+		client, err := executor.NewSSHClient(host)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"success": false,
+				"error":   err.Error(),
+			})
+			return
+		}
+		defer client.Close()
+		_, err = client.RunCommand("true")
+		success := err == nil
+		w.Header().Set("Content-Type", "application/json")
+		resp := map[string]any{"success": success}
+		if err != nil {
+			resp["error"] = err.Error()
+		}
+		json.NewEncoder(w).Encode(resp)
+		return
 	case "pre_deploy_check":
 		statusResults := executor.CheckStatus(task.ID, task.Hosts)
 		residualResults := executor.CheckResidualData(task.ID, task.Hosts)
