@@ -335,7 +335,26 @@ function renderExecutionTasks() {
       const button = document.createElement("button");
       button.className = config.className;
       button.textContent = config.text;
-      button.onclick = () => runExecutionAction(config.action, task);
+      button.onclick = async () => {
+        if (config.action === "deploy") {
+          button.disabled = true;
+          const originalText = button.textContent;
+          let seconds = 5;
+          button.textContent = `${originalText} (${seconds}s)`;
+          
+          const timer = setInterval(() => {
+            seconds--;
+            if (seconds > 0) {
+              button.textContent = `${originalText} (${seconds}s)`;
+            } else {
+              clearInterval(timer);
+              button.disabled = false;
+              button.textContent = originalText;
+            }
+          }, 1000);
+        }
+        await runExecutionAction(config.action, task);
+      };
       actionGroup.appendChild(button);
     });
 
