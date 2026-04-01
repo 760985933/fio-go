@@ -24,10 +24,12 @@ import (
 var frontendFS embed.FS
 
 const (
-	executionTasksFile = "scripts/execution_tasks.json"
-	defaultTaskName    = "默认执行任务"
-	taskDataRoot       = "data/tasks"
-	taskReportRoot     = "output/tasks"
+	executionTasksFile      = "scripts/execution_tasks.json"
+	orchestrationConfigFile = "scripts/orchestration_config.json"
+	auditLogFile            = "data/audit.log"
+	defaultTaskName         = "默认执行任务"
+	taskDataRoot            = "data/tasks"
+	taskReportRoot          = "output/tasks"
 )
 
 type executionTaskConfig struct {
@@ -76,6 +78,8 @@ func StartServer(port int) error {
 	mux.HandleFunc("/api/execution-task-log", handleExecutionTaskLog)
 	mux.HandleFunc("/api/host-log", handleHostLog)
 	mux.HandleFunc("/api/execute", handleExecute)
+	mux.HandleFunc("/api/orchestration-config", handleOrchestrationConfig)
+	mux.HandleFunc("/api/audit-log", handleAuditLog)
 	mux.HandleFunc("/api/analysis/tasks", handleAnalysisTasks)
 	mux.HandleFunc("/api/analysis/generate", handleAnalysisGenerate)
 	mux.HandleFunc("/api/analysis/report", handleAnalysisReport)
@@ -878,5 +882,116 @@ func handleAnalysisDownload(w http.ResponseWriter, r *http.Request) {
 	if err := createZipFromDir(reportDir, w); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+}
+
+func handleOrchestrationConfig(w http.ResponseWriter, r *http.Request) {
+	os.MkdirAll("scripts", 0755)
+
+	switch r.Method {
+	case http.MethodGet:
+		content, err := os.ReadFile(orchestrationConfigFile)
+		if err != nil {
+			if os.IsNotExist(err) {
+				http.Error(w, "Not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(content)
+
+	case http.MethodPost:
+		var req map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		data, err := json.MarshalIndent(req, "", "  ")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if err := os.WriteFile(orchestrationConfigFile, data, 0644); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func handleAuditLog(w http.ResponseWriter, r *http.Request) {
+	os.MkdirAll("data", 0755)
+
+	switch r.Method {
+	case http.MethodGet:
+		content, err := os.ReadFile(auditLogFile)
+		if err != nil {
+			if os.IsNotExist(err) {
+				// Return empty array if file doesn't exist
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte("[]"))
+				return
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// The file contains newline-separated JSON objects
+		lines := strings.Split(strings.TrimSpace(string(content)), "\n")
+		var logs []json.RawMessage
+		for _, line := range lines {
+			if strings.TrimSpace(line) != "" {
+				logs = append(logs, json.RawMessage(line))
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(logs)
+
+	case http.MethodPost:
+		var logEntry struct {
+			Action    string `json:"action"`
+			Details   string `json:"details"`
+			Timestamp string `json:"timestamp"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&logEntry); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if logEntry.Timestamp == "" {
+			logEntry.Timestamp = time.Now().Format(time.RFC3339)
+		}
+
+		logData, err := json.Marshal(logEntry)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		f, err := os.OpenFile(auditLogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer f.Close()
+
+		if _, err := f.Write(append(logData, '\n')); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }

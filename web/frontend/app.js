@@ -127,6 +127,9 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
       if (targetId === 'analysis-tab') {
         loadAnalysisData();
       }
+      if (targetId === 'audit-tab') {
+        loadAuditLog();
+      }
     }
   });
 });
@@ -505,6 +508,7 @@ function renderExecutionTasks() {
       if (!confirm(`确定要删除任务 "${task.name || "未命名任务"}" 吗？此操作将清除本地任务配置。`)) {
         return;
       }
+      recordAuditLog("删除执行任务", `删除了执行任务 "${task.name || "未命名任务"}"`);
       delete executionState.logs[task.id];
       executionState.tasks.splice(taskIndex, 1);
       if (executionState.tasks.length === 0) {
@@ -557,6 +561,7 @@ function renderExecutionTasks() {
     addHostBtn.className = "btn small";
     addHostBtn.textContent = "添加主机";
     addHostBtn.onclick = () => {
+      recordAuditLog("添加主机", `为任务 "${task.name || "未命名任务"}" 添加了新主机配置`);
       task.hosts.push(createExecutionHost());
       renderExecutionTasks();
       scheduleExecutionTasksSave();
@@ -622,6 +627,7 @@ function renderExecutionTasks() {
       removeBtn.className = "btn danger small";
       removeBtn.textContent = "删除";
       removeBtn.onclick = () => {
+        recordAuditLog("删除主机", `从任务 "${task.name || "未命名任务"}" 中删除了主机配置 ${hostCfg.host || "未命名主机"}`);
         task.hosts.splice(hostIndex, 1);
         renderExecutionTasks();
         scheduleExecutionTasksSave();
@@ -655,13 +661,16 @@ function renderExecutionTasks() {
           if (data.success) {
             hostCfg.status = "green";
             hostCfg.statusMsg = "连接成功";
+            recordAuditLog("测试连接", `任务 "${task.name || "未命名任务"}" 中的主机 ${hostCfg.host || "未命名主机"} 连接测试成功`);
           } else {
             hostCfg.status = "red";
             hostCfg.statusMsg = `连接失败: ${data.error || "未知错误"}`;
+            recordAuditLog("测试连接", `任务 "${task.name || "未命名任务"}" 中的主机 ${hostCfg.host || "未命名主机"} 连接测试失败`);
           }
         } catch (err) {
           hostCfg.status = "red";
           hostCfg.statusMsg = `请求失败: ${err.message}`;
+          recordAuditLog("测试连接", `任务 "${task.name || "未命名任务"}" 中的主机 ${hostCfg.host || "未命名主机"} 连接测试发生异常`);
         } finally {
           testConnBtn.disabled = false;
           testConnBtn.textContent = "测试连接";
@@ -850,6 +859,7 @@ async function runExecutionAction(action, task) {
       showResultsModal(data);
       const actionNames = { "status": "状态检查", "pull": "数据收集", "killall": "终止任务", "deploy": "部署并执行", "clean_local": "清理服务器端", "clean_remote": "清理目标主机" };
       appendLog(`任务 "${requestTask.name}" ${actionNames[action] || action}完成`);
+      recordAuditLog(actionNames[action] || action, `对任务 "${requestTask.name}" 执行了操作: ${actionNames[action] || action}`);
     } else {
       const result = await res.text();
       appendLog(result.trim());
@@ -867,9 +877,49 @@ async function runExecutionAction(action, task) {
 // 编排状态
 let orchestrationState = {
   sequence: [], // Array of task IDs
+  interval: 10,
   isRunning: false,
   shouldStop: false
 };
+
+async function saveOrchestrationConfig() {
+  const payload = {
+    sequence: orchestrationState.sequence,
+    interval: parseInt(el.orchestrationInterval.value) || 10
+  };
+  try {
+    const res = await fetch("/api/orchestration-config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(await res.text());
+  } catch (err) {
+    console.error("保存编排配置失败:", err);
+  }
+}
+
+async function loadOrchestrationConfig() {
+  try {
+    const res = await fetch("/api/orchestration-config");
+    if (!res.ok) {
+      if (res.status !== 404) throw new Error(await res.text());
+      return; // Not found is fine, use defaults
+    }
+    const data = await res.json();
+    if (data.sequence && Array.isArray(data.sequence)) {
+      orchestrationState.sequence = data.sequence;
+    }
+    if (data.interval !== undefined) {
+      orchestrationState.interval = data.interval;
+      if (el.orchestrationInterval) {
+        el.orchestrationInterval.value = data.interval;
+      }
+    }
+  } catch (err) {
+    console.error("加载编排配置失败:", err);
+  }
+}
 
 function renderOrchestrationTasks() {
   if (!el.availableTasksList || !el.orchestrationList) return;
@@ -942,6 +992,7 @@ function renderOrchestrationTasks() {
       const task = validTasks.find(t => t.id === newTaskId);
       if (task) {
         orchestrationState.sequence.splice(dropIndex, 0, task.id);
+        recordAuditLog("添加编排任务", `将任务 "${task.name}" 添加到编排序列中`);
       }
     } else if (moveIndexStr !== "") {
       const fromIdx = parseInt(moveIndexStr, 10);
@@ -949,10 +1000,13 @@ function renderOrchestrationTasks() {
         const targetIdx = dropIndex > fromIdx ? dropIndex - 1 : dropIndex;
         const [movedTaskId] = orchestrationState.sequence.splice(fromIdx, 1);
         orchestrationState.sequence.splice(targetIdx, 0, movedTaskId);
+        const task = validTasks.find(t => t.id === movedTaskId) || executionState.tasks.find(t => t.id === movedTaskId);
+        recordAuditLog("调整编排顺序", `将任务 "${task ? task.name : movedTaskId}" 移动到序列位置 ${targetIdx + 1}`);
       }
     }
     
     renderOrchestrationSequence(validTasks);
+    saveOrchestrationConfig();
   });
   
   renderOrchestrationSequence(validTasks);
@@ -993,16 +1047,18 @@ function renderOrchestrationSequence(validTasks) {
     nameSpan.textContent = task.name;
     
     const removeBtn = document.createElement("button");
-    removeBtn.className = "btn danger small";
-    removeBtn.textContent = "移除";
-    removeBtn.onclick = () => {
-      if (orchestrationState.isRunning) {
-        appendOrchestrationLog("编排正在运行，无法移除任务");
-        return;
-      }
-      orchestrationState.sequence.splice(index, 1);
-      renderOrchestrationSequence(validTasks);
-    };
+        removeBtn.className = "btn danger small";
+        removeBtn.textContent = "移除";
+        removeBtn.onclick = () => {
+          if (orchestrationState.isRunning) {
+            appendOrchestrationLog("编排正在运行，无法移除任务");
+            return;
+          }
+          orchestrationState.sequence.splice(index, 1);
+          recordAuditLog("移除编排任务", `从编排序列中移除了任务 "${task.name}"`);
+          renderOrchestrationSequence(validTasks);
+          saveOrchestrationConfig();
+        };
     
     itemEl.appendChild(indexSpan);
     itemEl.appendChild(nameSpan);
@@ -1035,6 +1091,7 @@ async function startOrchestration() {
   el.orchestrationInterval.disabled = true;
   
   appendOrchestrationLog(`开始编排执行，共 ${orchestrationState.sequence.length} 个任务，间隔 ${interval} 秒`);
+  recordAuditLog("开始任务编排", `开始执行编排任务，共 ${orchestrationState.sequence.length} 个任务`);
   
   for (let i = 0; i < orchestrationState.sequence.length; i++) {
     if (orchestrationState.shouldStop) {
@@ -1133,6 +1190,7 @@ function stopOrchestration() {
   if (!orchestrationState.isRunning) return;
   orchestrationState.shouldStop = true;
   appendOrchestrationLog("正在停止编排，等待当前轮询/延迟结束...");
+  recordAuditLog("停止任务编排", "手动停止了任务编排执行");
   el.stopOrchestrationBtn.disabled = true;
   el.stopOrchestrationBtn.textContent = "停止中...";
   
@@ -1251,6 +1309,7 @@ async function generateAnalysisReportForSelectedTask() {
     });
     if (!res.ok) throw new Error(await res.text());
     await loadAnalysisData();
+    recordAuditLog("生成分析报告", `为任务 "${task.name}" 生成了性能分析报告`);
     try {
       await fetchExecutionTaskLog(task.id);
       renderExecutionTasks();
@@ -1317,6 +1376,11 @@ const el = {
   analysisReportFrame: document.getElementById("analysisReportFrame"),
   analysisTitle: document.getElementById("analysisTitle"),
   analysisStatusText: document.getElementById("analysisStatusText"),
+  
+  // Audit Log
+  auditLogTableBody: document.getElementById("auditLogTableBody"),
+  refreshAuditLogBtn: document.getElementById("refreshAuditLogBtn"),
+
   customPromptModal: document.getElementById("customPromptModal"),
   modalTitle: document.getElementById("modalTitle"),
   modalInput: document.getElementById("modalInput"),
@@ -1498,7 +1562,16 @@ async function saveToServer(isManual = false) {
             if (el.saveStatus.textContent.includes("保存")) el.saveStatus.textContent = "";
           }, 3000);
         }
-        if (isManual) fetchSavedConfigs(); // 手动保存后刷新列表
+        if (isManual) {
+          fetchSavedConfigs(); // 手动保存后刷新列表
+          recordAuditLog("保存配置", `手动保存了 FIO 配置文件 "${name}"`);
+        } else {
+          // 只记录一次自动保存，避免频繁记录
+          if (!state.lastAutoSaveLog || (Date.now() - state.lastAutoSaveLog > 60000)) { // 1分钟限制
+            recordAuditLog("自动保存", `自动保存了 FIO 配置文件 "${name}"`);
+            state.lastAutoSaveLog = Date.now();
+          }
+        }
       } else {
         if (el.saveStatus) {
           el.saveStatus.textContent = "保存失败";
@@ -1661,6 +1734,7 @@ async function deleteConfigFromServer(filename) {
   try {
     const res = await fetch(`/api/scripts?name=${encodeURIComponent(filename)}`, { method: 'DELETE' });
     if (!res.ok) throw new Error(await res.text());
+    recordAuditLog("删除配置", `删除了 FIO 配置文件 "${filename}"`);
     alert(`已删除配置文件: ${filename}`);
     fetchSavedConfigs();
   } catch (err) {
@@ -1692,6 +1766,7 @@ async function renameConfigOnServer(oldName) {
     const delRes = await fetch(`/api/scripts?name=${encodeURIComponent(oldName)}`, { method: 'DELETE' });
     if (!delRes.ok) throw new Error("保存成功但无法删除旧文件");
     
+    recordAuditLog("重命名配置", `将配置文件 "${oldName}" 重命名为 "${finalNewName}"`);
     alert(`重命名成功: ${oldName} -> ${finalNewName}`);
     
     // 如果当前正在编辑的是被重命名的文件，更新输入框
@@ -1725,6 +1800,7 @@ async function createNewConfig() {
   el.configFilename.value = finalFilename;
   if (el.currentFilenameDisplay) el.currentFilenameDisplay.textContent = finalFilename;
   localStorage.setItem("fio_config_filename", finalFilename);
+  recordAuditLog("新建配置", `创建了新的 FIO 配置文件 "${finalFilename}"`);
   saveState(state.config);
   renderAll();
   refreshPreview(state.config);
@@ -1897,6 +1973,7 @@ function refreshPreview(cfg) {
 function exportJson(cfg) {
   try {
     const text = JSON.stringify(cfg, null, 2);
+    recordAuditLog("导出 JSON 配置", `导出了当前的 FIO 配置为 JSON`);
     return downloadTextFile("fio_config.json", text);
   } catch (e) {
     return wrapErr("导出JSON失败", { error: String(e) });
@@ -1928,6 +2005,7 @@ async function importJsonFile(file) {
     el.configFilename.value = newName;
     if (el.currentFilenameDisplay) el.currentFilenameDisplay.textContent = newName;
     localStorage.setItem("fio_config_filename", newName);
+    recordAuditLog("导入 JSON 配置", `从文件 "${file.name}" 导入了配置`);
     saveState(state.config);
     renderAll();
     refreshPreview(state.config);
@@ -1942,7 +2020,9 @@ async function importJsonFile(file) {
  :return:            删除操作结果
 */
 function deleteJob(idx) {
+  const jobName = state.config.jobs[idx].name || `任务 ${idx + 1}`;
   state.config.jobs.splice(idx, 1);
+  recordAuditLog("删除 FIO 任务", `从配置中删除了任务 "${jobName}"`);
   saveState(state.config);
   renderAll();
   refreshPreview(state.config);
@@ -1958,6 +2038,7 @@ function duplicateJob(idx) {
   const copy = JSON.parse(JSON.stringify(j));
   copy.name = `${j.name || "job"}_copy`;
   state.config.jobs.splice(idx + 1, 0, copy);
+  recordAuditLog("复制 FIO 任务", `复制了任务 "${j.name || "job"}" 并命名为 "${copy.name}"`);
   saveState(state.config);
   renderAll();
   refreshPreview(state.config);
@@ -1979,6 +2060,7 @@ function addJob() {
     extras: {},
   });
   state.justAddedIndex = newIdx;
+  recordAuditLog("添加 FIO 任务", `在配置中添加了新任务 "${state.config.jobs[newIdx].name}"`);
   saveState(state.config);
   renderAll();
   refreshPreview(state.config);
@@ -2098,6 +2180,66 @@ function renderAll() {
   renderJobs();
 }
 
+// ---------- Audit Log ----------
+
+async function recordAuditLog(action, details) {
+  try {
+    const payload = { action, details };
+    await fetch("/api/audit-log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+  } catch (err) {
+    console.error("Failed to record audit log:", err);
+  }
+}
+
+async function loadAuditLog() {
+  if (!el.auditLogTableBody) return;
+  
+  el.auditLogTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 20px; color: var(--muted);">加载中...</td></tr>';
+  
+  try {
+    const res = await fetch("/api/audit-log");
+    if (!res.ok) throw new Error(await res.text());
+    
+    const logs = await res.json();
+    el.auditLogTableBody.innerHTML = "";
+    
+    if (!logs || logs.length === 0) {
+      el.auditLogTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 20px; color: var(--muted);">暂无审计日志</td></tr>';
+      return;
+    }
+    
+    // Show newest first
+    logs.reverse().forEach(log => {
+      const tr = document.createElement("tr");
+      
+      const timeTd = document.createElement("td");
+      const date = new Date(log.timestamp);
+      timeTd.textContent = date.toLocaleString();
+      
+      const actionTd = document.createElement("td");
+      const actionSpan = document.createElement("span");
+      actionSpan.className = "status-badge success";
+      actionSpan.textContent = log.action;
+      actionTd.appendChild(actionSpan);
+      
+      const detailsTd = document.createElement("td");
+      detailsTd.textContent = log.details;
+      
+      tr.appendChild(timeTd);
+      tr.appendChild(actionTd);
+      tr.appendChild(detailsTd);
+      
+      el.auditLogTableBody.appendChild(tr);
+    });
+  } catch (err) {
+    el.auditLogTableBody.innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 20px; color: var(--danger);">加载失败: ${err.message}</td></tr>`;
+  }
+}
+
 /** 绑定头部与全局事件 */
 function bindHeaderEvents() {
   el.addJobBtn.onclick = () => addJob();
@@ -2105,7 +2247,10 @@ function bindHeaderEvents() {
   el.importJsonBtn.onclick = () => el.jsonFileInput.click();
   el.downloadFioBtn.onclick = () => {
     const r = generateFio(state.config);
-    if (r.status === 0) downloadTextFile("fio_config.fio", r.data.text);
+    if (r.status === 0) {
+      recordAuditLog("下载 FIO 配置", `下载了当前的 FIO 配置内容`);
+      downloadTextFile("fio_config.fio", r.data.text);
+    }
   };
   if (el.refreshConfigsBtn) {
     el.refreshConfigsBtn.onclick = () => fetchSavedConfigs();
@@ -2149,6 +2294,7 @@ function bindHeaderEvents() {
             body: JSON.stringify({ name: name, content: newText })
           });
           if (res.ok) {
+            recordAuditLog("手动编辑配置", `手动编辑并保存了 FIO 配置文件 "${name}"`);
             if (el.saveStatus) {
               el.saveStatus.textContent = "保存成功";
               el.saveStatus.className = "save-status success";
@@ -2202,6 +2348,7 @@ function bindHeaderEvents() {
   if (el.addExecutionTaskBtn) {
     el.addExecutionTaskBtn.onclick = () => {
       executionState.tasks.push(createExecutionTask());
+      recordAuditLog("新增执行任务", "添加了一个新的空白执行任务");
       renderExecutionTasks();
       scheduleExecutionTasksSave();
     };
@@ -2215,6 +2362,12 @@ function bindHeaderEvents() {
     el.clearOrchestrationLogBtn.onclick = () => {
       el.orchestrationLog.textContent = "";
     };
+  }
+
+  if (el.orchestrationInterval) {
+    el.orchestrationInterval.addEventListener("change", () => {
+      saveOrchestrationConfig();
+    });
   }
 
   // Bind orchestration sub-tab events
@@ -2262,6 +2415,9 @@ function bindHeaderEvents() {
   if (el.downloadAnalysisBtn) {
     el.downloadAnalysisBtn.onclick = () => downloadSelectedAnalysisPackage();
   }
+  if (el.refreshAuditLogBtn) {
+    el.refreshAuditLogBtn.onclick = () => loadAuditLog();
+  }
 }
 
 /** 初始化入口 */
@@ -2286,7 +2442,11 @@ function init() {
   renderAll();
   refreshPreview(state.config);
   fetchSavedConfigs();
-  loadExecutionData();
+  loadExecutionData().then(() => {
+    loadOrchestrationConfig().then(() => {
+      renderOrchestrationTasks();
+    });
+  });
   loadAnalysisData();
 }
 

@@ -574,3 +574,20 @@ body {
   font-size: 14px;
   font-weight: 500;
 }
+
+/* Audit Log Table */
+.audit-table th {
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.audit-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  line-height: 1.5;
+}
+
+.audit-table tr:hover td {
+  background: #f8f9fa;
+}

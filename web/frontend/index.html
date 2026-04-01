@@ -16,6 +16,7 @@
         <button class="tab-btn active" data-target="config-tab">FIO配置项</button>
         <button class="tab-btn" data-target="execute-tab">FIO任务执行</button>
         <button class="tab-btn" data-target="analysis-tab">任务分析</button>
+        <button class="tab-btn" data-target="audit-tab">审计日志</button>
       </nav>
       <div class="actions" id="config-actions">
         <button id="exportJsonBtn" class="btn">导出 JSON</button>
@@ -180,6 +181,34 @@
           </div>
           <iframe id="analysisReportFrame" class="analysis-report-frame" title="分析报告"></iframe>
         </section>
+      </main>
+    </div>
+
+    <div id="audit-tab" class="tab-content" style="display: none;">
+      <main class="audit-container panel" style="margin: 20px; max-width: 1200px; margin-left: auto; margin-right: auto; padding: 20px;">
+        <div class="panel-header" style="margin-bottom: 20px;">
+          <div>
+            <h2>操作审计日志</h2>
+            <div style="font-size: 13px; color: var(--muted);">记录系统中的重要操作（支持持久化）</div>
+          </div>
+          <button id="refreshAuditLogBtn" class="btn primary">刷新日志</button>
+        </div>
+        <div class="table-container">
+          <table class="audit-table" style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+              <tr style="background: var(--bg-color); border-bottom: 2px solid var(--border);">
+                <th style="padding: 12px; width: 180px;">时间</th>
+                <th style="padding: 12px; width: 150px;">操作</th>
+                <th style="padding: 12px;">详情</th>
+              </tr>
+            </thead>
+            <tbody id="auditLogTableBody">
+              <tr>
+                <td colspan="3" style="text-align: center; padding: 20px; color: var(--muted);">加载中...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </main>
     </div>
 
