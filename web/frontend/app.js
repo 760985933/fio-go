@@ -526,7 +526,8 @@ function showResultsModal(data) {
   const actionNames = {
     "status": "状态检查",
     "pull": "数据收集",
-    "killall": "终止任务"
+    "killall": "终止任务",
+    "deploy": "部署并执行"
   };
   const actionName = actionNames[action] || action;
   
@@ -594,10 +595,10 @@ async function runExecutionAction(action, task) {
       throw new Error(errorMsg);
     }
     
-    if (action === "status" || action === "pull" || action === "killall") {
+    if (action === "status" || action === "pull" || action === "killall" || action === "deploy") {
       const data = await res.json();
       showResultsModal(data);
-      const actionNames = { "status": "状态检查", "pull": "数据收集", "killall": "终止任务" };
+      const actionNames = { "status": "状态检查", "pull": "数据收集", "killall": "终止任务", "deploy": "部署并执行" };
       appendLog(`任务 "${requestTask.name}" ${actionNames[action] || action}完成`);
     } else {
       const result = await res.text();

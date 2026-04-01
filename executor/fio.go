@@ -198,7 +198,7 @@ func CheckStatus(taskKey string, hosts []HostConfig) []ExecutionResult {
 			defer client.Close()
 
 			_, _, _, pidFile := buildTaskPaths(taskKey)
-			cmd := fmt.Sprintf(`if [ -f %[1]s ] && kill -0 "$(cat %[1]s)" 2>/dev/null; then echo "Running (PID: $(cat %[1]s))"; else echo "Not running"; fi`, pidFile)
+			cmd := fmt.Sprintf(`if [ -f %[1]s ]; then pid="$(cat %[1]s)"; if ps -p "$pid" >/dev/null 2>&1; then echo "Running (PID: $pid)"; else echo "Not running (Stale PID: $pid)"; fi; else echo "Not running"; fi`, pidFile)
 			out, _ := client.RunCommand(cmd)
 			res.Msg = strings.TrimSpace(out)
 			if res.Msg == "" {
