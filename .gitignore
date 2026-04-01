@@ -9,3 +9,6 @@ fio-go
 output/fio_report.html
 output/fio_summary.xlsx
 output/echarts.min.js
+
+# Legacy files
+旧的前端和调用fio脚本/
