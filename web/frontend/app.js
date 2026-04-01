@@ -530,8 +530,9 @@ async function runExecutionAction(action, task) {
     if (!res.ok) throw new Error(result);
     
     const trimResult = result.trim();
-    if (action === "status") {
-      alert(`任务 "${requestTask.name}" 状态检查结果：\n\n${trimResult}`);
+    if (action === "status" || action === "pull") {
+      const actionName = action === "status" ? "状态检查" : "数据收集";
+      alert(`任务 "${requestTask.name}" ${actionName}结果：\n\n${trimResult}`);
     }
     
     appendLog(trimResult);
