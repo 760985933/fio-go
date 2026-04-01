@@ -314,7 +314,8 @@ func generateTaskReport(task executionTaskConfig) error {
 	}
 
 	chartGroups := parser.BuildChartGroups(dataDir)
-	if err := report.GenerateHTML(chartGroups, analysisResult.SystemTexts, groupedRows, taskReportHTMLPath(task.ID)); err != nil {
+	err = report.GenerateHTML(chartGroups, analysisResult.SystemTexts, groupedRows, taskReportHTMLPath(task.ID))
+	if err != nil {
 		return err
 	}
 
@@ -332,7 +333,8 @@ func downloadEcharts(destPath string) error {
 	}
 	defer resp.Body.Close()
 
-	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+	err = os.MkdirAll(filepath.Dir(destPath), 0755)
+	if err != nil {
 		return err
 	}
 
@@ -358,7 +360,8 @@ func readExecutionTasks() ([]executionTaskConfig, error) {
 	}
 
 	var payload executionTasksPayload
-	if err := json.Unmarshal(content, &payload); err != nil {
+	err = json.Unmarshal(content, &payload)
+	if err != nil {
 		return nil, err
 	}
 
