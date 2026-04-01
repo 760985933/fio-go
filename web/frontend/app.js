@@ -504,7 +504,12 @@ function renderExecutionTasks() {
 
 function showResultsModal(data) {
   const { taskName, action, results, rawDir } = data;
-  const actionName = action === "status" ? "状态检查" : "数据收集";
+  const actionNames = {
+    "status": "状态检查",
+    "pull": "数据收集",
+    "killall": "终止任务"
+  };
+  const actionName = actionNames[action] || action;
   
   el.resultsModalTitle.textContent = `任务 "${taskName}" ${actionName}结果`;
   el.resultsTableBody.innerHTML = "";
@@ -570,10 +575,11 @@ async function runExecutionAction(action, task) {
       throw new Error(errorMsg);
     }
     
-    if (action === "status" || action === "pull") {
+    if (action === "status" || action === "pull" || action === "killall") {
       const data = await res.json();
       showResultsModal(data);
-      appendLog(`任务 "${requestTask.name}" ${action === "status" ? "状态检查" : "数据收集"}完成`);
+      const actionNames = { "status": "状态检查", "pull": "数据收集", "killall": "终止任务" };
+      appendLog(`任务 "${requestTask.name}" ${actionNames[action] || action}完成`);
     } else {
       const result = await res.text();
       appendLog(result.trim());

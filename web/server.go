@@ -587,8 +587,8 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 	}
 	appendTaskExecutionLog(task, output.String())
 
-	// 如果是 status 或 pull，返回 JSON 格式以便前端渲染表格
-	if req.Action == "status" || req.Action == "pull" {
+	// 如果是 status, pull 或 killall，返回 JSON 格式以便前端渲染表格
+	if req.Action == "status" || req.Action == "pull" || req.Action == "killall" {
 		type resultJSON struct {
 			Host  string `json:"host"`
 			Error string `json:"error,omitempty"`
