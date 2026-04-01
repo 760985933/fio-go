@@ -528,7 +528,13 @@ async function runExecutionAction(action, task) {
       throw new Error("任务冲突");
     }
     if (!res.ok) throw new Error(result);
-    appendLog(result.trim());
+    
+    const trimResult = result.trim();
+    if (action === "status") {
+      alert(`任务 "${requestTask.name}" 状态检查结果：\n\n${trimResult}`);
+    }
+    
+    appendLog(trimResult);
     await fetchExecutionTaskLog(task.id);
     await loadAnalysisData(false);
     renderExecutionTasks();
