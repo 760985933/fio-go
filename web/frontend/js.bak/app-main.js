@@ -1,12 +1,3 @@
-import { createNewConfig, downloadSelectedAnalysisPackage, fetchExecutionScripts, fetchSavedConfigs, generateAnalysisReportForSelectedTask, loadAnalysisData, loadAuditLog, loadExecutionData, loadOrchestrationConfig, openSelectedAnalysisReport, recordAuditLog, saveOrchestrationConfig, scheduleExecutionTasksSave, triggerAutoSave } from './api.js';
-import { el } from './dom.js';
-import { addJob, exportJson, importJsonFile, refreshPreview, renderAll } from './ui-fio.js';
-import { executionState, saveState, state } from './state.js';
-import { generateFio } from './fio-generator.js';
-import { downloadTextFile } from './utils.js';
-import { appendLog, createExecutionTask, renderExecutionTasks } from './ui-execution.js';
-import { renderOrchestrationTasks, startOrchestration, stopOrchestration } from './ui-orchestration.js';
-
 // 页面切换逻辑
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', (e) => {
@@ -42,7 +33,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 /** 绑定头部与全局事件 */
-export function bindHeaderEvents() {
+function bindHeaderEvents() {
   el.addJobBtn.onclick = () => addJob();
   el.exportJsonBtn.onclick = () => exportJson(state.config);
   el.importJsonBtn.onclick = () => el.jsonFileInput.click();
@@ -222,7 +213,7 @@ export function bindHeaderEvents() {
 }
 
 /** 初始化入口 */
-export function init() {
+function init() {
   const savedFilename = localStorage.getItem("fio_config_filename");
   if (savedFilename) {
     el.configFilename.value = savedFilename;

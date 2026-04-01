@@ -1,9 +1,4 @@
-import { el } from './dom.js';
-import { executionState, orchestrationState } from './state.js';
-import { recordAuditLog, saveOrchestrationConfig } from './api.js';
-import { normalizeExecutionTaskForRequest } from './ui-execution.js';
-
-export function renderOrchestrationTasks() {
+function renderOrchestrationTasks() {
   if (!el.availableTasksList || !el.orchestrationList) return;
   
   el.availableTasksList.innerHTML = "";
@@ -94,7 +89,7 @@ export function renderOrchestrationTasks() {
   renderOrchestrationSequence(validTasks);
 }
 
-export function renderOrchestrationSequence(validTasks) {
+function renderOrchestrationSequence(validTasks) {
   if (!el.orchestrationList) return;
   el.orchestrationList.innerHTML = "";
   
@@ -150,14 +145,14 @@ export function renderOrchestrationSequence(validTasks) {
   });
 }
 
-export function appendOrchestrationLog(msg) {
+function appendOrchestrationLog(msg) {
   if (!el.orchestrationLog) return;
   const time = new Date().toLocaleTimeString();
   el.orchestrationLog.textContent += `[${time}] ${msg}\n`;
   el.orchestrationLog.scrollTop = el.orchestrationLog.scrollHeight;
 }
 
-export async function startOrchestration() {
+async function startOrchestration() {
   if (orchestrationState.isRunning) return;
   if (orchestrationState.sequence.length === 0) {
     alert("请先拖拽任务到编排列表");
@@ -268,7 +263,7 @@ export async function startOrchestration() {
   });
 }
 
-export function stopOrchestration() {
+function stopOrchestration() {
   if (!orchestrationState.isRunning) return;
   orchestrationState.shouldStop = true;
   appendOrchestrationLog("正在停止编排，等待当前轮询/延迟结束...");

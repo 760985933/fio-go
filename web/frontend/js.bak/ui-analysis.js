@@ -1,7 +1,4 @@
-import { el } from './dom.js';
-import { analysisState } from './state.js';
-
-export function renderAnalysisTasks() {
+function renderAnalysisTasks() {
   if (!el.analysisTaskList) return;
   el.analysisTaskList.innerHTML = "";
 
@@ -49,7 +46,7 @@ export function renderAnalysisTasks() {
   updateAnalysisPreview();
 }
 
-export function updateAnalysisPreview() {
+function updateAnalysisPreview() {
   const task = analysisState.tasks.find(item => item.id === analysisState.selectedTaskId);
   if (!task) {
     el.analysisTitle.textContent = "分析预览";

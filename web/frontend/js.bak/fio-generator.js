@@ -1,11 +1,9 @@
-import { buildJobName, buildLogPaths, getBsText, wrapErr, wrapOk } from './utils.js';
-
 /**
  :param cfg:         FioConfig 配置对象
  :param includeJson: 是否在末尾附加 JSON 注释
  :return:            {status,msg,data:{ text: string }}
 */
-export function generateFio(cfg, includeJson = false) {
+function generateFio(cfg, includeJson = false) {
   try {
     const lines = [];
     lines.push("[global]");

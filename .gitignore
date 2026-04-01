@@ -14,3 +14,6 @@ output/echarts.min.js
 旧的前端和调用fio脚本/
 scripts/test.fio
 fio-go
+
+# Node.js dependencies
+node_modules/

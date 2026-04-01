@@ -1,18 +1,10 @@
-import { analysisState, executionState, orchestrationState, saveState, state } from './state.js';
-import { appendLog, createExecutionTask, normalizeExecutionTaskForRequest, renderExecutionTasks, setExecutionTaskStatus } from './ui-execution.js';
-import { el } from './dom.js';
-import { renderAnalysisTasks, updateAnalysisPreview } from './ui-analysis.js';
-import { generateFio } from './fio-generator.js';
-import { parseBsToNumber, showCustomPrompt } from './utils.js';
-import { refreshPreview, renderAll } from './ui-fio.js';
-
-export async function fetchExecutionScripts() {
+async function fetchExecutionScripts() {
   const res = await fetch("/api/scripts");
   if (!res.ok) throw new Error(await res.text());
   executionState.scripts = await res.json();
 }
 
-export async function fetchExecutionTasks() {
+async function fetchExecutionTasks() {
   const res = await fetch("/api/execution-tasks");
   if (!res.ok) throw new Error(await res.text());
   const payload = await res.json();
@@ -20,13 +12,13 @@ export async function fetchExecutionTasks() {
   executionState.tasks = tasks.length > 0 ? tasks.map(task => createExecutionTask(task)) : [createExecutionTask()];
 }
 
-export async function fetchExecutionTaskLog(taskId) {
+async function fetchExecutionTaskLog(taskId) {
   const res = await fetch(`/api/execution-task-log?taskId=${encodeURIComponent(taskId)}`);
   if (!res.ok) throw new Error(await res.text());
   executionState.logs[taskId] = await res.text();
 }
 
-export async function fetchAllExecutionTaskLogs() {
+async function fetchAllExecutionTaskLogs() {
   await Promise.all(executionState.tasks.map(async (task) => {
     try {
       await fetchExecutionTaskLog(task.id);
@@ -36,7 +28,7 @@ export async function fetchAllExecutionTaskLogs() {
   }));
 }
 
-export async function loadExecutionData() {
+async function loadExecutionData() {
   try {
     await Promise.all([fetchExecutionScripts(), fetchExecutionTasks()]);
     await fetchAllExecutionTaskLogs();
@@ -46,7 +38,7 @@ export async function loadExecutionData() {
   }
 }
 
-export async function saveExecutionTasks(isSilent = true) {
+async function saveExecutionTasks(isSilent = true) {
   setExecutionTaskStatus("保存中...", "saving");
   const payload = {
     tasks: executionState.tasks.map(task => normalizeExecutionTaskForRequest(task)),
@@ -66,14 +58,14 @@ export async function saveExecutionTasks(isSilent = true) {
   }
 }
 
-export function scheduleExecutionTasksSave() {
+function scheduleExecutionTasksSave() {
   if (executionState.saveTimer) clearTimeout(executionState.saveTimer);
   executionState.saveTimer = setTimeout(() => {
     saveExecutionTasks(true);
   }, 500);
 }
 
-export async function saveOrchestrationConfig() {
+async function saveOrchestrationConfig() {
   const payload = {
     sequence: orchestrationState.sequence,
     interval: parseInt(el.orchestrationInterval.value) || 10
@@ -90,7 +82,7 @@ export async function saveOrchestrationConfig() {
   }
 }
 
-export async function loadOrchestrationConfig() {
+async function loadOrchestrationConfig() {
   try {
     const res = await fetch("/api/orchestration-config");
     if (!res.ok) {
@@ -112,7 +104,7 @@ export async function loadOrchestrationConfig() {
   }
 }
 
-export async function fetchAnalysisTasks() {
+async function fetchAnalysisTasks() {
   const res = await fetch("/api/analysis/tasks");
   if (!res.ok) throw new Error(await res.text());
   const payload = await res.json();
@@ -125,7 +117,7 @@ export async function fetchAnalysisTasks() {
   }
 }
 
-export async function loadAnalysisData(shouldRender = true) {
+async function loadAnalysisData(shouldRender = true) {
   try {
     await fetchAnalysisTasks();
     if (shouldRender) {
@@ -140,7 +132,7 @@ export async function loadAnalysisData(shouldRender = true) {
   }
 }
 
-export async function generateAnalysisReportForSelectedTask() {
+async function generateAnalysisReportForSelectedTask() {
   const task = analysisState.tasks.find(item => item.id === analysisState.selectedTaskId);
   if (!task) return;
   try {
@@ -165,19 +157,19 @@ export async function generateAnalysisReportForSelectedTask() {
   }
 }
 
-export function openSelectedAnalysisReport() {
+function openSelectedAnalysisReport() {
   const task = analysisState.tasks.find(item => item.id === analysisState.selectedTaskId);
   if (!task || !task.hasReport) return;
   window.open(task.reportHtmlUrl, "_blank");
 }
 
-export function downloadSelectedAnalysisPackage() {
+function downloadSelectedAnalysisPackage() {
   const task = analysisState.tasks.find(item => item.id === analysisState.selectedTaskId);
   if (!task || !task.hasReport) return;
   window.location.href = task.downloadUrl;
 }
 
-export async function saveToServer(isManual = false) {
+async function saveToServer(isManual = false) {
   const r = generateFio(state.config, true); // 保存到服务器时包含 JSON，以便后续精确加载
   if (r.status === 0) {
     const name = el.configFilename.value.trim() || "custom.fio";
@@ -228,16 +220,14 @@ export async function saveToServer(isManual = false) {
   }
 }
 
-let autoSaveTimer = null;
-
-export function triggerAutoSave() {
+function triggerAutoSave() {
   if (autoSaveTimer) clearTimeout(autoSaveTimer);
   autoSaveTimer = setTimeout(() => {
     saveToServer(false);
   }, 1000);
 }
 
-export async function fetchSavedConfigs() {
+async function fetchSavedConfigs() {
   if (!el.savedConfigsList) return;
   try {
     const res = await fetch('/api/scripts');
@@ -289,7 +279,7 @@ export async function fetchSavedConfigs() {
   }
 }
 
-export async function loadConfigFromServer(filename) {
+async function loadConfigFromServer(filename) {
   try {
     const res = await fetch(`/api/scripts?name=${encodeURIComponent(filename)}`);
     if (!res.ok) throw new Error(await res.text());
@@ -370,7 +360,7 @@ export async function loadConfigFromServer(filename) {
   }
 }
 
-export async function deleteConfigFromServer(filename) {
+async function deleteConfigFromServer(filename) {
   if (!confirm(`确定要删除配置文件 "${filename}" 吗？`)) return;
   try {
     const res = await fetch(`/api/scripts?name=${encodeURIComponent(filename)}`, { method: 'DELETE' });
@@ -383,7 +373,7 @@ export async function deleteConfigFromServer(filename) {
   }
 }
 
-export async function renameConfigOnServer(oldName) {
+async function renameConfigOnServer(oldName) {
   const newName = await showCustomPrompt("请输入新的文件名:", oldName);
   if (!newName || newName === oldName) return;
   
@@ -423,7 +413,7 @@ export async function renameConfigOnServer(oldName) {
   }
 }
 
-export async function createNewConfig() {
+async function createNewConfig() {
   const name = await showCustomPrompt("请输入新配置文件的名称:", "new_config.fio");
   if (name === null) return; // 用户取消
 
@@ -450,7 +440,7 @@ export async function createNewConfig() {
 
 // ---------- Audit Log ----------
 
-export async function recordAuditLog(action, details) {
+async function recordAuditLog(action, details) {
   try {
     const payload = { action, details };
     await fetch("/api/audit-log", {
@@ -463,7 +453,7 @@ export async function recordAuditLog(action, details) {
   }
 }
 
-export async function loadAuditLog() {
+async function loadAuditLog() {
   if (!el.auditLogTableBody) return;
   
   el.auditLogTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 20px; color: var(--muted);">加载中...</td></tr>';

@@ -1,5 +1,5 @@
 // 选择器缓存
-export const el = {
+const el = {
   addJobBtn: document.getElementById("addJobBtn"),
   exportJsonBtn: document.getElementById("exportJsonBtn"),
   importJsonBtn: document.getElementById("importJsonBtn"),

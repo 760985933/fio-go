@@ -1,6 +1,3 @@
-import { triggerAutoSave } from './api.js';
-import { wrapErr, wrapOk } from './utils.js';
-
 /**
  * @typedef {Object} GlobalOptions
  * @property {string} filename
@@ -44,7 +41,7 @@ import { wrapErr, wrapOk } from './utils.js';
 /**
  :return:             默认配置对象
 */
-export function createDefaultConfig() {
+function createDefaultConfig() {
   /** @type {FioConfig} */
   const cfg = {
     global: {
@@ -66,7 +63,7 @@ export function createDefaultConfig() {
 }
 
 // 全局状态
-export const state = {
+const state = {
   /** @type {FioConfig} */ config: loadState() || createDefaultConfig(),
   /** 最近一次新添加任务的索引，用于默认展开 */
   justAddedIndex: null,
@@ -75,7 +72,7 @@ export const state = {
 };
 
 // FIO 任务执行相关逻辑
-export const executionState = {
+const executionState = {
   tasks: [],
   scripts: [],
   logs: {},
@@ -83,25 +80,30 @@ export const executionState = {
   refreshTimers: {}, // taskId -> intervalId
 };
 
-export const analysisState = {
+const analysisState = {
   tasks: [],
   selectedTaskId: "",
 };
 
 // 编排状态
-export const orchestrationState = {
+let orchestrationState = {
   sequence: [], // Array of task IDs
   interval: 10,
   isRunning: false,
   shouldStop: false
 };
 
+let autoSaveTimer = null;
 
+/**
+ * 显示主机实时日志弹窗
+ */
+let hostLogRefreshTimer = null;
 
 /**
  :return:             从localStorage加载配置
 */
-export function loadState() {
+function loadState() {
   try {
     const s = localStorage.getItem("fio_config_state");
     if (!s) return null;
@@ -118,7 +120,7 @@ export function loadState() {
  :param cfg:         要持久化的配置对象
  :return:            {status,msg,data}
 */
-export function saveState(cfg) {
+function saveState(cfg) {
   try {
     localStorage.setItem("fio_config_state", JSON.stringify(cfg));
     triggerAutoSave();

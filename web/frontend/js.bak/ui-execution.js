@@ -1,10 +1,4 @@
-import { executionState } from './state.js';
-import { el } from './dom.js';
-import { fetchExecutionTaskLog, loadAnalysisData, recordAuditLog, scheduleExecutionTasksSave } from './api.js';
-import { showConfirmModal, showHostLogModal, showResultsModal } from './utils.js';
-import { renderOrchestrationTasks } from './ui-orchestration.js';
-
-export function createExecutionHost(host = "") {
+function createExecutionHost(host = "") {
   return {
     host,
     port: 22,
@@ -13,7 +7,7 @@ export function createExecutionHost(host = "") {
   };
 }
 
-export function createExecutionTask(partial = {}) {
+function createExecutionTask(partial = {}) {
   const hosts = Array.isArray(partial.hosts) && partial.hosts.length > 0
     ? partial.hosts.map(hostCfg => ({
         host: hostCfg.host || "",
@@ -31,20 +25,20 @@ export function createExecutionTask(partial = {}) {
   };
 }
 
-export function setExecutionTaskStatus(text = "", type = "") {
+function setExecutionTaskStatus(text = "", type = "") {
   if (!el.executionTaskStatus) return;
   el.executionTaskStatus.textContent = text;
   el.executionTaskStatus.className = `save-status${type ? ` ${type}` : ""}`;
 }
 
-export function appendLog(msg) {
+function appendLog(msg) {
   if (!el.executionLog) return;
   const time = new Date().toLocaleTimeString();
   el.executionLog.textContent += `[${time}] ${msg}\n`;
   el.executionLog.scrollTop = el.executionLog.scrollHeight;
 }
 
-export function normalizeExecutionTaskForRequest(task) {
+function normalizeExecutionTaskForRequest(task) {
   return {
     id: task.id,
     name: task.name.trim() || "未命名任务",
@@ -60,13 +54,13 @@ export function normalizeExecutionTaskForRequest(task) {
   };
 }
 
-export function appendTaskLocalLog(taskId, message) {
+function appendTaskLocalLog(taskId, message) {
   const time = new Date().toLocaleTimeString();
   const existing = executionState.logs[taskId] || "";
   executionState.logs[taskId] = `${existing}${existing ? "\n" : ""}[${time}] ${message}`;
 }
 
-export function buildScriptSelect(selectedScript) {
+function buildScriptSelect(selectedScript) {
   const select = document.createElement("select");
   select.className = "input-field";
 
@@ -86,7 +80,7 @@ export function buildScriptSelect(selectedScript) {
   return select;
 }
 
-export function renderExecutionTasks() {
+function renderExecutionTasks() {
   if (!el.executionTasksContainer) return;
   el.executionTasksContainer.innerHTML = "";
 
@@ -567,7 +561,7 @@ export function renderExecutionTasks() {
   }
 }
 
-export async function runExecutionAction(action, task) {
+async function runExecutionAction(action, task) {
   const requestTask = normalizeExecutionTaskForRequest(task);
   if (requestTask.hosts.length === 0) {
     appendLog(`任务 ${requestTask.name} 缺少主机配置`);

@@ -1,14 +1,8 @@
-import { saveState, state } from './state.js';
-import { generateFio } from './fio-generator.js';
-import { el } from './dom.js';
-import { recordAuditLog } from './api.js';
-import { buildJobName, downloadTextFile, getBsText, parseBsToNumber, wrapErr, wrapOk } from './utils.js';
-
 /**
  :param cfg:         FioConfig 配置对象
  :return:            {status,msg,data}
 */
-export function refreshPreview(cfg) {
+function refreshPreview(cfg) {
   if (state.isEditingFio) return;
   const r = generateFio(cfg);
   if (r.status === 0) {
@@ -24,7 +18,7 @@ export function refreshPreview(cfg) {
  :param cfg:         FioConfig
  :return:            {status,msg,data}
 */
-export function exportJson(cfg) {
+function exportJson(cfg) {
   try {
     const text = JSON.stringify(cfg, null, 2);
     recordAuditLog("导出 JSON 配置", `导出了当前的 FIO 配置为 JSON`);
@@ -38,7 +32,7 @@ export function exportJson(cfg) {
  :param file:        File 对象
  :return:            Promise<{status,msg,data}>
 */
-export async function importJsonFile(file) {
+async function importJsonFile(file) {
   try {
     const text = await file.text();
     const obj = JSON.parse(text);
@@ -73,7 +67,7 @@ export async function importJsonFile(file) {
  :param idx:         任务索引
  :return:            删除操作结果
 */
-export function deleteJob(idx) {
+function deleteJob(idx) {
   const jobName = state.config.jobs[idx].name || `任务 ${idx + 1}`;
   state.config.jobs.splice(idx, 1);
   recordAuditLog("删除 FIO 任务", `从配置中删除了任务 "${jobName}"`);
@@ -87,7 +81,7 @@ export function deleteJob(idx) {
  :param idx:         任务索引
  :return:            复制操作结果
 */
-export function duplicateJob(idx) {
+function duplicateJob(idx) {
   const j = state.config.jobs[idx];
   const copy = JSON.parse(JSON.stringify(j));
   copy.name = `${j.name || "job"}_copy`;
@@ -102,7 +96,7 @@ export function duplicateJob(idx) {
 /**
  :return:            添加一个新任务
 */
-export function addJob() {
+function addJob() {
   const newIdx = state.config.jobs.length;
   state.config.jobs.push({
     name: `job_${state.config.jobs.length}`,
@@ -127,7 +121,7 @@ export function addJob() {
  :param onChange:    (key, value, i) => void
  :return:            创建KV编辑器
 */
-export function renderKVEditor(container, list, onChange) {
+function renderKVEditor(container, list, onChange) {
   container.innerHTML = "";
   const entries = Object.entries(list || {});
   entries.forEach(([k, v], i) => {
@@ -159,7 +153,7 @@ export function renderKVEditor(container, list, onChange) {
 // 全局可视化配置已移除；相关渲染与事件函数删除，逻辑保留在默认模板与 FIO 文本生成中。
 
 /** 渲染所有Job卡片 */
-export function renderJobs() {
+function renderJobs() {
   el.jobsContainer.innerHTML = "";
   state.config.jobs.forEach((job, idx) => {
     const card = document.createElement("div");
@@ -230,6 +224,6 @@ export function renderJobs() {
 }
 
 /** 渲染整个页面 */
-export function renderAll() {
+function renderAll() {
   renderJobs();
 }

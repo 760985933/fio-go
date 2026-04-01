@@ -1,5 +1,3 @@
-import { el } from './dom.js';
-
 /*
   FIO 配置生成器前端逻辑
   - 可视化编辑 Global 和 Jobs
@@ -15,7 +13,7 @@ import { el } from './dom.js';
                         "data": {}
                        }
 */
-export function wrapOk(data = {}, msg = "") {
+function wrapOk(data = {}, msg = "") {
   return { status: 0, msg, data };
 }
 
@@ -24,11 +22,11 @@ export function wrapOk(data = {}, msg = "") {
  :param data:        附带数据（可选）
  :return:            { "status": 1, "msg": msg, "data": data }
 */
-export function wrapErr(msg = "操作失败", data = {}) {
+function wrapErr(msg = "操作失败", data = {}) {
   return { status: 1, msg, data };
 }
 
-export function showResultsModal(data) {
+function showResultsModal(data) {
   const { taskName, action, results, rawDir } = data;
   const actionNames = {
     "status": "状态检查",
@@ -72,9 +70,7 @@ export function showResultsModal(data) {
   };
 }
 
-let hostLogRefreshTimer = null;
-
-export async function showHostLogModal(taskId, host) {
+async function showHostLogModal(taskId, host) {
   el.hostLogModalTitle.textContent = `主机日志流 - ${host}`;
   el.hostLogViewer.textContent = "正在连接并拉取日志...";
   el.hostLogModal.style.display = "flex";
@@ -135,7 +131,7 @@ export async function showHostLogModal(taskId, host) {
 /**
  * 显示二次确认弹窗
  */
-export function showConfirmModal(title, contentHtml, isDanger = true) {
+function showConfirmModal(title, contentHtml, isDanger = true) {
   return new Promise((resolve) => {
     el.confirmModalTitle.textContent = title;
     el.confirmModalBody.innerHTML = contentHtml;
@@ -163,7 +159,7 @@ export function showConfirmModal(title, contentHtml, isDanger = true) {
 /**
  * 自定义 Prompt 弹窗
  */
-export function showCustomPrompt(title, defaultValue = "") {
+function showCustomPrompt(title, defaultValue = "") {
   return new Promise((resolve) => {
     el.modalTitle.textContent = title;
     el.modalInput.value = defaultValue;
@@ -202,7 +198,7 @@ export function showCustomPrompt(title, defaultValue = "") {
  :param value:       键值
  :return:            安全键名（移除非法字符，只允许[a-zA-Z0-9_]+）
 */
-export function sanitizeKey(key, value) {
+function sanitizeKey(key, value) {
   const safe = String(key || "").replace(/[^a-zA-Z0-9_]/g, "");
   return safe;
 }
@@ -212,7 +208,7 @@ export function sanitizeKey(key, value) {
  :param content:     文本内容
  :return:            {status,msg,data}
 */
-export function downloadTextFile(filename, content) {
+function downloadTextFile(filename, content) {
   try {
     const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -233,7 +229,7 @@ export function downloadTextFile(filename, content) {
  :param job:        JobOptions
  :return:           返回如"256k"的文本
 */
-export function getBsText(job) {
+function getBsText(job) {
   if (job && Number.isFinite(job.bs_k)) return `${job.bs_k}k`;
   if (job && job.bs) {
     const n = parseBsToNumber(job.bs);
@@ -248,7 +244,7 @@ export function getBsText(job) {
  :param bs:        可能是"256"或"256k"等
  :return:          解析出数字部分
 */
-export function parseBsToNumber(bs) {
+function parseBsToNumber(bs) {
   if (bs === undefined || bs === null) return NaN;
   const m = String(bs).match(/^(\d+)/);
   return m ? Number(m[1]) : NaN;
@@ -259,7 +255,7 @@ export function parseBsToNumber(bs) {
  :param job:       JobOptions
  :return:          { bw, lat, iops } 三个日志路径
 */
-export function buildLogPaths(idx, job) {
+function buildLogPaths(idx, job) {
   const base = "/tmp/fio/data/logs";
   const bsText = getBsText(job);
   const rwText = job.rw || "rw";
@@ -277,7 +273,7 @@ export function buildLogPaths(idx, job) {
  :param job:       JobOptions
  :return:          名称格式如：sec0_256k_read_iodepth32
 */
-export function buildJobName(idx, job) {
+function buildJobName(idx, job) {
   const bsText = getBsText(job) || "";
   const rwText = job?.rw || "";
   const iodepthText = (job && job.iodepth !== undefined && job.iodepth !== null) ? `iodepth${job.iodepth}` : "iodepth";
