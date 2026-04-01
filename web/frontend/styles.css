@@ -224,9 +224,26 @@ body {
 
 .execution-host-row {
   display: grid;
-  grid-template-columns: minmax(160px, 1.6fr) 110px 130px 160px auto;
+  grid-template-columns: minmax(160px, 1.6fr) 90px 110px 120px 90px auto;
   gap: 8px;
   align-items: center;
+}
+
+.log-viewer {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 1rem;
+  overflow: auto;
+  border-radius: 8px;
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.modal-container.wide {
+  max-width: 90%;
+  width: 1000px;
 }
 
 .execution-host-row input {

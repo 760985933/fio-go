@@ -74,6 +74,7 @@ func StartServer(port int) error {
 	mux.HandleFunc("/api/scripts", handleScripts)
 	mux.HandleFunc("/api/execution-tasks", handleExecutionTasks)
 	mux.HandleFunc("/api/execution-task-log", handleExecutionTaskLog)
+	mux.HandleFunc("/api/host-log", handleHostLog)
 	mux.HandleFunc("/api/execute", handleExecute)
 	mux.HandleFunc("/api/analysis/tasks", handleAnalysisTasks)
 	mux.HandleFunc("/api/analysis/generate", handleAnalysisGenerate)
@@ -510,6 +511,58 @@ func handleScripts(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func handleHostLog(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	taskID := r.URL.Query().Get("taskId")
+	hostStr := r.URL.Query().Get("host")
+	if taskID == "" || hostStr == "" {
+		http.Error(w, "taskId and host are required", http.StatusBadRequest)
+		return
+	}
+
+	task, err := findExecutionTaskByID(taskID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	var targetHost *executor.HostConfig
+	for _, h := range task.Hosts {
+		if fmt.Sprintf("%s@%s:%d", h.User, h.Host, h.Port) == hostStr {
+			targetHost = &h
+			break
+		}
+	}
+
+	if targetHost == nil {
+		http.Error(w, "Host not found in task", http.StatusNotFound)
+		return
+	}
+
+	client, err := executor.NewSSHClient(*targetHost)
+	if err != nil {
+		http.Error(w, "Failed to connect: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer client.Close()
+
+	// Get FIO log from remote host
+	// Using a simple tail command to get the last few lines
+	_, _, logsDir, _ := executor.BuildTaskPaths(taskID)
+	logFile := filepath.Join(logsDir, "fio_stdout.log")
+
+	// Read last 20 lines
+	cmd := fmt.Sprintf("tail -n 20 %s 2>/dev/null || echo '暂无日志或文件未生成'", logFile)
+	out, _ := client.RunCommand(cmd)
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Write([]byte(out))
+}
+
 func handleExecute(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -571,6 +624,32 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 		rawDir := taskRawDataDir(task.ID)
 		os.MkdirAll(rawDir, 0755)
 		results = executor.PullData(task.ID, task.Hosts, rawDir)
+	case "cleanup":
+		baseDir := taskBaseDir(task.ID)
+		reportDir := taskReportDir(task.ID)
+
+		err1 := os.RemoveAll(baseDir)
+		err2 := os.RemoveAll(reportDir)
+
+		if err1 != nil || err2 != nil {
+			msg := fmt.Sprintf("清理失败: %v, %v", err1, err2)
+			appendTaskExecutionLog(task, msg)
+			http.Error(w, msg, http.StatusInternalServerError)
+			return
+		}
+
+		// 重新创建目录以便记录日志
+		os.MkdirAll(baseDir, 0755)
+		appendTaskExecutionLog(task, "已清理历史数据和分析报告")
+
+		// 构造虚拟结果以便前端表格展示
+		results = make([]executor.ExecutionResult, 0, len(task.Hosts))
+		for _, host := range task.Hosts {
+			results = append(results, executor.ExecutionResult{
+				Host: fmt.Sprintf("%s@%s:%d", host.User, host.Host, host.Port),
+				Msg:  "任务历史数据已清理",
+			})
+		}
 	default:
 		http.Error(w, "Unknown action", http.StatusBadRequest)
 		return
@@ -590,8 +669,8 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 	}
 	appendTaskExecutionLog(task, output.String())
 
-	// 如果是 status, pull, killall 或 deploy，返回 JSON 格式以便前端渲染表格
-	if req.Action == "status" || req.Action == "pull" || req.Action == "killall" || req.Action == "deploy" {
+	// 如果是 status, pull, killall, deploy 或 cleanup，返回 JSON 格式以便前端渲染表格
+	if req.Action == "status" || req.Action == "pull" || req.Action == "killall" || req.Action == "deploy" || req.Action == "cleanup" {
 		type resultJSON struct {
 			Host  string `json:"host"`
 			Error string `json:"error,omitempty"`

@@ -169,6 +169,24 @@
       </div>
     </div>
 
+    <!-- Host Log Modal -->
+    <div id="hostLogModal" class="modal-overlay" style="display: none;">
+      <div class="modal-container wide">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <h3 id="hostLogModalTitle" style="margin: 0;">主机日志流</h3>
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer;">
+            <input type="checkbox" id="hostLogAutoRefresh" /> 自动刷新 (3s)
+          </label>
+        </div>
+        <div id="hostLogContent" class="modal-content-scroll">
+          <pre id="hostLogViewer" class="code log-viewer" style="min-height: 400px; background: #000; color: #0f0;"></pre>
+        </div>
+        <div class="modal-actions">
+          <button id="hostLogCloseBtn" class="btn primary">关闭</button>
+        </div>
+      </div>
+    </div>
+
     <script src="./app.js"></script>
   </body>
 </html>

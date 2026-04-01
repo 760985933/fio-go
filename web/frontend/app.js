@@ -137,6 +137,7 @@ const executionState = {
   scripts: [],
   logs: {},
   saveTimer: null,
+  refreshTimers: {}, // taskId -> intervalId
 };
 
 const analysisState = {
@@ -329,6 +330,7 @@ function renderExecutionTasks() {
       { action: "status", text: "检查状态", className: "btn" },
       { action: "pull", text: "收集数据", className: "btn success" },
       { action: "killall", text: "终止任务", className: "btn danger" },
+      { action: "cleanup", text: "清理历史数据", className: "btn" },
     ];
 
     actionConfigs.forEach(config => {
@@ -474,10 +476,18 @@ function renderExecutionTasks() {
         scheduleExecutionTasksSave();
       };
 
+      const viewLogBtn = document.createElement("button");
+      viewLogBtn.className = "btn small";
+      viewLogBtn.textContent = "实时日志";
+      viewLogBtn.onclick = () => {
+        showHostLogModal(task.id, `${hostCfg.user}@${hostCfg.host}:${hostCfg.port}`);
+      };
+
       hostRow.appendChild(hostInput);
       hostRow.appendChild(portInput);
       hostRow.appendChild(userInput);
       hostRow.appendChild(passwordInput);
+      hostRow.appendChild(viewLogBtn);
       hostRow.appendChild(removeBtn);
       hostList.appendChild(hostRow);
     });
@@ -488,8 +498,48 @@ function renderExecutionTasks() {
     const taskLogHeader = document.createElement("div");
     taskLogHeader.className = "log-header";
 
+    const logTitleContainer = document.createElement("div");
+    logTitleContainer.style.display = "flex";
+    logTitleContainer.style.alignItems = "center";
+    logTitleContainer.style.gap = "15px";
+
     const taskLogTitle = document.createElement("h4");
     taskLogTitle.textContent = "任务日志";
+
+    const autoRefreshLabel = document.createElement("label");
+    autoRefreshLabel.style.display = "flex";
+    autoRefreshLabel.style.alignItems = "center";
+    autoRefreshLabel.style.gap = "6px";
+    autoRefreshLabel.style.fontSize = "13px";
+    autoRefreshLabel.style.color = "var(--muted)";
+    autoRefreshLabel.style.cursor = "pointer";
+
+    const autoRefreshCheckbox = document.createElement("input");
+    autoRefreshCheckbox.type = "checkbox";
+    autoRefreshCheckbox.checked = !!executionState.refreshTimers[task.id];
+    autoRefreshCheckbox.onchange = (e) => {
+      if (e.target.checked) {
+        executionState.refreshTimers[task.id] = setInterval(async () => {
+          try {
+            await fetchExecutionTaskLog(task.id);
+            // 只更新当前卡片的日志显示，不重新渲染整个列表
+            taskLogViewer.textContent = executionState.logs[task.id] || "暂无任务日志";
+            taskLogViewer.scrollTop = taskLogViewer.scrollHeight;
+          } catch (err) {
+            console.error(`Auto refresh failed for ${task.id}:`, err);
+          }
+        }, 5000);
+      } else {
+        clearInterval(executionState.refreshTimers[task.id]);
+        delete executionState.refreshTimers[task.id];
+      }
+    };
+
+    autoRefreshLabel.appendChild(autoRefreshCheckbox);
+    autoRefreshLabel.appendChild(document.createTextNode("自动刷新 (5s)"));
+
+    logTitleContainer.appendChild(taskLogTitle);
+    logTitleContainer.appendChild(autoRefreshLabel);
 
     const refreshLogBtn = document.createElement("button");
     refreshLogBtn.className = "btn small";
@@ -497,17 +547,19 @@ function renderExecutionTasks() {
     refreshLogBtn.onclick = async () => {
       try {
         await fetchExecutionTaskLog(task.id);
-        renderExecutionTasks();
+        taskLogViewer.textContent = executionState.logs[task.id] || "暂无任务日志";
+        taskLogViewer.scrollTop = taskLogViewer.scrollHeight;
       } catch (err) {
         appendLog(`刷新 ${task.name} 日志失败: ${err.message}`);
       }
     };
 
-    taskLogHeader.appendChild(taskLogTitle);
+    taskLogHeader.appendChild(logTitleContainer);
     taskLogHeader.appendChild(refreshLogBtn);
 
     const taskLogViewer = document.createElement("pre");
     taskLogViewer.textContent = executionState.logs[task.id] || "暂无任务日志";
+    taskLogViewer.scrollTop = taskLogViewer.scrollHeight;
 
     taskLogWrap.appendChild(taskLogHeader);
     taskLogWrap.appendChild(taskLogViewer);
@@ -527,7 +579,8 @@ function showResultsModal(data) {
     "status": "状态检查",
     "pull": "数据收集",
     "killall": "终止任务",
-    "deploy": "部署并执行"
+    "deploy": "部署并执行",
+    "cleanup": "清理历史数据"
   };
   const actionName = actionNames[action] || action;
   
@@ -595,10 +648,10 @@ async function runExecutionAction(action, task) {
       throw new Error(errorMsg);
     }
     
-    if (action === "status" || action === "pull" || action === "killall" || action === "deploy") {
+    if (action === "status" || action === "pull" || action === "killall" || action === "deploy" || action === "cleanup") {
       const data = await res.json();
       showResultsModal(data);
-      const actionNames = { "status": "状态检查", "pull": "数据收集", "killall": "终止任务", "deploy": "部署并执行" };
+      const actionNames = { "status": "状态检查", "pull": "数据收集", "killall": "终止任务", "deploy": "部署并执行", "cleanup": "清理历史数据" };
       appendLog(`任务 "${requestTask.name}" ${actionNames[action] || action}完成`);
     } else {
       const result = await res.text();
@@ -801,9 +854,67 @@ const el = {
   resultsTableBody: document.getElementById("resultsTableBody"),
   resultsModalFooter: document.getElementById("resultsModalFooter"),
   resultsModalCloseBtn: document.getElementById("resultsModalCloseBtn"),
+  
+  // Host Log Modal
+  hostLogModal: document.getElementById("hostLogModal"),
+  hostLogModalTitle: document.getElementById("hostLogModalTitle"),
+  hostLogViewer: document.getElementById("hostLogViewer"),
+  hostLogAutoRefresh: document.getElementById("hostLogAutoRefresh"),
+  hostLogCloseBtn: document.getElementById("hostLogCloseBtn"),
 };
 
 let autoSaveTimer = null;
+
+/**
+ * 显示主机实时日志弹窗
+ */
+let hostLogRefreshTimer = null;
+async function showHostLogModal(taskId, host) {
+  el.hostLogModalTitle.textContent = `主机日志流 - ${host}`;
+  el.hostLogViewer.textContent = "正在连接并拉取日志...";
+  el.hostLogModal.style.display = "flex";
+  el.hostLogAutoRefresh.checked = false;
+
+  const fetchLog = async () => {
+    try {
+      const res = await fetch(`/api/host-log?taskId=${taskId}&host=${encodeURIComponent(host)}`);
+      if (!res.ok) throw new Error(await res.text());
+      const log = await res.text();
+      el.hostLogViewer.textContent = log;
+      el.hostLogViewer.scrollTop = el.hostLogViewer.scrollHeight;
+    } catch (err) {
+      el.hostLogViewer.textContent = `拉取日志失败: ${err.message}`;
+      // 如果报错了，自动关闭刷新
+      if (hostLogRefreshTimer) {
+        clearInterval(hostLogRefreshTimer);
+        hostLogRefreshTimer = null;
+        el.hostLogAutoRefresh.checked = false;
+      }
+    }
+  };
+
+  await fetchLog();
+
+  el.hostLogAutoRefresh.onchange = (e) => {
+    if (e.target.checked) {
+      if (hostLogRefreshTimer) clearInterval(hostLogRefreshTimer);
+      hostLogRefreshTimer = setInterval(fetchLog, 3000);
+    } else {
+      if (hostLogRefreshTimer) {
+        clearInterval(hostLogRefreshTimer);
+        hostLogRefreshTimer = null;
+      }
+    }
+  };
+
+  el.hostLogCloseBtn.onclick = () => {
+    if (hostLogRefreshTimer) {
+      clearInterval(hostLogRefreshTimer);
+      hostLogRefreshTimer = null;
+    }
+    el.hostLogModal.style.display = "none";
+  };
+}
 
 /**
  * 自定义 Prompt 弹窗

@@ -33,7 +33,7 @@ func sanitizeTaskKey(taskKey string) string {
 	return sanitized
 }
 
-func buildTaskPaths(taskKey string) (string, string, string, string) {
+func BuildTaskPaths(taskKey string) (string, string, string, string) {
 	safeTaskKey := sanitizeTaskKey(taskKey)
 	taskDir := filepath.Join(baseFioDir, "tasks", safeTaskKey)
 	dataDir := filepath.Join(taskDir, "data")
@@ -122,7 +122,7 @@ func DeployAndRun(taskKey string, hosts []HostConfig, scriptName string, scriptC
 			}
 			defer client.Close()
 
-			taskDir, dataDir, logsDir, pidFile := buildTaskPaths(taskKey)
+			taskDir, dataDir, logsDir, pidFile := BuildTaskPaths(taskKey)
 
 			// 1. Create directories
 			_, err = client.RunCommand(fmt.Sprintf("mkdir -p %s %s %s", taskDir, dataDir, logsDir))
@@ -197,7 +197,7 @@ func CheckStatus(taskKey string, hosts []HostConfig) []ExecutionResult {
 			}
 			defer client.Close()
 
-			_, _, _, pidFile := buildTaskPaths(taskKey)
+			_, _, _, pidFile := BuildTaskPaths(taskKey)
 			cmd := fmt.Sprintf(`if [ -f %[1]s ]; then pid="$(cat %[1]s)"; if ps -p "$pid" >/dev/null 2>&1; then echo "Running (PID: $pid)"; else echo "Not running (Stale PID: $pid)"; fi; else echo "Not running"; fi`, pidFile)
 			out, _ := client.RunCommand(cmd)
 			res.Msg = strings.TrimSpace(out)
@@ -231,7 +231,7 @@ func KillAll(taskKey string, hosts []HostConfig) []ExecutionResult {
 			}
 			defer client.Close()
 
-			_, _, _, pidFile := buildTaskPaths(taskKey)
+			_, _, _, pidFile := BuildTaskPaths(taskKey)
 			cmd := fmt.Sprintf(`if [ -f %[1]s ]; then pid="$(cat %[1]s)"; if kill -0 "$pid" 2>/dev/null; then kill "$pid" && rm -f %[1]s && echo "Killed successfully"; else rm -f %[1]s && echo "Not running"; fi; else echo "Not running"; fi`, pidFile)
 			out, _ := client.RunCommand(cmd)
 			res.Msg = strings.TrimSpace(out)
@@ -265,7 +265,7 @@ func PullData(taskKey string, hosts []HostConfig, localBaseDir string) []Executi
 			}
 			defer client.Close()
 
-			_, dataDir, _, _ := buildTaskPaths(taskKey)
+			_, dataDir, _, _ := BuildTaskPaths(taskKey)
 
 			hostDir := filepath.Join(localBaseDir, sanitizeLocalName(res.Host))
 			if mkErr := os.MkdirAll(hostDir, 0755); mkErr != nil {
