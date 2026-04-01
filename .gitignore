@@ -12,3 +12,5 @@ output/echarts.min.js
 
 # Legacy files
 旧的前端和调用fio脚本/
+scripts/test.fio
+fio-go
