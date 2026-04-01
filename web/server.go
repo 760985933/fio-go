@@ -588,6 +588,43 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 
 	var results []executor.ExecutionResult
 	switch req.Action {
+	case "pre_deploy_check":
+		statusResults := executor.CheckStatus(task.ID, task.Hosts)
+		residualResults := executor.CheckResidualData(task.ID, task.Hosts)
+
+		type checkResult struct {
+			Host     string `json:"host"`
+			Running  bool   `json:"running"`
+			Residual bool   `json:"residual"`
+			Msg      string `json:"msg"`
+		}
+		var checkResults []checkResult
+		for i, host := range task.Hosts {
+			hostStr := fmt.Sprintf("%s@%s:%d", host.User, host.Host, host.Port)
+			running := false
+			msg := ""
+			if i < len(statusResults) {
+				msg = statusResults[i].Msg
+				if strings.Contains(msg, "Running") {
+					running = true
+				}
+			}
+			residual := false
+			if i < len(residualResults) && residualResults[i].Msg == "Exists" {
+				residual = true
+			}
+			checkResults = append(checkResults, checkResult{
+				Host:     hostStr,
+				Running:  running,
+				Residual: residual,
+				Msg:      msg,
+			})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"results": checkResults,
+		})
+		return
 	case "deploy":
 		if task.Script == "" {
 			http.Error(w, "task script is required", http.StatusBadRequest)

@@ -339,7 +339,109 @@ function renderExecutionTasks() {
       button.className = config.className;
       button.textContent = config.text;
       button.onclick = async () => {
+        if (config.action === "clean_local") {
+          const content = `
+            <div style="margin-bottom: 15px; color: var(--muted);">确定要清理任务 <strong>${task.name}</strong> 在服务器端的历史数据吗？</div>
+            <ul style="padding-left: 20px; font-size: 14px; line-height: 1.6;">
+              <li><strong>原始数据：</strong>data/tasks/${task.id}/*</li>
+              <li><strong>分析报告：</strong>reports/${task.id}/*</li>
+              <li><strong>执行日志：</strong>本地任务执行记录</li>
+            </ul>
+          `;
+          if (!await showConfirmModal("确认清理服务器端数据", content)) return;
+        }
+
+        if (config.action === "clean_remote") {
+          const hostsHtml = task.hosts.map(h => `<tr><td>${h.user}@${h.host}:${h.port}</td><td>/tmp/fio-go/tasks/${task.id}</td></tr>`).join("");
+          const content = `
+            <div style="margin-bottom: 15px; color: var(--muted);">确定要清理任务 <strong>${task.name}</strong> 在以下目标主机上的工作目录吗？</div>
+            <table class="results-table">
+              <thead><tr><th>主机</th><th>清理路径</th></tr></thead>
+              <tbody>${hostsHtml}</tbody>
+            </table>
+          `;
+          if (!await showConfirmModal("确认清理目标主机数据", content)) return;
+        }
+
+        if (config.action === "killall") {
+          try {
+            const checkRes = await fetch("/api/execute", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "pre_deploy_check", task: task }),
+            });
+            if (checkRes.ok) {
+              const checkData = await checkRes.json();
+              const runningHosts = (checkData.results || []).filter(r => r.running);
+
+              if (runningHosts.length === 0) {
+                const content = `<div style="color: var(--muted);">任务 <strong>${task.name}</strong> 在所有配置的主机上均未发现运行中的进程。</div>`;
+                await showConfirmModal("无需终止", content, false);
+                return;
+              }
+
+              const hostsTable = runningHosts.map(h => `<tr><td>${h.host}</td><td style="color:var(--danger)">${h.msg}</td></tr>`).join("");
+              const content = `
+                <div style="margin-bottom: 15px; color: var(--muted);">发现任务 <strong>${task.name}</strong> 正在以下主机上运行：</div>
+                <table class="results-table">
+                  <thead><tr><th>主机</th><th>当前状态</th></tr></thead>
+                  <tbody>${hostsTable}</tbody>
+                </table>
+                <div style="margin-top: 15px; font-weight: bold; color: var(--danger);">确定要强制终止这些进程吗？</div>
+              `;
+              if (!await showConfirmModal("确认终止运行中的任务", content, true)) return;
+            }
+          } catch (e) {
+            console.error("Pre-kill check failed", e);
+          }
+        }
+
         if (config.action === "deploy") {
+          // 1. 前置检查：运行状态和残留数据
+          try {
+            const checkRes = await fetch("/api/execute", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "pre_deploy_check", task: task }),
+            });
+            if (checkRes.ok) {
+              const checkData = await checkRes.json();
+              const results = checkData.results || [];
+              const runningHosts = results.filter(r => r.running);
+              const residualHosts = results.filter(r => r.residual && !r.running);
+
+              if (runningHosts.length > 0) {
+                const hostsTable = runningHosts.map(h => `<tr><td>${h.host}</td><td style="color:var(--danger)">正在运行</td></tr>`).join("");
+                const content = `
+                  <div style="margin-bottom: 15px; color: var(--muted);">任务 <strong>${task.name}</strong> 正在以下主机上执行：</div>
+                  <table class="results-table">
+                    <thead><tr><th>主机</th><th>状态</th></tr></thead>
+                    <tbody>${hostsTable}</tbody>
+                  </table>
+                  <div style="margin-top: 15px; font-weight: bold; color: var(--danger);">请先终止正在运行的任务，再尝试重新部署。</div>
+                `;
+                await showConfirmModal("部署拦截 - 任务运行中", content, true);
+                return;
+              }
+
+              if (residualHosts.length > 0) {
+                const hostsTable = residualHosts.map(h => `<tr><td>${h.host}</td><td style="color:var(--warning)">发现历史数据</td></tr>`).join("");
+                const content = `
+                  <div style="margin-bottom: 15px; color: var(--muted);">发现任务 <strong>${task.name}</strong> 在以下主机上已有历史数据（可能来自之前的执行）：</div>
+                  <table class="results-table">
+                    <thead><tr><th>主机</th><th>状态</th></tr></thead>
+                    <tbody>${hostsTable}</tbody>
+                  </table>
+                  <div style="margin-top: 15px; font-weight: bold; color: var(--warning);">重新部署将清除远端残留并重新开始，是否继续？</div>
+                `;
+                if (!await showConfirmModal("部署预检 - 发现残留数据", content, false)) return;
+              }
+            }
+          } catch (e) {
+            console.error("Pre-deploy check failed", e);
+            // 预检失败通常不阻塞部署，但记录日志
+          }
+
           button.disabled = true;
           const originalText = button.textContent;
           let seconds = 5;
@@ -863,6 +965,13 @@ const el = {
   hostLogViewer: document.getElementById("hostLogViewer"),
   hostLogAutoRefresh: document.getElementById("hostLogAutoRefresh"),
   hostLogCloseBtn: document.getElementById("hostLogCloseBtn"),
+
+  // Confirm Modal
+  confirmModal: document.getElementById("confirmModal"),
+  confirmModalTitle: document.getElementById("confirmModalTitle"),
+  confirmModalBody: document.getElementById("confirmModalBody"),
+  confirmModalOkBtn: document.getElementById("confirmModalOkBtn"),
+  confirmModalCancelBtn: document.getElementById("confirmModalCancelBtn"),
 };
 
 let autoSaveTimer = null;
@@ -916,6 +1025,34 @@ async function showHostLogModal(taskId, host) {
     }
     el.hostLogModal.style.display = "none";
   };
+}
+
+/**
+ * 显示二次确认弹窗
+ */
+function showConfirmModal(title, contentHtml, isDanger = true) {
+  return new Promise((resolve) => {
+    el.confirmModalTitle.textContent = title;
+    el.confirmModalBody.innerHTML = contentHtml;
+    el.confirmModalOkBtn.className = isDanger ? "btn danger" : "btn primary";
+    el.confirmModal.style.display = "flex";
+
+    const cleanup = () => {
+      el.confirmModal.style.display = "none";
+      el.confirmModalOkBtn.onclick = null;
+      el.confirmModalCancelBtn.onclick = null;
+    };
+
+    el.confirmModalOkBtn.onclick = () => {
+      cleanup();
+      resolve(true);
+    };
+
+    el.confirmModalCancelBtn.onclick = () => {
+      cleanup();
+      resolve(false);
+    };
+  });
 }
 
 /**
