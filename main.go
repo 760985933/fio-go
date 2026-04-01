@@ -15,6 +15,7 @@ import (
 
 func main() {
 	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Version: 1.0.0\n")
 		fmt.Fprintf(os.Stderr, "Usage: %s [data_dir] [report_dir]\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "       %s -data <dir> -output-dir <dir>\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Options:\n")
