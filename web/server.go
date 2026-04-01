@@ -537,6 +537,23 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "task script is required", http.StatusBadRequest)
 			return
 		}
+
+		// 检查是否有正在运行的任务
+		statusResults := executor.CheckStatus(task.ID, task.Hosts)
+		var busyHosts []string
+		for _, res := range statusResults {
+			if strings.Contains(res.Msg, "Running") {
+				busyHosts = append(busyHosts, res.Host)
+			}
+		}
+
+		if len(busyHosts) > 0 {
+			msg := fmt.Sprintf("以下主机已有该任务正在执行，请先停止任务后再重新部署：\n%s", strings.Join(busyHosts, "\n"))
+			appendTaskExecutionLog(task, "部署终止: "+msg)
+			http.Error(w, msg, http.StatusConflict)
+			return
+		}
+
 		content, err := os.ReadFile(filepath.Join("scripts", task.Script))
 		if err != nil {
 			http.Error(w, "Failed to read script: "+err.Error(), http.StatusBadRequest)

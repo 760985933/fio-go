@@ -520,6 +520,10 @@ async function runExecutionAction(action, task) {
       body: JSON.stringify({ action, task: requestTask }),
     });
     const result = await res.text();
+    if (res.status === 409) {
+      alert(result);
+      throw new Error("任务冲突");
+    }
     if (!res.ok) throw new Error(result);
     appendLog(result.trim());
     await fetchExecutionTaskLog(task.id);
