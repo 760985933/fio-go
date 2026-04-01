@@ -1,0 +1,33 @@
+{
+  "tasks": [
+    {
+      "id": "default-task",
+      "name": "默认执行任务",
+      "script": "",
+      "hosts": [
+        {
+          "host": "192.168.229.11",
+          "port": 22,
+          "user": "root"
+        },
+        {
+          "host": "192.168.229.13",
+          "port": 22,
+          "user": "root"
+        }
+      ]
+    },
+    {
+      "id": "task-1775021544308-9109c0",
+      "name": "执行任务 2",
+      "script": "Random-seq.fio",
+      "hosts": [
+        {
+          "host": "1.1.1.11",
+          "port": 22,
+          "user": "root"
+        }
+      ]
+    }
+  ]
+}

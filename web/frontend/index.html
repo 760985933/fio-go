@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FIO 配置生成器</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="title">
+        <h1>FIO 管理控制台</h1>
+        <p>配置生成与多机执行管理</p>
+      </div>
+      <nav class="nav-tabs">
+        <button class="tab-btn active" data-target="config-tab">FIO配置项</button>
+        <button class="tab-btn" data-target="execute-tab">FIO任务执行</button>
+        <button class="tab-btn" data-target="analysis-tab">任务分析</button>
+      </nav>
+      <div class="actions" id="config-actions">
+        <button id="exportJsonBtn" class="btn">导出 JSON</button>
+        <button id="importJsonBtn" class="btn">导入 JSON</button>
+        <button id="downloadFioBtn" class="btn">下载配置</button>
+      </div>
+    </header>
+
+    <div id="config-tab" class="tab-content active">
+      <main class="main-grid">
+        <section class="panel">
+          <div class="panel-header">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <h2>已保存配置</h2>
+              <button id="refreshConfigsBtn" class="btn small">刷新列表</button>
+            </div>
+          </div>
+          <div id="savedConfigsList" class="saved-configs-list" style="margin-bottom: 20px;">
+            <!-- 动态生成列表 -->
+          </div>
+
+          <div class="panel-header" style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <h2 style="margin: 0;">当前配置文件</h2>
+                  <span id="saveStatus" class="save-status"></span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
+                  <span style="font-size: 13px; color: var(--muted);">文件名:</span>
+                  <span id="currentFilenameDisplay" style="font-size: 15px; font-weight: bold; color: var(--primary);">custom.fio</span>
+                  <input type="hidden" id="configFilename" value="custom.fio" />
+                </div>
+              </div>
+              <button id="newConfigBtn" class="btn primary small">新建配置</button>
+            </div>
+          </div>
+          
+          <div class="panel-header" style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px;">
+            <h2>任务 (Jobs)</h2>
+            <button id="addJobBtn" class="btn primary">添加任务</button>
+          </div>
+          <div id="jobsContainer" class="jobs"></div>
+        </section>
+
+        <section class="panel preview">
+          <div class="preview-header">
+            <h2>FIO 配置预览</h2>
+            <button id="refreshPreviewBtn" class="btn">刷新预览</button>
+          </div>
+          <pre id="fioPreview" class="code"></pre>
+        </section>
+      </main>
+    </div>
+
+    <div id="execute-tab" class="tab-content" style="display: none;">
+      <main class="execute-grid">
+        <section class="panel full-width">
+          <div class="panel-header">
+            <div>
+              <h2>执行任务</h2>
+              <div style="font-size: 13px; color: var(--muted);">每个任务可绑定独立主机组、SSH 参数和 FIO 脚本</div>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span id="executionTaskStatus" class="save-status"></span>
+              <button id="refreshScriptsBtn" class="btn">刷新脚本</button>
+              <button id="addExecutionTaskBtn" class="btn primary">新增任务</button>
+              <button id="runAllTasksBtn" class="btn success">执行全部</button>
+            </div>
+          </div>
+          <div id="executionTasksContainer" class="execution-task-list"></div>
+        </section>
+
+        <section class="panel full-width">
+          <div class="panel-header">
+            <h2>执行日志</h2>
+            <button id="clearLogBtn" class="btn">清空</button>
+          </div>
+          <pre id="executionLog" class="code log-viewer"></pre>
+        </section>
+      </main>
+    </div>
+
+    <div id="analysis-tab" class="tab-content" style="display: none;">
+      <main class="analysis-grid">
+        <section class="panel analysis-sidebar">
+          <div class="panel-header">
+            <div>
+              <h2>分析任务</h2>
+              <div style="font-size: 13px; color: var(--muted);">仅展示已配置任务，需先完成拉数后再生成分析报告</div>
+            </div>
+            <button id="refreshAnalysisTasksBtn" class="btn">刷新列表</button>
+          </div>
+          <div id="analysisTaskList" class="analysis-task-list"></div>
+        </section>
+
+        <section class="panel analysis-main">
+          <div class="panel-header">
+            <div>
+              <h2 id="analysisTitle">分析预览</h2>
+              <div id="analysisStatusText" style="font-size: 13px; color: var(--muted);">请选择左侧任务</div>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <button id="generateAnalysisBtn" class="btn primary">生成分析</button>
+              <button id="openAnalysisReportBtn" class="btn">打开报告</button>
+              <button id="downloadAnalysisBtn" class="btn success">下载分析包</button>
+            </div>
+          </div>
+          <iframe id="analysisReportFrame" class="analysis-report-frame" title="分析报告"></iframe>
+        </section>
+      </main>
+    </div>
+
+    <!-- <footer class="footer">
+      <span>前端目录：frontend/fio-config-ui</span>
+    </footer> -->
+
+    <input id="jsonFileInput" type="file" accept="application/json" style="display:none" />
+
+    <!-- Custom Prompt Modal -->
+    <div id="customPromptModal" class="modal-overlay" style="display: none;">
+      <div class="modal-container">
+        <h3 id="modalTitle">请输入</h3>
+        <input type="text" id="modalInput" class="input-field" style="margin: 15px 0; width: 100%;" />
+        <div class="modal-actions">
+          <button id="modalCancelBtn" class="btn">取消</button>
+          <button id="modalConfirmBtn" class="btn primary">确定</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
