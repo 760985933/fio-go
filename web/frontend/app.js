@@ -363,6 +363,43 @@ function renderExecutionTasks() {
           if (!await showConfirmModal("确认清理目标主机数据", content)) return;
         }
 
+        if (config.action === "pull") {
+          try {
+            const checkRes = await fetch("/api/execute", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "pre_deploy_check", task: task }),
+            });
+            if (checkRes.ok) {
+              const checkData = await checkRes.json();
+              const results = checkData.results || [];
+              const runningHosts = results.filter(r => r.running);
+              const noDataHosts = results.filter(r => !r.residual);
+
+              if (noDataHosts.length === results.length) {
+                const content = `<div style="color: var(--muted);">任务 <strong>${task.name}</strong> 在所有目标主机上均未发现历史数据，请先执行“部署并执行”。</div>`;
+                await showConfirmModal("无法采集数据", content, false);
+                return;
+              }
+
+              if (runningHosts.length > 0) {
+                const hostsTable = runningHosts.map(h => `<tr><td>${h.host}</td><td style="color:var(--warning)">正在运行</td></tr>`).join("");
+                const content = `
+                  <div style="margin-bottom: 15px; color: var(--muted);">任务 <strong>${task.name}</strong> 仍在以下主机上运行：</div>
+                  <table class="results-table">
+                    <thead><tr><th>主机</th><th>状态</th></tr></thead>
+                    <tbody>${hostsTable}</tbody>
+                  </table>
+                  <div style="margin-top: 15px; font-weight: bold; color: var(--warning);">任务尚未结束，此时收集的数据可能不完整，是否继续收集？</div>
+                `;
+                if (!await showConfirmModal("采集预检 - 任务运行中", content, false)) return;
+              }
+            }
+          } catch (e) {
+            console.error("Pre-pull check failed", e);
+          }
+        }
+
         if (config.action === "killall") {
           try {
             const checkRes = await fetch("/api/execute", {
