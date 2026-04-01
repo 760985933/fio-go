@@ -624,7 +624,7 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 		rawDir := taskRawDataDir(task.ID)
 		os.MkdirAll(rawDir, 0755)
 		results = executor.PullData(task.ID, task.Hosts, rawDir)
-	case "cleanup":
+	case "clean_local":
 		baseDir := taskBaseDir(task.ID)
 		reportDir := taskReportDir(task.ID)
 
@@ -632,7 +632,7 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 		err2 := os.RemoveAll(reportDir)
 
 		if err1 != nil || err2 != nil {
-			msg := fmt.Sprintf("清理失败: %v, %v", err1, err2)
+			msg := fmt.Sprintf("清理本地失败: %v, %v", err1, err2)
 			appendTaskExecutionLog(task, msg)
 			http.Error(w, msg, http.StatusInternalServerError)
 			return
@@ -640,16 +640,20 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 
 		// 重新创建目录以便记录日志
 		os.MkdirAll(baseDir, 0755)
-		appendTaskExecutionLog(task, "已清理历史数据和分析报告")
+		appendTaskExecutionLog(task, "已清理本地历史数据和分析报告")
 
 		// 构造虚拟结果以便前端表格展示
 		results = make([]executor.ExecutionResult, 0, len(task.Hosts))
 		for _, host := range task.Hosts {
 			results = append(results, executor.ExecutionResult{
 				Host: fmt.Sprintf("%s@%s:%d", host.User, host.Host, host.Port),
-				Msg:  "任务历史数据已清理",
+				Msg:  "服务器端历史数据已清理",
 			})
 		}
+	case "clean_remote":
+		appendTaskExecutionLog(task, "开始清理远程主机数据...")
+		results = executor.CleanRemote(task.ID, task.Hosts)
+		appendTaskExecutionLog(task, "远程主机数据清理完成")
 	default:
 		http.Error(w, "Unknown action", http.StatusBadRequest)
 		return
@@ -669,8 +673,8 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 	}
 	appendTaskExecutionLog(task, output.String())
 
-	// 如果是 status, pull, killall, deploy 或 cleanup，返回 JSON 格式以便前端渲染表格
-	if req.Action == "status" || req.Action == "pull" || req.Action == "killall" || req.Action == "deploy" || req.Action == "cleanup" {
+	// 如果是 status, pull, killall, deploy, clean_local 或 clean_remote，返回 JSON 格式以便前端渲染表格
+	if req.Action == "status" || req.Action == "pull" || req.Action == "killall" || req.Action == "deploy" || req.Action == "clean_local" || req.Action == "clean_remote" {
 		type resultJSON struct {
 			Host  string `json:"host"`
 			Error string `json:"error,omitempty"`

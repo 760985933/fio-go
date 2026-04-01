@@ -246,6 +246,37 @@ func KillAll(taskKey string, hosts []HostConfig) []ExecutionResult {
 	return results
 }
 
+// CleanRemote cleans up the task directory on remote hosts
+func CleanRemote(taskKey string, hosts []HostConfig) []ExecutionResult {
+	var wg sync.WaitGroup
+	results := make([]ExecutionResult, len(hosts))
+
+	for i, host := range hosts {
+		wg.Add(1)
+		go func(idx int, hostCfg HostConfig) {
+			defer wg.Done()
+			res := ExecutionResult{Host: displayHost(hostCfg)}
+
+			client, err := NewSSHClient(hostCfg)
+			if err != nil {
+				res.Error = err
+				results[idx] = res
+				return
+			}
+			defer client.Close()
+
+			taskDir, _, _, _ := BuildTaskPaths(taskKey)
+			cmd := fmt.Sprintf("rm -rf %s && echo 'Remote task directory cleaned'", taskDir)
+			out, _ := client.RunCommand(cmd)
+			res.Msg = strings.TrimSpace(out)
+			results[idx] = res
+		}(i, host)
+	}
+
+	wg.Wait()
+	return results
+}
+
 // PullData downloads the data from remote hosts to a local directory
 func PullData(taskKey string, hosts []HostConfig, localBaseDir string) []ExecutionResult {
 	var wg sync.WaitGroup

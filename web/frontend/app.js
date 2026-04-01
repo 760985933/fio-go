@@ -330,7 +330,8 @@ function renderExecutionTasks() {
       { action: "status", text: "检查状态", className: "btn" },
       { action: "pull", text: "收集数据", className: "btn success" },
       { action: "killall", text: "终止任务", className: "btn danger" },
-      { action: "cleanup", text: "清理历史数据", className: "btn" },
+      { action: "clean_local", text: "清理服务器端", className: "btn" },
+      { action: "clean_remote", text: "清理目标主机", className: "btn" },
     ];
 
     actionConfigs.forEach(config => {
@@ -580,7 +581,8 @@ function showResultsModal(data) {
     "pull": "数据收集",
     "killall": "终止任务",
     "deploy": "部署并执行",
-    "cleanup": "清理历史数据"
+    "clean_local": "清理服务器端",
+    "clean_remote": "清理目标主机"
   };
   const actionName = actionNames[action] || action;
   
@@ -648,10 +650,10 @@ async function runExecutionAction(action, task) {
       throw new Error(errorMsg);
     }
     
-    if (action === "status" || action === "pull" || action === "killall" || action === "deploy" || action === "cleanup") {
+    if (action === "status" || action === "pull" || action === "killall" || action === "deploy" || action === "clean_local" || action === "clean_remote") {
       const data = await res.json();
       showResultsModal(data);
-      const actionNames = { "status": "状态检查", "pull": "数据收集", "killall": "终止任务", "deploy": "部署并执行", "cleanup": "清理历史数据" };
+      const actionNames = { "status": "状态检查", "pull": "数据收集", "killall": "终止任务", "deploy": "部署并执行", "clean_local": "清理服务器端", "clean_remote": "清理目标主机" };
       appendLog(`任务 "${requestTask.name}" ${actionNames[action] || action}完成`);
     } else {
       const result = await res.text();
