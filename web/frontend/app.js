@@ -343,6 +343,9 @@ function renderExecutionTasks() {
     deleteTaskBtn.className = "btn";
     deleteTaskBtn.textContent = "删除任务";
     deleteTaskBtn.onclick = () => {
+      if (!confirm(`确定要删除任务 "${task.name || "未命名任务"}" 吗？此操作将清除本地任务配置。`)) {
+        return;
+      }
       delete executionState.logs[task.id];
       executionState.tasks.splice(taskIndex, 1);
       if (executionState.tasks.length === 0) {
