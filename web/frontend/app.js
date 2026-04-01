@@ -502,6 +502,42 @@ function renderExecutionTasks() {
   });
 }
 
+function showResultsModal(data) {
+  const { taskName, action, results, rawDir } = data;
+  const actionName = action === "status" ? "状态检查" : "数据收集";
+  
+  el.resultsModalTitle.textContent = `任务 "${taskName}" ${actionName}结果`;
+  el.resultsTableBody.innerHTML = "";
+  
+  results.forEach(res => {
+    const tr = document.createElement("tr");
+    
+    const hostTd = document.createElement("td");
+    hostTd.textContent = res.host;
+    tr.appendChild(hostTd);
+    
+    const msgTd = document.createElement("td");
+    if (res.error) {
+      msgTd.textContent = res.error;
+      msgTd.className = "status-error";
+    } else {
+      msgTd.textContent = res.msg;
+      if (res.msg.includes("successfully") || res.msg.includes("Running") || res.msg.includes("files")) {
+        msgTd.className = "status-success";
+      }
+    }
+    tr.appendChild(msgTd);
+    el.resultsTableBody.appendChild(tr);
+  });
+  
+  el.resultsModalFooter.textContent = action === "pull" ? `任务数据本地目录: ${rawDir}` : "";
+  
+  el.resultsModal.style.display = "flex";
+  el.resultsModalCloseBtn.onclick = () => {
+    el.resultsModal.style.display = "none";
+  };
+}
+
 async function runExecutionAction(action, task) {
   const requestTask = normalizeExecutionTaskForRequest(task);
   if (requestTask.hosts.length === 0) {
@@ -522,20 +558,26 @@ async function runExecutionAction(action, task) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, task: requestTask }),
     });
-    const result = await res.text();
+    
     if (res.status === 409) {
-      alert(result);
+      const errorMsg = await res.text();
+      alert(errorMsg);
       throw new Error("任务冲突");
     }
-    if (!res.ok) throw new Error(result);
-    
-    const trimResult = result.trim();
-    if (action === "status" || action === "pull") {
-      const actionName = action === "status" ? "状态检查" : "数据收集";
-      alert(`任务 "${requestTask.name}" ${actionName}结果：\n\n${trimResult}`);
+
+    if (!res.ok) {
+      const errorMsg = await res.text();
+      throw new Error(errorMsg);
     }
     
-    appendLog(trimResult);
+    if (action === "status" || action === "pull") {
+      const data = await res.json();
+      showResultsModal(data);
+      appendLog(`任务 "${requestTask.name}" ${action === "status" ? "状态检查" : "数据收集"}完成`);
+    } else {
+      const result = await res.text();
+      appendLog(result.trim());
+    }
     await fetchExecutionTaskLog(task.id);
     await loadAnalysisData(false);
     renderExecutionTasks();
@@ -726,6 +768,13 @@ const el = {
   modalInput: document.getElementById("modalInput"),
   modalConfirmBtn: document.getElementById("modalConfirmBtn"),
   modalCancelBtn: document.getElementById("modalCancelBtn"),
+  
+  // Results Modal
+  resultsModal: document.getElementById("resultsModal"),
+  resultsModalTitle: document.getElementById("resultsModalTitle"),
+  resultsTableBody: document.getElementById("resultsTableBody"),
+  resultsModalFooter: document.getElementById("resultsModalFooter"),
+  resultsModalCloseBtn: document.getElementById("resultsModalCloseBtn"),
 };
 
 let autoSaveTimer = null;
@@ -1528,6 +1577,17 @@ function init() {
     el.configFilename.value = savedFilename;
     if (el.currentFilenameDisplay) el.currentFilenameDisplay.textContent = savedFilename;
   }
+  
+  // Close modal when clicking overlay
+  window.onclick = (event) => {
+    if (event.target === el.resultsModal) {
+      el.resultsModal.style.display = "none";
+    }
+    if (event.target === el.customPromptModal) {
+      el.customPromptModal.style.display = "none";
+    }
+  };
+
   bindHeaderEvents();
   renderAll();
   refreshPreview(state.config);

@@ -586,6 +586,33 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 		output.WriteString(fmt.Sprintf("任务数据目录: %s\n", taskRawDataDir(task.ID)))
 	}
 	appendTaskExecutionLog(task, output.String())
+
+	// 如果是 status 或 pull，返回 JSON 格式以便前端渲染表格
+	if req.Action == "status" || req.Action == "pull" {
+		type resultJSON struct {
+			Host  string `json:"host"`
+			Error string `json:"error,omitempty"`
+			Msg   string `json:"msg"`
+		}
+		var resultsList []resultJSON
+		for _, res := range results {
+			r := resultJSON{Host: res.Host, Msg: res.Msg}
+			if res.Error != nil {
+				r.Error = res.Error.Error()
+			}
+			resultsList = append(resultsList, r)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"taskName": task.Name,
+			"action":   req.Action,
+			"results":  resultsList,
+			"rawDir":   taskRawDataDir(task.ID),
+		})
+		return
+	}
+
 	w.Write([]byte(output.String()))
 }
 

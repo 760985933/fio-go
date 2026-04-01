@@ -117,20 +117,19 @@ body {
 }
 
 .modal-container {
-  background: white;
-  padding: 24px;
-  border-radius: 12px;
-  width: 400px;
-  max-width: 90%;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  background: var(--panel); border-radius: 20px; padding: 24px;
+  width: 90%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
+.modal-container.wide { max-width: 800px; }
+.modal-content-scroll { max-height: 60vh; overflow-y: auto; margin: 15px 0; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 10px;
-}
+.results-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+.results-table th, .results-table td { border: 1px solid var(--border); padding: 10px; text-align: left; }
+.results-table th { background: #f8f8f3; color: var(--muted); font-weight: 600; }
+.results-table tr:nth-child(even) { background: #fafaf5; }
+.results-table .status-success { color: #1a7f37; font-weight: 500; }
+.results-table .status-error { color: var(--danger); font-weight: 500; }
 
 .execution-task-list {
   display: flex;
