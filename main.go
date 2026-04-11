@@ -19,7 +19,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Version: 1.0.0\n")
 		fmt.Fprintf(os.Stderr, "Usage: %s [data_dir] [report_dir]\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "       %s -data <dir> -output-dir <dir>\n", os.Args[0])
-		fmt.Fprintf(os.Stderr, "       %s -web -port 8080\n\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "       %s -web -port 8080 (Default when no arguments are provided)\n\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		flag.PrintDefaults()
 	}
@@ -29,6 +29,11 @@ func main() {
 	webMode := flag.Bool("web", false, "Run in web GUI mode")
 	port := flag.Int("port", 8080, "Port for web GUI server")
 	flag.Parse()
+
+	// If no arguments provided (only program name), default to web mode
+	if len(os.Args) == 1 {
+		*webMode = true
+	}
 
 	if *webMode {
 		if err := web.StartServer(*port); err != nil {
