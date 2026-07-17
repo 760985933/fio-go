@@ -10,10 +10,10 @@
     "name": "fio-go"
   },
   "info": {
-    "companyName": "fio-go",
+    "companyName": "nettopo.com",
     "productName": "FIO 性能测试工具",
-    "productVersion": "1.0.0",
-    "copyright": "2024",
+    "productVersion": "1.0.3",
+    "copyright": "2026",
     "comments": "FIO 磁盘性能测试管理工具"
   }
 }

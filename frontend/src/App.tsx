@@ -50,7 +50,7 @@ function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>FIO 测试工具</h1>
+        <h1>FIO 测试工具 <span className="app-version">v1.0.3</span></h1>
         <div className="header-actions">
           <button className="btn btn-outline btn-sm" onClick={handleExportConfig}>导出配置</button>
         </div>
