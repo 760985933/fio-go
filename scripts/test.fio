@@ -1,0 +1,26 @@
+[global]
+runtime=10
+ramp_time=10
+filename=/dev/vdb
+
+[sec0_4k_randread_iodepth64]
+bs=4k
+rw=randread
+iodepth=64
+numjobs=2
+thread=1
+direct=1
+overwrite=1
+ioengine=libaio
+time_based=1
+norandommap=1
+randrepeat=0
+log_avg_msec=500
+stonewall=1
+group_reporting=1
+cpus_allowed_policy=split
+write_bw_log=/tmp/fio/data/logs/0_4k_randread_iodepth64_bw.log
+write_lat_log=/tmp/fio/data/logs/0_4k_randread_iodepth64_lat.log
+write_iops_log=/tmp/fio/data/logs/0_4k_randread_iodepth64_iops.log
+
+# FIO_CONFIG_JSON: {"global":{"runtime":"10","ramp_time":"10","filename":"/dev/vdb"},"jobs":[{"bs":"4k","bs_k":4,"rw":"randread","iodepth":64,"numjobs":2,"thread":"1","direct":"1","overwrite":"1","ioengine":"libaio","time_based":"1","norandommap":"1","randrepeat":"0","log_avg_msec":"500","stonewall":"1","group_reporting":"1","cpus_allowed_policy":"split","write_bw_log":"/tmp/fio/data/logs/0_4k_randread_iodepth64_bw.log","write_lat_log":"/tmp/fio/data/logs/0_4k_randread_iodepth64_lat.log","write_iops_log":"/tmp/fio/data/logs/0_4k_randread_iodepth64_iops.log"}]}

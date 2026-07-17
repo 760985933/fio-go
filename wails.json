@@ -1,0 +1,19 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "fio-go",
+  "outputfilename": "fio-go",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "fio-go"
+  },
+  "info": {
+    "companyName": "fio-go",
+    "productName": "FIO 性能测试工具",
+    "productVersion": "1.0.0",
+    "copyright": "2024",
+    "comments": "FIO 磁盘性能测试管理工具"
+  }
+}

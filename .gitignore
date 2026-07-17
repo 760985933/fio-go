@@ -1,19 +1,34 @@
 # OS generated files
 .DS_Store
-**/ .DS_Store
+**/.DS_Store
 
-# Binaries
+# Compiled binaries
 fio-go
+fio-go.exe
+*.exe
 
-# Reports and generated outputs
-output/fio_report.html
-output/fio_summary.xlsx
-output/echarts.min.js
+# Build output
+build/bin/
+build/darwin/
+build/windows/
 
-# Legacy files
-旧的前端和调用fio脚本/
-scripts/test.fio
-fio-go
+# Frontend build artifacts
+frontend/dist/
+frontend/node_modules/
 
-# Node.js dependencies
-node_modules/
+# Runtime data (user-generated)
+data/tasks/
+output/
+
+# FIO scripts (user-generated)
+scripts/execution_tasks.json
+scripts/orchestration_config.json
+
+# Audit log
+data/audit.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
