@@ -65,6 +65,8 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
     try {
       const text = editMode === 'raw' ? rawText : generateFioText(config, true)
       await App.SaveScript(configName, text)
+      // 同时保存结构化配置到 SQLite
+      await App.SaveScriptConfig(configName, JSON.stringify(config))
       setSaveStatus('saved')
       onAudit('保存配置', `配置: ${configName}`)
       loadScripts()
@@ -86,8 +88,21 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
 
   const loadFromServer = async (name: string) => {
     try {
+      // 优先从 SQLite 加载结构化配置
+      const configJSON = await App.GetScriptConfig(name)
+      if (configJSON) {
+        const parsed = JSON.parse(configJSON)
+        if (parsed.global && parsed.jobs) {
+          onConfigChange(parsed)
+          onConfigNameChange(name.replace('.fio', ''))
+          const content = await App.GetScriptContent(name)
+          setRawText(content)
+          onAudit('加载配置', `配置: ${name}`)
+          return
+        }
+      }
+      // 回退：从脚本文本中提取 JSON 注释
       const content = await App.GetScriptContent(name)
-      // Try to extract JSON from comment
       const jsonMatch = content.match(/# FIO_CONFIG_JSON: ({.*})/)
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[1])
@@ -99,7 +114,7 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
           return
         }
       }
-      // Non-JSON script: preserve raw content
+      // 纯文本脚本
       setRawText(content)
       onConfigNameChange(name.replace('.fio', ''))
       onAudit('加载配置 (文本)', `配置: ${name}`)
@@ -111,6 +126,7 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
   const deleteFromServer = async (name: string) => {
     try {
       await App.DeleteScript(name)
+      await App.DeleteScriptConfig(name)
       onAudit('删除配置', `配置: ${name}`)
       loadScripts()
     } catch (err) {

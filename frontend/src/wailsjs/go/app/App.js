@@ -17,6 +17,18 @@ export function DeleteScript(name) {
     return window['go']['app']['App']['DeleteScript'](name);
 }
 
+export function SaveScriptConfig(scriptName, configJSON) {
+    return window['go']['app']['App']['SaveScriptConfig'](scriptName, configJSON);
+}
+
+export function GetScriptConfig(scriptName) {
+    return window['go']['app']['App']['GetScriptConfig'](scriptName);
+}
+
+export function DeleteScriptConfig(scriptName) {
+    return window['go']['app']['App']['DeleteScriptConfig'](scriptName);
+}
+
 export function GetExecutionTasks() {
     return window['go']['app']['App']['GetExecutionTasks']();
 }

@@ -61,7 +61,7 @@ export function ExecutionManager({ scriptName, onScriptNameChange, onAudit, onSh
     }
   }
 
-  const testConnectivity = async (host: HostConfig) => {
+  const testConnectivity = async (host: HostRecord) => {
     const [ok, msg] = await App.CheckConnectivity(host)
     if (ok) {
       await onShowResults('连通性测试', `主机 ${host.host} 连接成功:\n${msg}`)

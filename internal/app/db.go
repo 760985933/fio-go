@@ -52,6 +52,15 @@ func initDB(db *sql.DB) error {
 			UNIQUE(host, port, user)
 		)
 	`)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS script_configs (
+			script_name TEXT PRIMARY KEY,
+			config      TEXT NOT NULL
+		)
+	`)
 	return err
 }
 
@@ -109,4 +118,26 @@ func dbUpdateHost(db *sql.DB, id int, cfg executor.HostConfig) error {
 		return fmt.Errorf("主机记录不存在 (id=%d)", id)
 	}
 	return nil
+}
+
+func dbSaveScriptConfig(db *sql.DB, scriptName, configJSON string) error {
+	_, err := db.Exec(
+		`INSERT OR REPLACE INTO script_configs (script_name, config) VALUES (?, ?)`,
+		scriptName, configJSON,
+	)
+	return err
+}
+
+func dbGetScriptConfig(db *sql.DB, scriptName string) (string, error) {
+	var config string
+	err := db.QueryRow(`SELECT config FROM script_configs WHERE script_name = ?`, scriptName).Scan(&config)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return config, err
+}
+
+func dbDeleteScriptConfig(db *sql.DB, scriptName string) error {
+	_, err := db.Exec(`DELETE FROM script_configs WHERE script_name = ?`, scriptName)
+	return err
 }

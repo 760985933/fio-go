@@ -126,6 +126,30 @@ func (a *App) DeleteScript(name string) error {
 	return os.Remove(filepath.Join("scripts", safeName))
 }
 
+// SaveScriptConfig 保存脚本的结构化配置到 SQLite
+func (a *App) SaveScriptConfig(scriptName, configJSON string) error {
+	if a.db == nil {
+		return fmt.Errorf("数据库未初始化")
+	}
+	return dbSaveScriptConfig(a.db, scriptName, configJSON)
+}
+
+// GetScriptConfig 从 SQLite 获取脚本的结构化配置
+func (a *App) GetScriptConfig(scriptName string) (string, error) {
+	if a.db == nil {
+		return "", fmt.Errorf("数据库未初始化")
+	}
+	return dbGetScriptConfig(a.db, scriptName)
+}
+
+// DeleteScriptConfig 删除脚本的结构化配置
+func (a *App) DeleteScriptConfig(scriptName string) error {
+	if a.db == nil {
+		return fmt.Errorf("数据库未初始化")
+	}
+	return dbDeleteScriptConfig(a.db, scriptName)
+}
+
 // ========== 执行任务管理 ==========
 
 type ExecutionTaskConfig struct {
