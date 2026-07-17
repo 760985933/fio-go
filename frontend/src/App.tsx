@@ -12,7 +12,8 @@ import * as WailsApp from './wailsjs/go/app/App'
 
 const DEFAULT_CONFIG: FioConfig = {
   global: { filename: '/dev/vdb', runtime: 180, ramp_time: 30, ioengine: 'libaio' },
-  jobs: [{ bs: 4, rw: 'read', iodepth: 32, numjobs: 1 }],
+  logging: { enabled: true, log_avg_msec: 500, write_bw_log: true, write_lat_log: true, write_iops_log: true },
+  jobs: [{ bs: 4, rw: 'read', iodepth: 32, numjobs: 1, direct: true, thread: true }],
 }
 
 const TABS = [

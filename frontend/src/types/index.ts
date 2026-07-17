@@ -18,6 +18,19 @@ export interface FioJob {
   rwmixread?: number
   iodepth: number
   numjobs: number
+  direct: boolean
+  thread: boolean
+  fsync?: number
+  iodepth_batch?: number
+  rate_iops?: number
+}
+
+export interface FioLogging {
+  enabled: boolean
+  log_avg_msec: number
+  write_bw_log: boolean
+  write_lat_log: boolean
+  write_iops_log: boolean
 }
 
 export interface FioConfig {
@@ -26,6 +39,9 @@ export interface FioConfig {
     runtime: number
     ramp_time: number
     ioengine: string
+    size?: string
+    directory?: string
   }
+  logging: FioLogging
   jobs: FioJob[]
 }
