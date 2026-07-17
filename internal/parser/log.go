@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"fio-go/models"
+	"fio-go/internal/models"
 )
 
 var logRe = regexp.MustCompile(`^(\d+)_([^_]+)_([A-Za-z]+)_iodepth(\d+)_(.*)$`)

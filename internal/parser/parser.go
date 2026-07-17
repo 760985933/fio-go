@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"fio-go/models"
+	"fio-go/internal/models"
 )
 
 type FioJob map[string]interface{}

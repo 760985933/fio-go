@@ -15,9 +15,9 @@ import (
 	"strings"
 	"time"
 
-	"fio-go/executor"
-	"fio-go/parser"
-	"fio-go/report"
+	"fio-go/internal/executor"
+	"fio-go/internal/parser"
+	"fio-go/internal/report"
 )
 
 //go:embed frontend/*

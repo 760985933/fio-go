@@ -3,42 +3,225 @@ name: Release
 on:
   push:
     tags:
-      - 'v*' # 当推送以 v 开头的 tag 时触发，例如 v1.0.0
+      - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
-  release:
+  # ==================== CLI 模式编译 ====================
+  build-cli:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.25'
 
-      - name: Build for Linux
-        run: GOOS=linux GOARCH=amd64 go build -v -o fio-go-linux-amd64 main.go
+      - name: Build CLI binaries
+        run: |
+          GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o fio-go-cli-linux-amd64       ./cmd/cli/
+          GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o fio-go-cli-darwin-amd64      ./cmd/cli/
+          GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o fio-go-cli-darwin-arm64      ./cmd/cli/
+          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o fio-go-cli-windows-amd64.exe ./cmd/cli/
 
-      - name: Build for macOS (Intel)
-        run: GOOS=darwin GOARCH=amd64 go build -v -o fio-go-darwin-amd64 main.go
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-binaries
+          path: fio-go-cli-*
 
-      - name: Build for macOS (Apple Silicon)
-        run: GOOS=darwin GOARCH=arm64 go build -v -o fio-go-darwin-arm64 main.go
+  # ==================== Desktop 模式编译 (Wails) ====================
+  build-desktop-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Build for Windows
-        run: GOOS=windows GOARCH=amd64 go build -v -o fio-go-windows-amd64.exe main.go
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
 
-      - name: Release
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build macOS universal
+        run: |
+          wails build -platform darwin/universal -trimpath -ldflags="-s -w" -o fio-go-desktop
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-macos
+          path: build/bin/fio-go-desktop*
+
+  build-desktop-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build Windows
+        run: wails build -trimpath -ldflags="-s -w" -o fio-go-desktop.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-windows
+          path: build/bin/fio-go-desktop.exe
+
+  build-desktop-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wails dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build Linux
+        run: wails build -trimpath -ldflags="-s -w" -o fio-go-desktop
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-linux
+          path: build/bin/fio-go-desktop
+
+  # ==================== 发布 ====================
+  release:
+    needs: [build-cli, build-desktop-macos, build-desktop-windows, build-desktop-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          # CLI binaries
+          cp artifacts/cli-binaries/* release/
+          # Desktop apps
+          cp artifacts/desktop-macos/* release/ 2>/dev/null || true
+          cp artifacts/desktop-windows/* release/ 2>/dev/null || true
+          cp artifacts/desktop-linux/* release/ 2>/dev/null || true
+          chmod +x release/fio-go-*
+
+      - name: Create Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: |
-            fio-go-linux-amd64
-            fio-go-darwin-amd64
-            fio-go-darwin-arm64
-            fio-go-windows-amd64.exe
+          generate_release_notes: true
+          body: |
+            ## FIO 性能测试工具 ${{ github.ref_name }}
+
+            ---
+
+            ### 下载说明
+
+            | 文件 | 平台 | 说明 |
+            |------|------|------|
+            | `fio-go-cli-linux-amd64` | Linux | CLI 模式，命令行直接运行 |
+            | `fio-go-cli-darwin-amd64` | macOS Intel | CLI 模式 |
+            | `fio-go-cli-darwin-arm64` | macOS Apple Silicon | CLI 模式 |
+            | `fio-go-cli-windows-amd64.exe` | Windows | CLI 模式 |
+            | `fio-go-desktop` (macOS) | macOS Universal | 桌面 GUI 应用，双击运行 |
+            | `fio-go-desktop.exe` | Windows | 桌面 GUI 应用，双击运行 |
+            | `fio-go-desktop` (Linux) | Linux amd64 | 桌面 GUI 应用 |
+
+            ---
+
+            ### CLI 模式使用
+
+            ```bash
+            # 直接分析数据并生成报告
+            ./fio-go-cli -data /path/to/fio/data -output-dir ./output
+
+            # 启动 Web 管理界面 (默认端口 8080)
+            ./fio-go-cli -web -port 8080
+
+            # 无参数时默认启动 Web 模式
+            ./fio-go-cli
+            ```
+
+            **参数说明：**
+            - `-data`: FIO JSON 数据所在目录（默认 `./data`）
+            - `-output-dir`: 报告输出目录（默认 `./output`）
+            - `-web`: 启动 Web GUI 模式
+            - `-port`: Web 服务端口（默认 8080）
+
+            ---
+
+            ### Desktop 桌面模式使用
+
+            1. 下载对应平台的桌面应用
+            2. macOS: 双击 `fio-go-desktop` 运行（首次可能需要在「系统偏好设置 → 安全性」中允许）
+            3. Windows: 双击 `fio-go-desktop.exe` 运行
+            4. Linux: `chmod +x fio-go-desktop && ./fio-go-desktop`
+
+            **桌面模式功能：**
+            - FIO 配置可视化编辑器
+            - 远程主机 SSH 管理与任务执行
+            - 测试结果自动拉取与报告生成
+            - 任务编排（多场景顺序执行）
+
+            ---
+
+            ### 前置要求
+
+            - **CLI/Web 模式**: 目标机器需安装 [FIO](https://github.com/axboe/fio)
+            - **远程执行**: 需要 SSH 密钥或密码认证
+            - **桌面模式**: 无需额外依赖，开箱即用
+
+            ---
+
+            ### 从源码编译
+
+            ```bash
+            # CLI 模式
+            go build -o fio-go ./cmd/cli/
+
+            # Desktop 模式 (需要 Wails CLI)
+            go install github.com/wailsapp/wails/v2/cmd/wails@latest
+            cd frontend && npm install && cd ..
+            wails build
+            ```
+          files: release/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

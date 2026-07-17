@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"context"
@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"fio-go/executor"
-	"fio-go/parser"
-	"fio-go/report"
+	"fio-go/internal/executor"
+	"fio-go/internal/parser"
+	"fio-go/internal/report"
 )
 
 // App 主应用结构，其导出方法将暴露给前端
@@ -25,8 +25,8 @@ func NewApp() *App {
 	return &App{}
 }
 
-// startup 在应用启动时调用
-func (a *App) startup(ctx context.Context) {
+// Startup 在应用启动时调用
+func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 }
 

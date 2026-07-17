@@ -6,8 +6,8 @@ import (
         "strings"
 
         "github.com/xuri/excelize/v2"
-        "fio-go/models"
-        "fio-go/parser"
+        "fio-go/internal/models"
+        "fio-go/internal/parser"
 )
 
 type blockData struct {

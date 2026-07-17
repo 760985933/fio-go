@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"fio-go/models"
+	"fio-go/internal/models"
 )
 
 func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, groupedRows []models.GroupedMetric, outPath string) error {

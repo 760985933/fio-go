@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"fio-go/models"
-	"fio-go/parser"
+	"fio-go/internal/models"
+	"fio-go/internal/parser"
 )
 
 func generateHtmlSummaryTables(groupedRows []models.GroupedMetric) string {
