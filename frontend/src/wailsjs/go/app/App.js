@@ -92,3 +92,15 @@ export function GetExecutionLog(taskID) {
 export function GetHostLog(taskID, hostStr) {
     return window['go']['app']['App']['GetHostLog'](taskID, hostStr);
 }
+
+export function ExecuteOrchestration(taskIDs, interval) {
+    return window['go']['app']['App']['ExecuteOrchestration'](taskIDs, interval);
+}
+
+export function CreateReportZIP(taskID) {
+    return window['go']['app']['App']['CreateReportZIP'](taskID);
+}
+
+export function GetReportHTMLWithEcharts(taskID) {
+    return window['go']['app']['App']['GetReportHTMLWithEcharts'](taskID);
+}

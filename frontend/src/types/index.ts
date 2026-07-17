@@ -7,6 +7,7 @@ export type {
   AnalysisSummary,
   OrchestrationConfig,
   AuditEntry,
+  OrchestrationProgress,
 } from '../wailsjs/go/app/App';
 
 // FIO 配置类型 (前端本地使用)

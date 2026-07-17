@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { FioConfig, FioJob } from './types'
+import { FioConfig } from './types'
 import { FioConfigEditor } from './components/FioConfigEditor'
 import { ExecutionManager } from './components/ExecutionManager'
 import { AnalysisManager } from './components/AnalysisManager'

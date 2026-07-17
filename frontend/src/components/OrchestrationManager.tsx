@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { OrchestrationProgress } from '../types'
 import * as App from '../wailsjs/go/app/App'
 
 interface Props {
@@ -11,6 +12,9 @@ export function OrchestrationManager({ onShowResults }: Props) {
   const [tasks, setTasks] = useState<{ id: string; name: string }[]>([])
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [executing, setExecuting] = useState(false)
+  const [progress, setProgress] = useState<OrchestrationProgress[]>([])
+  const [currentStep, setCurrentStep] = useState('')
 
   useEffect(() => { loadData() }, [])
 
@@ -34,6 +38,32 @@ export function OrchestrationManager({ onShowResults }: Props) {
       setTimeout(() => setSaveStatus('idle'), 2000)
     } catch {
       setSaveStatus('error')
+    }
+  }
+
+  const executeOrchestration = async () => {
+    if (taskIds.length === 0) return
+    setExecuting(true)
+    setProgress([])
+    setCurrentStep('初始化编排...')
+
+    try {
+      const result = await App.ExecuteOrchestration(taskIds, interval)
+      setProgress(result || [])
+
+      const lastStep = result?.[result.length - 1]
+      setCurrentStep(lastStep ? `${lastStep.taskName} - ${lastStep.step} ${lastStep.status}` : '完成')
+
+      await onShowResults('编排执行完成',
+        (result || []).map((p: OrchestrationProgress) =>
+          `[${p.current}/${p.total}] ${p.taskName} | ${p.step}: ${p.status}${p.error ? ' - ' + p.error : ''}`
+        ).join('\n')
+      )
+    } catch (err) {
+      await onShowResults('编排执行异常', `错误: ${err}`)
+    } finally {
+      setExecuting(false)
+      setCurrentStep('')
     }
   }
 
@@ -71,17 +101,45 @@ export function OrchestrationManager({ onShowResults }: Props) {
       <div className="panel">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h3 style={{ fontSize: 14, color: '#4f46e5' }}>执行顺序编排</h3>
-          <button className="btn btn-primary btn-sm" onClick={saveConfig}>
-            {saveStatus === 'saving' ? '保存中...' : saveStatus === 'saved' ? '已保存 ✓' : '保存配置'}
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-primary btn-sm" onClick={saveConfig} disabled={executing}>
+              {saveStatus === 'saving' ? '保存中...' : saveStatus === 'saved' ? '已保存 ✓' : '保存配置'}
+            </button>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={executeOrchestration}
+              disabled={executing || taskIds.length === 0}
+            >
+              {executing ? `执行中... ${currentStep}` : '执行编排'}
+            </button>
+          </div>
         </div>
 
         <div className="form-row" style={{ marginBottom: 16 }}>
           <div className="form-group">
             <label>任务间间隔 (秒)</label>
-            <input type="number" value={interval} onChange={(e) => setInterval_(parseInt(e.target.value) || 0)} />
+            <input type="number" value={interval} onChange={(e) => setInterval_(parseInt(e.target.value) || 0)} disabled={executing} />
           </div>
         </div>
+
+        {/* 执行进度 */}
+        {progress.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <h4 style={{ fontSize: 13, color: '#6b7280', marginBottom: 8 }}>执行进度</h4>
+            <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+              {progress.map((p, idx) => (
+                <div
+                  key={idx}
+                  className={`status-line ${p.status === 'error' ? 'status-warning' : p.status === 'running' ? '' : 'status-ok'}`}
+                  style={{ fontSize: 12 }}
+                >
+                  [{p.current}/{p.total}] {p.taskName} | {p.step}: {p.status}
+                  {p.error && ` - ${p.error}`}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 已选任务 (可拖拽排序) */}
         <h4 style={{ fontSize: 13, color: '#6b7280', marginBottom: 8 }}>
@@ -93,21 +151,22 @@ export function OrchestrationManager({ onShowResults }: Props) {
           taskIds.map((id, idx) => (
             <div
               key={id}
-              draggable
+              draggable={!executing}
               onDragStart={() => handleDragStart(idx)}
               onDragOver={(e) => handleDragOver(e, idx)}
               onDragEnd={handleDragEnd}
               className="host-item"
               style={{
-                cursor: 'grab',
+                cursor: executing ? 'not-allowed' : 'grab',
                 background: dragIdx === idx ? '#f0f0ff' : '#fff',
                 border: dragIdx === idx ? '2px solid #4f46e5' : '1px solid #e5e7eb',
+                opacity: executing ? 0.6 : 1,
               }}
             >
               <span style={{ fontSize: 14, marginRight: 8, color: '#9ca3af' }}>⠿</span>
               <span style={{ fontSize: 14, marginRight: 8, color: '#4f46e5', fontWeight: 600 }}>{idx + 1}</span>
               <span style={{ flex: 1, fontSize: 13 }}>{getTaskName(id)}</span>
-              <button className="btn btn-danger btn-sm" onClick={() => removeTask(id)}>移除</button>
+              <button className="btn btn-danger btn-sm" onClick={() => removeTask(id)} disabled={executing}>移除</button>
             </div>
           ))
         )}
@@ -123,7 +182,7 @@ export function OrchestrationManager({ onShowResults }: Props) {
               <button
                 className="btn btn-outline btn-sm"
                 onClick={() => addTask(t.id)}
-                disabled={taskIds.includes(t.id)}
+                disabled={taskIds.includes(t.id) || executing}
               >
                 {taskIds.includes(t.id) ? '已添加' : '添加'}
               </button>

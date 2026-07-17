@@ -110,11 +110,27 @@ export function ExecutionManager({ scriptName, onScriptNameChange, onAudit, onSh
       const deployResults = await App.Deploy(task.id, task.script, task.hosts)
       onAudit('部署完成', `任务: ${task.id}`)
 
-      // 3. Pull results
+      // 3. Poll until all hosts finish
+      let finished = false
+      let pollCount = 0
+      while (!finished && pollCount < 300) { // max 50 minutes
+        await new Promise(resolve => setTimeout(resolve, 10000))
+        pollCount++
+        const statusResults = await App.CheckStatus(task.id, task.hosts)
+        finished = true
+        for (const r of statusResults) {
+          if (r.msg && (r.msg.includes('Running') || r.msg.includes('running'))) {
+            finished = false
+            break
+          }
+        }
+      }
+
+      // 4. Pull results
       const pullResults = await App.PullData(task.id, task.hosts)
       onAudit('数据拉取完成', `任务: ${task.id}`)
 
-      // 4. Get logs
+      // 5. Get logs
       const log = await App.GetExecutionLog(task.id)
       setExecutionLogs(prev => [...prev, log])
 
@@ -131,18 +147,46 @@ export function ExecutionManager({ scriptName, onScriptNameChange, onAudit, onSh
   }
 
   const killTask = async (task: ExecutionTaskConfig) => {
-    setExecuting(true)
     const results = await App.KillAll(task.id, task.hosts)
     onAudit('停止任务', `任务: ${task.id}`)
     await onShowResults('停止结果',
       results.map((r: ActionResult) => `${r.host}: ${r.error ? '失败: ' + r.error : '成功'}`).join('\n')
     )
-    setExecuting(false)
   }
 
   const viewLogs = async (task: ExecutionTaskConfig) => {
     const log = await App.GetExecutionLog(task.id)
     await onShowResults(`执行日志 - ${task.id}`, log || '暂无日志')
+  }
+
+  const viewHostLogs = async (task: ExecutionTaskConfig) => {
+    const results: string[] = []
+    for (const host of task.hosts) {
+      const log = await App.GetHostLog(task.id, `${host.user}@${host.host}:${host.port}`)
+      results.push(`=== ${host.host} ===\n${log || '暂无日志'}`)
+    }
+    await onShowResults(`单机日志 - ${task.id}`, results.join('\n\n'))
+  }
+
+  const checkStatus = async (task: ExecutionTaskConfig) => {
+    const results = await App.CheckStatus(task.id, task.hosts)
+    await onShowResults('运行状态',
+      results.map((r: ActionResult) => `${r.host}: ${r.msg || (r.error ? '错误: ' + r.error : '未知')}`).join('\n')
+    )
+  }
+
+  const cleanLocal = async (task: ExecutionTaskConfig) => {
+    await App.CleanLocal(task.id)
+    onAudit('清理本地数据', `任务: ${task.id}`)
+    await onShowResults('清理完成', `已清理本地任务数据: ${task.id}`)
+  }
+
+  const cleanRemote = async (task: ExecutionTaskConfig) => {
+    const results = await App.CleanRemote(task.id, task.hosts)
+    onAudit('清理远程数据', `任务: ${task.id}`)
+    await onShowResults('清理远程结果',
+      results.map((r: ActionResult) => `${r.host}: ${r.error ? '失败: ' + r.error : '成功'}`).join('\n')
+    )
   }
 
   return (
@@ -229,11 +273,23 @@ export function ExecutionManager({ scriptName, onScriptNameChange, onAudit, onSh
                     <button className="btn btn-primary btn-sm" onClick={() => executeDeploy(task)} disabled={executing}>
                       {currentTask === task.id ? '执行中...' : '执行'}
                     </button>
-                    <button className="btn btn-danger btn-sm" onClick={() => killTask(task)} disabled={!executing}>
+                    <button className="btn btn-outline btn-sm" onClick={() => checkStatus(task)} disabled={executing}>
+                      状态
+                    </button>
+                    <button className="btn btn-danger btn-sm" onClick={() => killTask(task)}>
                       停止
                     </button>
                     <button className="btn btn-outline btn-sm" onClick={() => viewLogs(task)}>
                       日志
+                    </button>
+                    <button className="btn btn-outline btn-sm" onClick={() => viewHostLogs(task)}>
+                      单机日志
+                    </button>
+                    <button className="btn btn-outline btn-sm" onClick={() => cleanLocal(task)}>
+                      清理本地
+                    </button>
+                    <button className="btn btn-danger btn-sm" onClick={() => cleanRemote(task)}>
+                      清理远程
                     </button>
                     <button className="btn btn-danger btn-sm" onClick={() => removeTask(idx)}>
                       删除

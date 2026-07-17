@@ -17,6 +17,8 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
   const [expandedJob, setExpandedJob] = useState<number | null>(0)
   const [savedScripts, setSavedScripts] = useState<string[]>([])
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [editMode, setEditMode] = useState<'structured' | 'raw'>('structured')
+  const [rawText, setRawText] = useState('')
 
   useEffect(() => { loadScripts() }, [])
 
@@ -61,7 +63,7 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
   const saveToServer = async () => {
     setSaveStatus('saving')
     try {
-      const text = generateFioText(config, true)
+      const text = editMode === 'raw' ? rawText : generateFioText(config, true)
       await App.SaveScript(configName, text)
       setSaveStatus('saved')
       onAudit('保存配置', `配置: ${configName}`)
@@ -70,6 +72,15 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
     } catch {
       setSaveStatus('error')
       setTimeout(() => setSaveStatus('idle'), 3000)
+    }
+  }
+
+  const toggleEditMode = () => {
+    if (editMode === 'structured') {
+      setRawText(generateFioText(config, true))
+      setEditMode('raw')
+    } else {
+      setEditMode('structured')
     }
   }
 
@@ -83,11 +94,13 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
         if (parsed.global && parsed.jobs) {
           onConfigChange(parsed)
           onConfigNameChange(name.replace('.fio', ''))
+          setRawText(content)
           onAudit('加载配置', `配置: ${name}`)
           return
         }
       }
-      // Parse INI format as fallback
+      // Non-JSON script: preserve raw content
+      setRawText(content)
       onConfigNameChange(name.replace('.fio', ''))
       onAudit('加载配置 (文本)', `配置: ${name}`)
     } catch (err) {
@@ -105,7 +118,7 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
     }
   }
 
-  const previewText = generateFioText(config, true)
+  const previewText = editMode === 'raw' ? rawText : generateFioText(config, true)
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -219,10 +232,24 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
         ))}
       </div>
 
-      {/* 底部：预览 */}
+      {/* 底部：预览/编辑 */}
       <div className="panel" style={{ gridColumn: '1 / -1' }}>
-        <h3 style={{ marginBottom: 12, fontSize: 14, color: '#4f46e5' }}>FIO 配置预览</h3>
-        <pre className="code-preview">{previewText}</pre>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3 style={{ fontSize: 14, color: '#4f46e5' }}>FIO 配置 {editMode === 'raw' ? '编辑' : '预览'}</h3>
+          <button className="btn btn-outline btn-sm" onClick={toggleEditMode}>
+            {editMode === 'raw' ? '切换到结构化编辑' : '切换到原始文本编辑'}
+          </button>
+        </div>
+        {editMode === 'raw' ? (
+          <textarea
+            className="code-preview"
+            value={rawText}
+            onChange={(e) => setRawText(e.target.value)}
+            style={{ width: '100%', minHeight: 300, resize: 'vertical' }}
+          />
+        ) : (
+          <pre className="code-preview">{previewText}</pre>
+        )}
       </div>
     </div>
   )

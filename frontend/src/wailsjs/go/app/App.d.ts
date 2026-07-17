@@ -24,6 +24,9 @@ export function GetAuditLog(): Promise<AuditEntry[]>;
 export function AddAuditLog(action: string, details: string): Promise<void>;
 export function GetExecutionLog(taskID: string): Promise<string>;
 export function GetHostLog(taskID: string, hostStr: string): Promise<string>;
+export function ExecuteOrchestration(taskIDs: string[], interval: number): Promise<OrchestrationProgress[]>;
+export function CreateReportZIP(taskID: string): Promise<string>;
+export function GetReportHTMLWithEcharts(taskID: string): Promise<string>;
 
 export interface HostConfig {
     host: string;
@@ -74,4 +77,15 @@ export interface AuditEntry {
     action: string;
     details: string;
     timestamp: string;
+}
+
+export interface OrchestrationProgress {
+    taskId: string;
+    taskName: string;
+    step: string;
+    status: string;
+    error: string;
+    results: ActionResult[];
+    current: number;
+    total: number;
 }

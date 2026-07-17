@@ -30,7 +30,6 @@ export function AnalysisManager({ onAudit, onShowResults }: Props) {
     try {
       const reportPath = await App.GenerateReport(taskId)
       onAudit('生成报告', `任务: ${taskId}, 路径: ${reportPath}`)
-      // Refresh the task to update hasReport
       await loadTasks()
     } catch (err) {
       await onShowResults('报告生成失败', `错误: ${err}`)
@@ -40,11 +39,30 @@ export function AnalysisManager({ onAudit, onShowResults }: Props) {
 
   const previewReport = async (taskId: string) => {
     try {
-      const html = await App.GetReportHTML(taskId)
+      const html = await App.GetReportHTMLWithEcharts(taskId)
       setReportHtml(html)
       setSelectedReport(taskId)
     } catch (err) {
       await onShowResults('报告预览失败', `错误: ${err}`)
+    }
+  }
+
+  const downloadReport = async (taskId: string) => {
+    try {
+      const zipPath = await App.CreateReportZIP(taskId)
+      onAudit('下载报告', `任务: ${taskId}, 路径: ${zipPath}`)
+      await onShowResults('下载完成', `报告已打包到:\n${zipPath}`)
+    } catch (err) {
+      await onShowResults('下载失败', `错误: ${err}`)
+    }
+  }
+
+  const viewLog = async (taskId: string) => {
+    try {
+      const log = await App.GetExecutionLog(taskId)
+      await onShowResults(`执行日志 - ${taskId}`, log || '暂无日志')
+    } catch (err) {
+      await onShowResults('日志加载失败', `错误: ${err}`)
     }
   }
 
@@ -112,12 +130,23 @@ export function AnalysisManager({ onAudit, onShowResults }: Props) {
                     预览报告
                   </button>
                 )}
+                {task.hasReport && (
+                  <button className="btn btn-primary btn-sm" onClick={() => downloadReport(task.id)}>
+                    下载报告
+                  </button>
+                )}
+                {task.logAvailable && (
+                  <button className="btn btn-outline btn-sm" onClick={() => viewLog(task.id)}>
+                    查看日志
+                  </button>
+                )}
               </div>
             </div>
             <div style={{ marginTop: 8, fontSize: 12, color: '#6b7280', display: 'flex', gap: 16 }}>
               <span>脚本: {task.script}</span>
               <span>数据: {task.hasData ? '✓' : '✗'}</span>
               <span>报告: {task.hasReport ? '✓' : '未生成'}</span>
+              <span>日志: {task.logAvailable ? '✓' : '✗'}</span>
             </div>
           </div>
         ))

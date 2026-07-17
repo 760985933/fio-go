@@ -1,9 +1,12 @@
 package app
 
 import (
+	"archive/zip"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -619,4 +622,250 @@ func (a *App) GetHostLog(taskID, hostStr string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("未找到主机 %s", hostStr)
+}
+
+// ========== 编排执行 ==========
+
+// OrchestrationProgress 编排执行进度
+type OrchestrationProgress struct {
+	TaskID    string        `json:"taskId"`
+	TaskName  string        `json:"taskName"`
+	Step      string        `json:"step"`
+	Status    string        `json:"status"`
+	Error     string        `json:"error,omitempty"`
+	Results   []ActionResult `json:"results,omitempty"`
+	Current   int           `json:"current"`
+	Total     int           `json:"total"`
+}
+
+// ExecuteOrchestration 按顺序执行编排任务
+func (a *App) ExecuteOrchestration(taskIDs []string, interval int) ([]OrchestrationProgress, error) {
+	if len(taskIDs) == 0 {
+		return nil, fmt.Errorf("编排序列为空")
+	}
+
+	allTasks, err := a.GetExecutionTasks()
+	if err != nil {
+		return nil, err
+	}
+
+	taskMap := make(map[string]ExecutionTaskConfig)
+	for _, t := range allTasks {
+		taskMap[t.ID] = t
+	}
+
+	var progress []OrchestrationProgress
+	total := len(taskIDs)
+
+	for i, taskID := range taskIDs {
+		task, ok := taskMap[taskID]
+		if !ok {
+			progress = append(progress, OrchestrationProgress{
+				TaskID:  taskID,
+				Status:  "error",
+				Error:   fmt.Sprintf("未找到任务 %s", taskID),
+				Current: i + 1,
+				Total:   total,
+			})
+			continue
+		}
+
+		safeID := sanitizeTaskID(taskID)
+
+		// Step 1: Deploy
+		progress = append(progress, OrchestrationProgress{
+			TaskID:   safeID,
+			TaskName: task.Name,
+			Step:     "deploy",
+			Status:   "running",
+			Current:  i + 1,
+			Total:    total,
+		})
+
+		deployResults, err := a.Deploy(taskID, task.Script, task.Hosts)
+		if err != nil {
+			progress = append(progress, OrchestrationProgress{
+				TaskID:   safeID,
+				TaskName: task.Name,
+				Step:     "deploy",
+				Status:   "error",
+				Error:    err.Error(),
+				Current:  i + 1,
+				Total:    total,
+			})
+			continue
+		}
+		progress = append(progress, OrchestrationProgress{
+			TaskID:   safeID,
+			TaskName: task.Name,
+			Step:     "deploy",
+			Status:   "completed",
+			Results:  deployResults,
+			Current:  i + 1,
+			Total:    total,
+		})
+
+		// Step 2: Poll until all hosts finish
+		progress = append(progress, OrchestrationProgress{
+			TaskID:   safeID,
+			TaskName: task.Name,
+			Step:     "running",
+			Status:   "running",
+			Current:  i + 1,
+			Total:    total,
+		})
+
+		finished := false
+		for !finished {
+			time.Sleep(10 * time.Second)
+			statusResults, err := a.CheckStatus(taskID, task.Hosts)
+			if err != nil {
+				break
+			}
+			finished = true
+			for _, r := range statusResults {
+				if strings.Contains(r.Msg, "Running") || strings.Contains(r.Msg, "running") {
+					finished = false
+					break
+				}
+			}
+		}
+
+		progress = append(progress, OrchestrationProgress{
+			TaskID:   safeID,
+			TaskName: task.Name,
+			Step:     "running",
+			Status:   "completed",
+			Current:  i + 1,
+			Total:    total,
+		})
+
+		// Step 3: Pull data
+		progress = append(progress, OrchestrationProgress{
+			TaskID:   safeID,
+			TaskName: task.Name,
+			Step:     "pull",
+			Status:   "running",
+			Current:  i + 1,
+			Total:    total,
+		})
+
+		pullResults, err := a.PullData(taskID, task.Hosts)
+		if err != nil {
+			progress = append(progress, OrchestrationProgress{
+				TaskID:   safeID,
+				TaskName: task.Name,
+				Step:     "pull",
+				Status:   "error",
+				Error:    err.Error(),
+				Current:  i + 1,
+				Total:    total,
+			})
+		} else {
+			progress = append(progress, OrchestrationProgress{
+				TaskID:   safeID,
+				TaskName: task.Name,
+				Step:     "pull",
+				Status:   "completed",
+				Results:  pullResults,
+				Current:  i + 1,
+				Total:    total,
+			})
+		}
+
+		// Step 4: Wait interval (except for last task)
+		if i < total-1 && interval > 0 {
+			progress = append(progress, OrchestrationProgress{
+				TaskID:   safeID,
+				TaskName: task.Name,
+				Step:     "wait",
+				Status:   "running",
+				Current:  i + 1,
+				Total:    total,
+			})
+			time.Sleep(time.Duration(interval) * time.Second)
+			progress = append(progress, OrchestrationProgress{
+				TaskID:   safeID,
+				TaskName: task.Name,
+				Step:     "wait",
+				Status:   "completed",
+				Current:  i + 1,
+				Total:    total,
+			})
+		}
+	}
+
+	return progress, nil
+}
+
+// ========== 报告下载 ==========
+
+// CreateReportZIP 创建报告 ZIP 文件，返回文件路径
+func (a *App) CreateReportZIP(taskID string) (string, error) {
+	reportDir := taskReportDir(taskID)
+	if _, err := os.Stat(reportDir); os.IsNotExist(err) {
+		return "", fmt.Errorf("报告目录不存在: %s", reportDir)
+	}
+
+	zipPath := reportDir + ".zip"
+	zipFile, err := os.Create(zipPath)
+	if err != nil {
+		return "", err
+	}
+	defer zipFile.Close()
+
+	w := zip.NewWriter(zipFile)
+	defer w.Close()
+
+	err = filepath.Walk(reportDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return err
+		}
+		relPath, err := filepath.Rel(reportDir, path)
+		if err != nil {
+			return err
+		}
+		f, err := w.Create(relPath)
+		if err != nil {
+			return err
+		}
+		src, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer src.Close()
+		_, err = io.Copy(f, src)
+		return err
+	})
+	if err != nil {
+		os.Remove(zipPath)
+		return "", err
+	}
+
+	return zipPath, nil
+}
+
+// GetReportHTMLWithEcharts 获取报告 HTML 内容（内联 echarts）
+func (a *App) GetReportHTMLWithEcharts(taskID string) (string, error) {
+	data, err := os.ReadFile(taskReportHTMLPath(taskID))
+	if err != nil {
+		return "", err
+	}
+
+	html := string(data)
+	reportDir := taskReportDir(taskID)
+	echartsPath := filepath.Join(reportDir, "echarts.min.js")
+
+	if _, err := os.Stat(echartsPath); err == nil {
+		echartsData, err := os.ReadFile(echartsPath)
+		if err == nil {
+			b64 := base64.StdEncoding.EncodeToString(echartsData)
+			html = strings.Replace(html, `<script src="echarts.min.js"></script>`,
+				fmt.Sprintf("<script>%s</script>", string(echartsData)), 1)
+			html = strings.Replace(html, `src="echarts.min.js"`,
+				fmt.Sprintf("src=\"data:text/javascript;base64,%s\"", b64), -1)
+		}
+	}
+
+	return html, nil
 }
