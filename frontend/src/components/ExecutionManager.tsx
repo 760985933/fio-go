@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { HostConfig, ExecutionTaskConfig, CheckResult, ActionResult } from '../types'
+import { HostConfig, HostRecord, ExecutionTaskConfig, CheckResult, ActionResult } from '../types'
 import * as App from '../wailsjs/go/app/App'
 
 interface Props {
@@ -12,7 +12,7 @@ interface Props {
 export function ExecutionManager({ scriptName, onScriptNameChange, onAudit, onShowResults }: Props) {
   const [savedScripts, setSavedScripts] = useState<string[]>([])
   const [executionTasks, setExecutionTasks] = useState<ExecutionTaskConfig[]>([])
-  const [hosts, setHosts] = useState<HostConfig[]>([])
+  const [hosts, setHosts] = useState<HostRecord[]>([])
   const [activeTab, setActiveTab] = useState<'hosts' | 'tasks'>('hosts')
   const [executing, setExecuting] = useState(false)
   const [currentTask, setCurrentTask] = useState<string>('')
@@ -26,20 +26,39 @@ export function ExecutionManager({ scriptName, onScriptNameChange, onAudit, onSh
 
   const loadData = async () => {
     try {
-      const [scripts, tasks] = await Promise.all([App.GetScripts(), App.GetExecutionTasks()])
+      const [scripts, tasks, hostList] = await Promise.all([
+        App.GetScripts(),
+        App.GetExecutionTasks(),
+        App.GetHosts(),
+      ])
       setSavedScripts(scripts || [])
       setExecutionTasks(tasks || [])
+      setHosts(hostList || [])
     } catch { /* ignore */ }
   }
 
-  const addHost = () => {
+  const addHost = async () => {
     if (!newHost.host.trim()) return
-    setHosts([...hosts, { ...newHost }])
-    setNewHost({ host: '', port: 22, user: 'root', password: '' })
+    try {
+      await App.AddHost({ ...newHost })
+      setNewHost({ host: '', port: 22, user: 'root', password: '' })
+      const hostList = await App.GetHosts()
+      setHosts(hostList || [])
+      onAudit('添加主机', `主机: ${newHost.host}`)
+    } catch (err) {
+      await onShowResults('添加失败', `错误: ${err}`)
+    }
   }
 
-  const removeHost = (idx: number) => {
-    setHosts(hosts.filter((_, i) => i !== idx))
+  const removeHost = async (id: number) => {
+    try {
+      await App.DeleteHost(id)
+      const hostList = await App.GetHosts()
+      setHosts(hostList || [])
+      onAudit('删除主机', `ID: ${id}`)
+    } catch (err) {
+      await onShowResults('删除失败', `错误: ${err}`)
+    }
   }
 
   const testConnectivity = async (host: HostConfig) => {
@@ -67,7 +86,7 @@ export function ExecutionManager({ scriptName, onScriptNameChange, onAudit, onSh
       id: `task_${Date.now()}`,
       name: scriptName,
       script: scriptName,
-      hosts: [...hosts],
+      hosts: hosts.map(h => ({ host: h.host, port: h.port, user: h.user, password: h.password })),
     }
     setExecutionTasks([...executionTasks, task])
     App.SaveExecutionTasks([...executionTasks, task]).catch(() => {})
@@ -234,13 +253,13 @@ export function ExecutionManager({ scriptName, onScriptNameChange, onAudit, onSh
           {hosts.length > 0 && (
             <div className="panel" style={{ marginTop: 12 }}>
               <h3 style={{ marginBottom: 12, fontSize: 14, color: '#4f46e5' }}>已添加主机 ({hosts.length})</h3>
-              {hosts.map((h, idx) => (
-                <div key={idx} className="host-item">
+              {hosts.map((h) => (
+                <div key={h.id} className="host-item">
                   <span style={{ flex: 1, fontSize: 13 }}>
                     {h.user}@{h.host}:{h.port}
                   </span>
                   <button className="btn btn-outline btn-sm" onClick={() => testConnectivity(h)}>测试</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => removeHost(idx)}>删除</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => removeHost(h.id)}>删除</button>
                 </div>
               ))}
             </div>

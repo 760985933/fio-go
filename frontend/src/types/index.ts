@@ -1,6 +1,7 @@
 // Re-export Wails binding types as the canonical types
 export type {
   HostConfig,
+  HostRecord,
   ExecutionTaskConfig,
   CheckResult,
   ActionResult,

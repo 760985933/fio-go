@@ -3,6 +3,7 @@ package app
 import (
 	"archive/zip"
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 // App 主应用结构，其导出方法将暴露给前端
 type App struct {
 	ctx context.Context
+	db  *sql.DB
 }
 
 // 新建 App 实例
@@ -31,6 +33,18 @@ func NewApp() *App {
 // Startup 在应用启动时调用
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
+	db, err := openDB()
+	if err == nil {
+		initDB(db)
+		a.db = db
+	}
+}
+
+// Shutdown 在应用关闭时调用
+func (a *App) Shutdown(ctx context.Context) {
+	if a.db != nil {
+		a.db.Close()
+	}
 }
 
 // ========== 脚本管理 ==========
@@ -257,6 +271,49 @@ func (a *App) CheckConnectivity(host executor.HostConfig) (bool, string) {
 		return false, err.Error()
 	}
 	return true, "连接成功"
+}
+
+// ========== 主机管理 (SQLite 持久化) ==========
+
+// AddHost 添加主机到数据库
+func (a *App) AddHost(host executor.HostConfig) (int64, error) {
+	if a.db == nil {
+		return 0, fmt.Errorf("数据库未初始化")
+	}
+	host.Port = normalizedPort(host.Port)
+	return dbAddHost(a.db, host)
+}
+
+// GetHosts 获取所有持久化主机
+func (a *App) GetHosts() ([]HostRecord, error) {
+	if a.db == nil {
+		return nil, fmt.Errorf("数据库未初始化")
+	}
+	return dbGetHosts(a.db)
+}
+
+// DeleteHost 删除指定主机
+func (a *App) DeleteHost(id int) error {
+	if a.db == nil {
+		return fmt.Errorf("数据库未初始化")
+	}
+	return dbDeleteHost(a.db, id)
+}
+
+// UpdateHost 更新主机信息
+func (a *App) UpdateHost(id int, host executor.HostConfig) error {
+	if a.db == nil {
+		return fmt.Errorf("数据库未初始化")
+	}
+	host.Port = normalizedPort(host.Port)
+	return dbUpdateHost(a.db, id, host)
+}
+
+func normalizedPort(port int) int {
+	if port <= 0 {
+		return 22
+	}
+	return port
 }
 
 // PreDeployCheck 部署前检查

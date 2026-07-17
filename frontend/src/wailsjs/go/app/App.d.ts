@@ -28,7 +28,20 @@ export function ExecuteOrchestration(taskIDs: string[], interval: number): Promi
 export function CreateReportZIP(taskID: string): Promise<string>;
 export function GetReportHTMLWithEcharts(taskID: string): Promise<string>;
 
+export function AddHost(host: HostConfig): Promise<number>;
+export function GetHosts(): Promise<HostRecord[]>;
+export function DeleteHost(id: number): Promise<void>;
+export function UpdateHost(id: number, host: HostConfig): Promise<void>;
+
 export interface HostConfig {
+    host: string;
+    port: number;
+    user: string;
+    password: string;
+}
+
+export interface HostRecord {
+    id: number;
     host: string;
     port: number;
     user: string;

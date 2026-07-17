@@ -104,3 +104,19 @@ export function CreateReportZIP(taskID) {
 export function GetReportHTMLWithEcharts(taskID) {
     return window['go']['app']['App']['GetReportHTMLWithEcharts'](taskID);
 }
+
+export function AddHost(host) {
+    return window['go']['app']['App']['AddHost'](host);
+}
+
+export function GetHosts() {
+    return window['go']['app']['App']['GetHosts']();
+}
+
+export function DeleteHost(id) {
+    return window['go']['app']['App']['DeleteHost'](id);
+}
+
+export function UpdateHost(id, host) {
+    return window['go']['app']['App']['UpdateHost'](id, host);
+}
