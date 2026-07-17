@@ -17,8 +17,8 @@ const DEFAULT_CONFIG: FioConfig = {
 }
 
 const TABS = [
-  { id: 'editor', label: '配置编辑', icon: '⚙' },
-  { id: 'execution', label: '执行管理', icon: '▶' },
+  { id: 'editor', label: '配置编辑', icon: '⚙️' },
+  { id: 'execution', label: '执行管理', icon: '▶️' },
   { id: 'analysis', label: '分析报告', icon: '📊' },
   { id: 'orchestration', label: '编排', icon: '📋' },
   { id: 'audit', label: '审计', icon: '📝' },
@@ -51,7 +51,29 @@ function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>FIO 测试工具 <span className="app-version">v1.0.3</span></h1>
+        <div className="header-left">
+          <svg className="header-icon" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="appGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style={{ stopColor: '#667eea' }} />
+                <stop offset="100%" style={{ stopColor: '#764ba2' }} />
+              </linearGradient>
+            </defs>
+            <rect width="32" height="32" rx="6" fill="url(#appGrad)" />
+            <g fill="white">
+              <circle cx="8" cy="8" r="2" />
+              <circle cx="24" cy="8" r="2" />
+              <circle cx="8" cy="24" r="2" />
+              <circle cx="24" cy="24" r="2" />
+              <circle cx="16" cy="16" r="2.5" />
+              <line x1="8" y1="8" x2="16" y2="16" stroke="white" strokeWidth="1.5" />
+              <line x1="24" y1="8" x2="16" y2="16" stroke="white" strokeWidth="1.5" />
+              <line x1="8" y1="24" x2="16" y2="16" stroke="white" strokeWidth="1.5" />
+              <line x1="24" y1="24" x2="16" y2="16" stroke="white" strokeWidth="1.5" />
+            </g>
+          </svg>
+          <h1>FIO 测试工具 <span className="app-version">v1.0.3</span></h1>
+        </div>
         <div className="header-actions">
           <button className="btn btn-outline btn-sm" onClick={handleExportConfig}>导出配置</button>
         </div>
