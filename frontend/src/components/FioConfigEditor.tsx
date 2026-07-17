@@ -57,6 +57,7 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
   const [showAdvanced, setShowAdvanced] = useState<Record<number, boolean>>({})
 
   const cfg = ensureConfig(config)
+  const log = cfg.logging ?? DEFAULT_LOGGING
 
   useEffect(() => { loadScripts() }, [])
 
@@ -72,7 +73,7 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
   }
 
   const updateLogging = (key: string, value: any) => {
-    onConfigChange({ ...cfg, logging: { ...cfg.logging, [key]: value } })
+    onConfigChange({ ...cfg, logging: { ...cfg.logging, [key]: value } as any })
   }
 
   const addJob = () => {
@@ -276,33 +277,33 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
             <>
               <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 8 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={cfg.logging.enabled}
+                  <input type="checkbox" checked={log.enabled}
                     onChange={(e) => updateLogging('enabled', e.target.checked)} />
                   启用日志
                 </label>
               </div>
-              {cfg.logging.enabled && (
+              {log.enabled && (
                 <>
                   <div className="form-row">
                     <div className="form-group">
                       <label>采样间隔 (ms)</label>
-                      <input type="number" value={cfg.logging.log_avg_msec}
+                      <input type="number" value={log.log_avg_msec}
                         onChange={(e) => updateLogging('log_avg_msec', parseInt(e.target.value) || 500)} />
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 16 }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                      <input type="checkbox" checked={cfg.logging.write_bw_log}
+                      <input type="checkbox" checked={log.write_bw_log}
                         onChange={(e) => updateLogging('write_bw_log', e.target.checked)} />
                       带宽日志
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                      <input type="checkbox" checked={cfg.logging.write_lat_log}
+                      <input type="checkbox" checked={log.write_lat_log}
                         onChange={(e) => updateLogging('write_lat_log', e.target.checked)} />
                       延迟日志
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                      <input type="checkbox" checked={cfg.logging.write_iops_log}
+                      <input type="checkbox" checked={log.write_iops_log}
                         onChange={(e) => updateLogging('write_iops_log', e.target.checked)} />
                       IOPS 日志
                     </label>

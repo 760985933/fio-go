@@ -42,6 +42,6 @@ export interface FioConfig {
     size?: string
     directory?: string
   }
-  logging: FioLogging
+  logging?: FioLogging
   jobs: FioJob[]
 }

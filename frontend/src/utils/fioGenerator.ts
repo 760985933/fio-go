@@ -50,11 +50,12 @@ export function generateFioText(config: FioConfig, includeJsonComment: boolean =
     lines.push('norandommap=1')
     lines.push('randrepeat=0')
     // Logging
-    if (config.logging.enabled) {
-      lines.push(`log_avg_msec=${config.logging.log_avg_msec}`)
-      if (config.logging.write_bw_log) lines.push(`write_bw_log=${jobName}`)
-      if (config.logging.write_lat_log) lines.push(`write_lat_log=${jobName}`)
-      if (config.logging.write_iops_log) lines.push(`write_iops_log=${jobName}`)
+    const log = config.logging
+    if (log?.enabled) {
+      lines.push(`log_avg_msec=${log.log_avg_msec}`)
+      if (log.write_bw_log) lines.push(`write_bw_log=${jobName}`)
+      if (log.write_lat_log) lines.push(`write_lat_log=${jobName}`)
+      if (log.write_iops_log) lines.push(`write_iops_log=${jobName}`)
     }
     lines.push('')
   })
