@@ -7,6 +7,7 @@ require (
 	github.com/wailsapp/wails/v2 v2.13.0
 	github.com/xuri/excelize/v2 v2.10.1
 	golang.org/x/crypto v0.51.0
+	modernc.org/sqlite v1.54.0
 )
 
 require (
@@ -49,5 +50,4 @@ require (
 	modernc.org/libc v1.74.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.54.0 // indirect
 )
