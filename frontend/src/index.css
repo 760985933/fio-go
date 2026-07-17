@@ -725,6 +725,24 @@ body {
   color: var(--text);
 }
 
+/* ---- Two Column Layout ---- */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.two-col > .col-left,
+.two-col > .col-right {
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ---- Responsive ---- */
 @media (max-width: 768px) {
   .app {
