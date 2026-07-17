@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { FioConfig, FioJob, FioLogging } from '../types'
+import { FioConfig, FioConfigReady, FioJob, FioLogging, FioLoggingKey } from '../types'
 import { generateFioText } from '../utils/fioGenerator'
 import * as App from '../wailsjs/go/app/App'
 
@@ -30,7 +30,7 @@ const DEFAULT_JOB: FioJob = { bs: 4, rw: 'read', iodepth: 32, numjobs: 1, direct
 
 const DEFAULT_LOGGING: FioLogging = { enabled: true, log_avg_msec: 500, write_bw_log: true, write_lat_log: true, write_iops_log: true }
 
-function ensureConfig(config: FioConfig): FioConfig {
+function ensureConfig(config: FioConfig): FioConfigReady {
   return {
     ...config,
     global: { ...config.global },
@@ -57,7 +57,7 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
   const [showAdvanced, setShowAdvanced] = useState<Record<number, boolean>>({})
 
   const cfg = ensureConfig(config)
-  const log = cfg.logging ?? DEFAULT_LOGGING
+  const log = cfg.logging
 
   useEffect(() => { loadScripts() }, [])
 
@@ -72,8 +72,8 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
     onConfigChange({ ...cfg, global: { ...cfg.global, [key]: value } })
   }
 
-  const updateLogging = (key: string, value: any) => {
-    onConfigChange({ ...cfg, logging: { ...cfg.logging, [key]: value } as any })
+  const updateLogging = <K extends FioLoggingKey>(key: K, value: FioLogging[K]) => {
+    onConfigChange({ ...cfg, logging: { ...log, [key]: value } })
   }
 
   const addJob = () => {

@@ -33,6 +33,8 @@ export interface FioLogging {
   write_iops_log: boolean
 }
 
+export type FioLoggingKey = keyof FioLogging
+
 export interface FioConfig {
   global: {
     filename: string
@@ -45,3 +47,5 @@ export interface FioConfig {
   logging?: FioLogging
   jobs: FioJob[]
 }
+
+export type FioConfigReady = Omit<FioConfig, 'logging'> & { logging: FioLogging }
