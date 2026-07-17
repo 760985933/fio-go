@@ -120,7 +120,6 @@ body {
   background: var(--panel); border-radius: 20px; padding: 24px;
   width: 90%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
 }
-.modal-container.wide { max-width: 800px; }
 .modal-content-scroll { max-height: 60vh; overflow-y: auto; margin: 15px 0; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
@@ -274,6 +273,8 @@ body {
   overflow: auto;
   border-radius: 8px;
   margin: 0;
+  max-height: 400px;
+  overflow-y: auto;
   white-space: pre-wrap;
   word-wrap: break-word;
 }
@@ -417,11 +418,6 @@ body {
   background: rgba(255, 255, 255, 0.7);
 }
 
-.log-viewer {
-  max-height: 400px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-}
 .template-label { display: flex; gap: 8px; align-items: center; color: var(--muted); }
 .template-label select { background: var(--panel); border: 1px solid var(--border); color: var(--text); padding: 6px 8px; border-radius: 8px; }
 
@@ -578,7 +574,7 @@ body {
 /* Audit Log Table */
 .audit-table th {
   font-weight: 500;
-  color: var(--text-color);
+  color: var(--muted);
 }
 
 .audit-table td {

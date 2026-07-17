@@ -3,8 +3,10 @@
 **/.DS_Store
 
 # Compiled binaries
-fio-go
-fio-go.exe
+fio-cli
+fio-cli.exe
+fio-gui
+fio-gui.exe
 *.exe
 
 # Build output
