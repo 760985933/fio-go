@@ -20,13 +20,7 @@ export function Layout({ tabs, activeTab, onTabChange, headerActions, children }
       <header className="header">
         <div className="header-left">
           <svg className="header-icon" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="appGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" style={{ stopColor: '#667eea' }} />
-                <stop offset="100%" style={{ stopColor: '#764ba2' }} />
-              </linearGradient>
-            </defs>
-            <rect width="32" height="32" rx="6" fill="url(#appGrad)" />
+            <rect width="32" height="32" rx="7" fill="#007AFF" />
             <g fill="white">
               <circle cx="8" cy="8" r="2" />
               <circle cx="24" cy="8" r="2" />

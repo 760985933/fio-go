@@ -24,11 +24,10 @@ export function Modal({ open, title, content, type, onClose, onConfirm }: Props)
     if (!open) return
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
-      if (e.key === 'Enter' && type === 'prompt') onConfirm(inputValue)
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [open, type, inputValue, onClose, onConfirm])
+  }, [open, onClose])
 
   if (!open) return null
 

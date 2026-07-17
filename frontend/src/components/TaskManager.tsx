@@ -55,13 +55,18 @@ export function TaskManager({ scriptName, onAudit, onShowResults }: Props) {
   }
 
   const preCheck = async (task: ExecutionTaskConfig) => {
-    setCurrentTask(task.id)
-    const results = await App.PreDeployCheck(task.id, task.hosts)
-    setCheckResults(results)
-    await onShowResults('预检查结果',
-      results.map((r: CheckResult) => `${r.host}: ${r.running ? '⚠ 有运行中的FIO' : '✓ 空闲'}${r.residual ? ' | 有残留数据' : ''}${r.msg ? '\n  ' + r.msg : ''}`).join('\n\n')
-    )
-    setCurrentTask('')
+    try {
+      setCurrentTask(task.id)
+      const results = await App.PreDeployCheck(task.id, task.hosts)
+      setCheckResults(results)
+      await onShowResults('预检查结果',
+        results.map((r: CheckResult) => `${r.host}: ${r.running ? '⚠ 有运行中的FIO' : '✓ 空闲'}${r.residual ? ' | 有残留数据' : ''}${r.msg ? '\n  ' + r.msg : ''}`).join('\n\n')
+      )
+      setCurrentTask('')
+    } catch (err) {
+      await onShowResults('预检查失败', `错误: ${err}`)
+      setCurrentTask('')
+    }
   }
 
   const executeDeploy = async (task: ExecutionTaskConfig) => {
@@ -108,46 +113,70 @@ export function TaskManager({ scriptName, onAudit, onShowResults }: Props) {
   }
 
   const killTask = async (task: ExecutionTaskConfig) => {
-    const results = await App.KillAll(task.id, task.hosts)
-    onAudit('停止任务', `任务: ${task.id}`)
-    await onShowResults('停止结果',
-      results.map((r: ActionResult) => `${r.host}: ${r.error ? '失败: ' + r.error : '成功'}`).join('\n')
-    )
+    try {
+      const results = await App.KillAll(task.id, task.hosts)
+      onAudit('停止任务', `任务: ${task.id}`)
+      await onShowResults('停止结果',
+        results.map((r: ActionResult) => `${r.host}: ${r.error ? '失败: ' + r.error : '成功'}`).join('\n')
+      )
+    } catch (err) {
+      await onShowResults('停止失败', `错误: ${err}`)
+    }
   }
 
   const viewLogs = async (task: ExecutionTaskConfig) => {
-    const log = await App.GetExecutionLog(task.id)
-    await onShowResults(`执行日志 - ${task.id}`, log || '暂无日志')
+    try {
+      const log = await App.GetExecutionLog(task.id)
+      await onShowResults(`执行日志 - ${task.id}`, log || '暂无日志')
+    } catch (err) {
+      await onShowResults('日志加载失败', `错误: ${err}`)
+    }
   }
 
   const viewHostLogs = async (task: ExecutionTaskConfig) => {
-    const results: string[] = []
-    for (const host of task.hosts) {
-      const log = await App.GetHostLog(task.id, `${host.user}@${host.host}:${host.port}`)
-      results.push(`=== ${host.host} ===\n${log || '暂无日志'}`)
+    try {
+      const results: string[] = []
+      for (const host of task.hosts) {
+        const log = await App.GetHostLog(task.id, `${host.user}@${host.host}:${host.port}`)
+        results.push(`=== ${host.host} ===\n${log || '暂无日志'}`)
+      }
+      await onShowResults(`单机日志 - ${task.id}`, results.join('\n\n'))
+    } catch (err) {
+      await onShowResults('日志加载失败', `错误: ${err}`)
     }
-    await onShowResults(`单机日志 - ${task.id}`, results.join('\n\n'))
   }
 
   const checkStatus = async (task: ExecutionTaskConfig) => {
-    const results = await App.CheckStatus(task.id, task.hosts)
-    await onShowResults('运行状态',
-      results.map((r: ActionResult) => `${r.host}: ${r.msg || (r.error ? '错误: ' + r.error : '未知')}`).join('\n')
-    )
+    try {
+      const results = await App.CheckStatus(task.id, task.hosts)
+      await onShowResults('运行状态',
+        results.map((r: ActionResult) => `${r.host}: ${r.msg || (r.error ? '错误: ' + r.error : '未知')}`).join('\n')
+      )
+    } catch (err) {
+      await onShowResults('状态查询失败', `错误: ${err}`)
+    }
   }
 
   const cleanLocal = async (task: ExecutionTaskConfig) => {
-    await App.CleanLocal(task.id)
-    onAudit('清理本地数据', `任务: ${task.id}`)
-    await onShowResults('清理完成', `已清理本地任务数据: ${task.id}`)
+    try {
+      await App.CleanLocal(task.id)
+      onAudit('清理本地数据', `任务: ${task.id}`)
+      await onShowResults('清理完成', `已清理本地任务数据: ${task.id}`)
+    } catch (err) {
+      await onShowResults('清理失败', `错误: ${err}`)
+    }
   }
 
   const cleanRemote = async (task: ExecutionTaskConfig) => {
-    const results = await App.CleanRemote(task.id, task.hosts)
-    onAudit('清理远程数据', `任务: ${task.id}`)
-    await onShowResults('清理远程结果',
-      results.map((r: ActionResult) => `${r.host}: ${r.error ? '失败: ' + r.error : '成功'}`).join('\n')
-    )
+    try {
+      const results = await App.CleanRemote(task.id, task.hosts)
+      onAudit('清理远程数据', `任务: ${task.id}`)
+      await onShowResults('清理远程结果',
+        results.map((r: ActionResult) => `${r.host}: ${r.error ? '失败: ' + r.error : '成功'}`).join('\n')
+      )
+    } catch (err) {
+      await onShowResults('清理失败', `错误: ${err}`)
+    }
   }
 
   return (

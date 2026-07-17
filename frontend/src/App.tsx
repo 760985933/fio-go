@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react'
-import { FioConfig } from './types'
+import { useState, useCallback, useEffect } from 'react'
+import { FioConfig, OrchestrationProgress } from './types'
 import { Layout } from './components/Layout'
 import { Sidebar, SidebarItem } from './components/Sidebar'
 import { HomePage } from './components/HomePage'
@@ -24,7 +24,7 @@ const MAIN_TABS = [
   { id: 'home', label: '首页', icon: '🏠' },
   { id: 'configure', label: '配置与执行', icon: '⚙️' },
   { id: 'analysis', label: '分析报告', icon: '📊' },
-  { id: 'settings', label: '系统设置', icon: '⚙️' },
+  { id: 'settings', label: '系统设置', icon: '🔧' },
 ]
 
 const SIDEBAR_ITEMS: SidebarItem[] = [
@@ -154,10 +154,10 @@ function OrchestrationManager({ onShowResults }: { onShowResults: (title: string
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [executing, setExecuting] = useState(false)
-  const [progress, setProgress] = useState<any[]>([])
+  const [progress, setProgress] = useState<OrchestrationProgress[]>([])
   const [currentStep, setCurrentStep] = useState('')
 
-  useState(() => {
+  useEffect(() => {
     const load = async () => {
       try {
         const [config, executionTasks] = await Promise.all([
@@ -170,7 +170,7 @@ function OrchestrationManager({ onShowResults }: { onShowResults: (title: string
       } catch { /* ignore */ }
     }
     load()
-  })
+  }, [])
 
   const saveConfig = async () => {
     setSaveStatus('saving')
@@ -263,7 +263,7 @@ function OrchestrationManager({ onShowResults }: { onShowResults: (title: string
           <div style={{ marginBottom: 16 }}>
             <h4 style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>执行进度</h4>
             <div style={{ maxHeight: 200, overflowY: 'auto' }}>
-              {progress.map((p: any, idx: number) => (
+              {progress.map((p, idx) => (
                 <div key={idx} className={`status-line ${p.status === 'error' ? 'status-warning' : p.status === 'running' ? '' : 'status-ok'}`}
                   style={{ fontSize: 12 }}>
                   [{p.current}/{p.total}] {p.taskName} | {p.step}: {p.status}

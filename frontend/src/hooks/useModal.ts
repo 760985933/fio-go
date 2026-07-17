@@ -17,7 +17,7 @@ export function useModal() {
   })
 
   const close = useCallback(() => {
-    if (modal.resolve) modal.resolve(null)
+    if (modal.resolve) modal.resolve(false as any)
     setModal(prev => ({ ...prev, open: false }))
   }, [modal])
 

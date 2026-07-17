@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { FioConfig, FioConfigReady, FioJob, FioLogging, FioLoggingKey } from '../types'
+import { FioConfig, FioJob, FioLogging, FioLoggingKey } from '../types'
 import { generateFioText } from '../utils/fioGenerator'
+import { ensureConfig, bsLabel } from '../utils/config'
 import * as App from '../wailsjs/go/app/App'
 
 interface Props {
@@ -26,20 +27,6 @@ const SCENE_PRESETS: Record<string, Partial<FioJob>> = {
 }
 
 const DEFAULT_JOB: FioJob = { bs: 4, rw: 'read', iodepth: 32, numjobs: 1, direct: true, thread: true }
-const DEFAULT_LOGGING: FioLogging = { enabled: true, log_avg_msec: 500, write_bw_log: true, write_lat_log: true, write_iops_log: true }
-
-function ensureConfig(config: FioConfig): FioConfigReady {
-  return {
-    ...config,
-    global: { ...config.global },
-    logging: config.logging ?? { ...DEFAULT_LOGGING },
-    jobs: config.jobs.map(j => ({ ...j, direct: j.direct !== false, thread: j.thread !== false })),
-  }
-}
-
-function bsLabel(bs: number): string {
-  return bs >= 1024 ? `${bs / 1024}M` : `${bs}k`
-}
 
 export function ScriptManager({ config, configName, onConfigChange, onConfigNameChange, onAudit }: Props) {
   const [expandedJob, setExpandedJob] = useState<number | null>(0)
