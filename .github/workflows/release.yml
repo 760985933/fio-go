@@ -21,15 +21,15 @@ jobs:
 
       - name: Build CLI binaries
         run: |
-          GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o fio-go-cli-linux-amd64       ./cmd/cli/
-          GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o fio-go-cli-darwin-amd64      ./cmd/cli/
-          GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o fio-go-cli-darwin-arm64      ./cmd/cli/
-          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o fio-go-cli-windows-amd64.exe ./cmd/cli/
+          GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o fio-cli-linux-amd64       ./cmd/cli/
+          GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o fio-cli-darwin-amd64      ./cmd/cli/
+          GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o fio-cli-darwin-arm64      ./cmd/cli/
+          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o fio-cli-windows-amd64.exe ./cmd/cli/
 
       - uses: actions/upload-artifact@v4
         with:
           name: cli-binaries
-          path: fio-go-cli-*
+          path: fio-cli-*
 
   # ==================== Desktop 模式编译 (Wails) ====================
   build-desktop-macos:
@@ -54,12 +54,12 @@ jobs:
 
       - name: Build macOS universal
         run: |
-          wails build -platform darwin/universal -trimpath -ldflags="-s -w" -o fio-go-desktop
+          wails build -platform darwin/universal -trimpath -ldflags="-s -w" -o fio-gui
 
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-macos
-          path: build/bin/fio-go-desktop*
+          path: build/bin/fio-gui*
 
   build-desktop-windows:
     runs-on: windows-latest
@@ -82,12 +82,12 @@ jobs:
         run: npm ci
 
       - name: Build Windows
-        run: wails build -trimpath -ldflags="-s -w" -o fio-go-desktop.exe
+        run: wails build -trimpath -ldflags="-s -w" -o fio-gui.exe
 
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-windows
-          path: build/bin/fio-go-desktop.exe
+          path: build/bin/fio-gui.exe
 
   build-desktop-linux:
     runs-on: ubuntu-latest
@@ -115,12 +115,12 @@ jobs:
         run: npm ci
 
       - name: Build Linux
-        run: wails build -trimpath -ldflags="-s -w" -o fio-go-desktop
+        run: wails build -trimpath -ldflags="-s -w" -o fio-gui
 
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-linux
-          path: build/bin/fio-go-desktop
+          path: build/bin/fio-gui
 
   # ==================== 发布 ====================
   release:
@@ -142,7 +142,7 @@ jobs:
           cp artifacts/desktop-macos/* release/ 2>/dev/null || true
           cp artifacts/desktop-windows/* release/ 2>/dev/null || true
           cp artifacts/desktop-linux/* release/ 2>/dev/null || true
-          chmod +x release/fio-go-*
+          chmod +x release/fio-cli-* release/fio-gui*
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -157,13 +157,13 @@ jobs:
 
             | 文件 | 平台 | 说明 |
             |------|------|------|
-            | `fio-go-cli-linux-amd64` | Linux | CLI 模式，命令行直接运行 |
-            | `fio-go-cli-darwin-amd64` | macOS Intel | CLI 模式 |
-            | `fio-go-cli-darwin-arm64` | macOS Apple Silicon | CLI 模式 |
-            | `fio-go-cli-windows-amd64.exe` | Windows | CLI 模式 |
-            | `fio-go-desktop` (macOS) | macOS Universal | 桌面 GUI 应用，双击运行 |
-            | `fio-go-desktop.exe` | Windows | 桌面 GUI 应用，双击运行 |
-            | `fio-go-desktop` (Linux) | Linux amd64 | 桌面 GUI 应用 |
+            | `fio-cli-linux-amd64` | Linux | CLI 模式，命令行直接运行 |
+            | `fio-cli-darwin-amd64` | macOS Intel | CLI 模式 |
+            | `fio-cli-darwin-arm64` | macOS Apple Silicon | CLI 模式 |
+            | `fio-cli-windows-amd64.exe` | Windows | CLI 模式 |
+            | `fio-gui` (macOS) | macOS Universal | 桌面 GUI 应用，双击运行 |
+            | `fio-gui.exe` | Windows | 桌面 GUI 应用，双击运行 |
+            | `fio-gui` (Linux) | Linux amd64 | 桌面 GUI 应用 |
 
             ---
 
@@ -171,13 +171,13 @@ jobs:
 
             ```bash
             # 直接分析数据并生成报告
-            ./fio-go-cli -data /path/to/fio/data -output-dir ./output
+            ./fio-cli -data /path/to/fio/data -output-dir ./output
 
             # 启动 Web 管理界面 (默认端口 8080)
-            ./fio-go-cli -web -port 8080
+            ./fio-cli -web -port 8080
 
             # 无参数时默认启动 Web 模式
-            ./fio-go-cli
+            ./fio-cli
             ```
 
             **参数说明：**
@@ -191,9 +191,9 @@ jobs:
             ### Desktop 桌面模式使用
 
             1. 下载对应平台的桌面应用
-            2. macOS: 双击 `fio-go-desktop` 运行（首次可能需要在「系统偏好设置 → 安全性」中允许）
-            3. Windows: 双击 `fio-go-desktop.exe` 运行
-            4. Linux: `chmod +x fio-go-desktop && ./fio-go-desktop`
+            2. macOS: 双击 `fio-gui` 运行（首次可能需要在「系统偏好设置 → 安全性」中允许）
+            3. Windows: 双击 `fio-gui.exe` 运行
+            4. Linux: `chmod +x fio-gui && ./fio-gui`
 
             **桌面模式功能：**
             - FIO 配置可视化编辑器
@@ -215,7 +215,7 @@ jobs:
 
             ```bash
             # CLI 模式
-            go build -o fio-go ./cmd/cli/
+            go build -o fio-cli ./cmd/cli/
 
             # Desktop 模式 (需要 Wails CLI)
             go install github.com/wailsapp/wails/v2/cmd/wails@latest

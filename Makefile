@@ -4,13 +4,13 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 
 cli:
 	@mkdir -p build/bin
-	go build -trimpath -ldflags="-s -w" -o build/bin/fio-go-cli ./cmd/cli/
-	@echo "✓ CLI → build/bin/fio-go-cli"
+	go build -trimpath -ldflags="-s -w" -o build/bin/fio-cli ./cmd/cli/
+	@echo "✓ CLI → build/bin/fio-cli"
 
 desktop:
 	@mkdir -p build/bin
-	wails build -trimpath -ldflags="-s -w" -o build/bin/fio-go-desktop
-	@echo "✓ Desktop → build/bin/fio-go-desktop"
+	wails build -trimpath -ldflags="-s -w" -o build/bin/fio-gui
+	@echo "✓ Desktop → build/bin/fio-gui"
 
 test:
 	go test ./internal/... -v

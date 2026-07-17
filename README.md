@@ -18,25 +18,25 @@ FIO 磁盘性能测试管理与报告生成工具，支持 CLI、Web 和桌面 G
 
 | 平台 | 文件 |
 |------|------|
-| macOS (Universal) | `fio-go-desktop` |
-| Windows | `fio-go-desktop.exe` |
-| Linux | `fio-go-desktop` |
+| macOS (Universal) | `fio-gui` |
+| Windows | `fio-gui.exe` |
+| Linux | `fio-gui` |
 
 ### 方式二：CLI 模式
 
 ```bash
 # 分析 FIO 数据并生成报告
-./fio-go-cli -data /path/to/fio/data -output-dir ./output
+./fio-cli -data /path/to/fio/data -output-dir ./output
 
 # 启动 Web 管理界面
-./fio-go-cli -web -port 8080
+./fio-cli -web -port 8080
 ```
 
 ### 方式三：从源码编译
 
 ```bash
 # CLI 模式
-go build -o fio-go-cli ./cmd/cli/
+go build -o fio-cli ./cmd/cli/
 
 # Desktop 模式（需要安装 Wails CLI 和 Node.js）
 go install github.com/wailsapp/wails/v2/cmd/wails@latest
@@ -82,7 +82,7 @@ data/
 ### 2. 生成报告
 
 ```bash
-./fio-go-cli -data ./data -output-dir ./output
+./fio-cli -data ./data -output-dir ./output
 ```
 
 生成文件：
