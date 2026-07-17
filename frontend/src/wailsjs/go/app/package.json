@@ -1,0 +1,5 @@
+{
+  "name": "wailsjs-go-app",
+  "type": "module",
+  "types": "./App.d.ts"
+}

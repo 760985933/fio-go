@@ -32,6 +32,32 @@ func (a *App) Startup(ctx context.Context) {
 
 // ========== 脚本管理 ==========
 
+var invalidScriptNameChars = regexp.MustCompile(`[/\\]`)
+
+// sanitizeScriptName 清洗脚本名，防止路径遍历攻击
+func sanitizeScriptName(name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", fmt.Errorf("脚本名称不能为空")
+	}
+	// 禁止包含 .. 的任何路径（在 Base 之前检测）
+	for _, part := range strings.Split(name, string(os.PathSeparator)) {
+		if part == ".." {
+			return "", fmt.Errorf("非法的脚本名称: %s", name)
+		}
+	}
+	// 再检查正斜杠和反斜杠
+	if strings.Contains(name, "/") || strings.Contains(name, "\\") {
+		return "", fmt.Errorf("非法的脚本名称: %s", name)
+	}
+	// 去掉路径前缀，只取文件名
+	name = filepath.Base(name)
+	if name == "." || name == ".." {
+		return "", fmt.Errorf("非法的脚本名称: %s", name)
+	}
+	return name, nil
+}
+
 // GetScripts 获取所有 .fio 脚本文件列表
 func (a *App) GetScripts() ([]string, error) {
 	scriptsDir := "scripts"
@@ -55,7 +81,11 @@ func (a *App) GetScripts() ([]string, error) {
 
 // GetScriptContent 获取指定脚本的内容
 func (a *App) GetScriptContent(name string) (string, error) {
-	data, err := os.ReadFile(filepath.Join("scripts", name))
+	safeName, err := sanitizeScriptName(name)
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(filepath.Join("scripts", safeName))
 	if err != nil {
 		return "", err
 	}
@@ -64,18 +94,26 @@ func (a *App) GetScriptContent(name string) (string, error) {
 
 // SaveScript 保存脚本文件
 func (a *App) SaveScript(name, content string) error {
-	if !strings.HasSuffix(name, ".fio") {
-		name += ".fio"
+	safeName, err := sanitizeScriptName(name)
+	if err != nil {
+		return err
+	}
+	if !strings.HasSuffix(safeName, ".fio") {
+		safeName += ".fio"
 	}
 	if err := os.MkdirAll("scripts", 0755); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join("scripts", name), []byte(content), 0644)
+	return os.WriteFile(filepath.Join("scripts", safeName), []byte(content), 0644)
 }
 
 // DeleteScript 删除脚本文件
 func (a *App) DeleteScript(name string) error {
-	return os.Remove(filepath.Join("scripts", name))
+	safeName, err := sanitizeScriptName(name)
+	if err != nil {
+		return err
+	}
+	return os.Remove(filepath.Join("scripts", safeName))
 }
 
 // ========== 执行任务管理 ==========

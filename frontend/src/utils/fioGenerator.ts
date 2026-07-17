@@ -1,14 +1,12 @@
-import { FioConfig, FioJob } from '../types'
+import { FioConfig } from '../types'
 
-function buildJobName(idx: number, job: FioJob): string {
-  const rw = job.rw.toLowerCase()
-  return `sec${idx}_${job.bs}k_${rw}_iodepth${job.iodepth}`
+function buildJobName(idx: number, job: { bs: number; rw: string; iodepth: number }): string {
+  return `sec${idx}_${job.bs}k_${job.rw}_iodepth${job.iodepth}`
 }
 
 export function generateFioText(config: FioConfig, includeJsonComment: boolean = false): string {
   const lines: string[] = []
 
-  // Global section
   lines.push('[global]')
   lines.push(`filename=${config.global.filename || '/dev/vdb'}`)
   lines.push(`runtime=${config.global.runtime || 180}`)
@@ -16,7 +14,6 @@ export function generateFioText(config: FioConfig, includeJsonComment: boolean =
   lines.push(`ioengine=${config.global.ioengine || 'libaio'}`)
   lines.push('')
 
-  // Job sections
   config.jobs.forEach((job, idx) => {
     const jobName = buildJobName(idx, job)
     lines.push(`[${jobName}]`)
@@ -29,7 +26,13 @@ export function generateFioText(config: FioConfig, includeJsonComment: boolean =
     lines.push(`numjobs=${job.numjobs}`)
     lines.push('thread=1')
     lines.push('direct=1')
+    lines.push('ioengine=libaio')
     lines.push('time_based=1')
+    lines.push('overwrite=1')
+    lines.push('norandommap=1')
+    lines.push('randrepeat=0')
+    lines.push('log_avg_msec=500')
+    lines.push('group_reporting=1')
     lines.push(`write_bw_log=${jobName}`)
     lines.push(`write_lat_log=${jobName}`)
     lines.push(`write_iops_log=${jobName}`)
@@ -37,8 +40,7 @@ export function generateFioText(config: FioConfig, includeJsonComment: boolean =
   })
 
   if (includeJsonComment) {
-    const jsonStr = JSON.stringify(config)
-    lines.push(`# FIO_CONFIG_JSON: ${jsonStr}`)
+    lines.push(`# FIO_CONFIG_JSON: ${JSON.stringify(config)}`)
   }
 
   return lines.join('\n')

@@ -1,246 +1,268 @@
-import { useState } from 'react'
-import { ExecutionTaskConfig, HostConfig, ActionResult, FioConfig } from '../types'
-import { generateFioText } from '../utils/fioGenerator'
+import { useState, useEffect } from 'react'
+import { HostConfig, ExecutionTaskConfig, CheckResult, ActionResult } from '../types'
+import * as App from '../wailsjs/go/app/App'
 
 interface Props {
-  tasks: ExecutionTaskConfig[]
-  onTasksChange: (tasks: ExecutionTaskConfig[]) => void
-  config: FioConfig
-  configName: string
+  scriptName: string
+  onScriptNameChange: (name: string) => void
   onAudit: (action: string, details: string) => void
+  onShowResults: (title: string, content: string) => Promise<void>
 }
 
-export function ExecutionManager({ tasks, onTasksChange, config, configName, onAudit }: Props) {
-  const [expandedTask, setExpandedTask] = useState<string | null>(null)
-  const [results, setResults] = useState<Record<string, ActionResult[]>>({})
-  const [loading, setLoading] = useState<Record<string, boolean>>({})
-  const [logs, setLogs] = useState<Record<string, string>>({})
+export function ExecutionManager({ scriptName, onScriptNameChange, onAudit, onShowResults }: Props) {
+  const [savedScripts, setSavedScripts] = useState<string[]>([])
+  const [executionTasks, setExecutionTasks] = useState<ExecutionTaskConfig[]>([])
+  const [hosts, setHosts] = useState<HostConfig[]>([])
+  const [activeTab, setActiveTab] = useState<'hosts' | 'tasks'>('hosts')
+  const [executing, setExecuting] = useState(false)
+  const [currentTask, setCurrentTask] = useState<string>('')
+  const [checkResults, setCheckResults] = useState<CheckResult[]>([])
+  const [executionLogs, setExecutionLogs] = useState<string[]>([])
 
-  const addTask = () => {
-    const newTask: ExecutionTaskConfig = {
-      id: `task-${Date.now()}`,
-      name: `任务 ${tasks.length + 1}`,
-      script: '',
-      hosts: [{ host: '127.0.0.1', port: 22, user: 'root', password: '' }],
-    }
-    onTasksChange([...tasks, newTask])
-  }
+  // 新增 Host 表单
+  const [newHost, setNewHost] = useState<HostConfig>({ host: '', port: 22, user: 'root', password: '' })
 
-  const updateTask = (idx: number, updates: Partial<ExecutionTaskConfig>) => {
-    const newTasks = [...tasks]
-    newTasks[idx] = { ...newTasks[idx], ...updates }
-    onTasksChange(newTasks)
-  }
+  useEffect(() => { loadData() }, [])
 
-  const deleteTask = (idx: number) => {
-    onTasksChange(tasks.filter((_, i) => i !== idx))
-  }
-
-  const addHost = (taskIdx: number) => {
-    const newHost: HostConfig = { host: '', port: 22, user: 'root', password: '' }
-    updateTask(taskIdx, {
-      hosts: [...tasks[taskIdx].hosts, newHost],
-    })
-  }
-
-  const updateHost = (taskIdx: number, hostIdx: number, updates: Partial<HostConfig>) => {
-    const newHosts = [...tasks[taskIdx].hosts]
-    newHosts[hostIdx] = { ...newHosts[hostIdx], ...updates }
-    updateTask(taskIdx, { hosts: newHosts })
-  }
-
-  const removeHost = (taskIdx: number, hostIdx: number) => {
-    updateTask(taskIdx, {
-      hosts: tasks[taskIdx].hosts.filter((_, i) => i !== hostIdx),
-    })
-  }
-
-  const executeAction = async (task: ExecutionTaskConfig, action: string) => {
-    setLoading(prev => ({ ...prev, [task.id]: true }))
+  const loadData = async () => {
     try {
-      // TODO: 调用 Wails 绑定
-      // const result = await goBindings.Execute({ action, task })
-      // 模拟结果
-      const mockResults: ActionResult[] = task.hosts.map(h => ({
-        host: `${h.user}@${h.host}:${h.port}`,
-        error: '',
-        msg: `操作 ${action} 已提交`,
-      }))
-      setResults(prev => ({ ...prev, [task.id]: mockResults }))
-      onAudit(action, `任务: ${task.name}`)
+      const [scripts, tasks] = await Promise.all([App.GetScripts(), App.GetExecutionTasks()])
+      setSavedScripts(scripts || [])
+      setExecutionTasks(tasks || [])
+    } catch { /* ignore */ }
+  }
+
+  const addHost = () => {
+    if (!newHost.host.trim()) return
+    setHosts([...hosts, { ...newHost }])
+    setNewHost({ host: '', port: 22, user: 'root', password: '' })
+  }
+
+  const removeHost = (idx: number) => {
+    setHosts(hosts.filter((_, i) => i !== idx))
+  }
+
+  const testConnectivity = async (host: HostConfig) => {
+    const [ok, msg] = await App.CheckConnectivity(host)
+    if (ok) {
+      await onShowResults('连通性测试', `主机 ${host.host} 连接成功:\n${msg}`)
+    } else {
+      await onShowResults('连通性测试', `主机 ${host.host} 连接失败:\n${msg}`)
+    }
+    onAudit('测试连通性', `主机: ${host.host}`)
+  }
+
+  const testAllConnectivity = async () => {
+    const results: string[] = []
+    for (const host of hosts) {
+      const [ok, msg] = await App.CheckConnectivity(host)
+      results.push(`${ok ? '✓' : '✗'} ${host.host}: ${msg}`)
+    }
+    await onShowResults('批量连通性测试', results.join('\n'))
+    onAudit('批量测试连通性', `测试 ${hosts.length} 台主机`)
+  }
+
+  const addExecutionTask = () => {
+    const task: ExecutionTaskConfig = {
+      id: `task_${Date.now()}`,
+      name: scriptName,
+      script: scriptName,
+      hosts: [...hosts],
+    }
+    setExecutionTasks([...executionTasks, task])
+    App.SaveExecutionTasks([...executionTasks, task]).catch(() => {})
+    onAudit('添加执行任务', `任务: ${task.id}`)
+  }
+
+  const removeTask = (idx: number) => {
+    const newTasks = executionTasks.filter((_, i) => i !== idx)
+    setExecutionTasks(newTasks)
+    App.SaveExecutionTasks(newTasks).catch(() => {})
+  }
+
+  const preCheck = async (task: ExecutionTaskConfig) => {
+    setCurrentTask(task.id)
+    const results = await App.PreDeployCheck(task.id, task.hosts)
+    setCheckResults(results)
+    await onShowResults('预检查结果',
+      results.map((r: CheckResult) => `${r.host}: ${r.running ? '⚠ 有运行中的FIO' : '✓ 空闲'}${r.residual ? ' | 有残留数据' : ''}${r.msg ? '\n  ' + r.msg : ''}`).join('\n\n')
+    )
+    setCurrentTask('')
+  }
+
+  const executeDeploy = async (task: ExecutionTaskConfig) => {
+    setExecuting(true)
+    setCurrentTask(task.id)
+    onAudit('开始部署', `任务: ${task.id}`)
+
+    try {
+      // 1. Pre-check
+      const checks = await App.PreDeployCheck(task.id, task.hosts)
+      const hasRunning = checks.some((c: CheckResult) => c.running)
+      if (hasRunning) {
+        await onShowResults('预检查发现FIO运行中',
+          checks.filter((c: CheckResult) => c.running).map((c: CheckResult) => `${c.host}: ${c.msg}`).join('\n') +
+          '\n\n请先停止运行中的FIO或清理残留数据')
+        return
+      }
+
+      // 2. Deploy
+      const deployResults = await App.Deploy(task.id, task.script, task.hosts)
+      onAudit('部署完成', `任务: ${task.id}`)
+
+      // 3. Pull results
+      const pullResults = await App.PullData(task.id, task.hosts)
+      onAudit('数据拉取完成', `任务: ${task.id}`)
+
+      // 4. Get logs
+      const log = await App.GetExecutionLog(task.id)
+      setExecutionLogs(prev => [...prev, log])
+
+      await onShowResults('执行完成',
+        `部署结果:\n${deployResults.map((r: ActionResult) => `${r.host}: ${r.error ? '失败: ' + r.error : '成功'}`).join('\n')}\n\n` +
+        `拉取结果:\n${pullResults.map((r: ActionResult) => `${r.host}: ${r.error ? '失败: ' + r.error : '成功'}`).join('\n')}`
+      )
     } catch (err) {
-      console.error(err)
+      await onShowResults('执行异常', `错误: ${err}`)
     } finally {
-      setLoading(prev => ({ ...prev, [task.id]: false }))
+      setExecuting(false)
+      setCurrentTask('')
     }
   }
 
-  const handleSaveScript = (task: ExecutionTaskConfig) => {
-    const text = generateFioText(config, true)
-    // TODO: 调用 Wails 绑定保存脚本
-    onAudit('保存脚本', `任务: ${task.name}, 配置: ${configName}`)
+  const killTask = async (task: ExecutionTaskConfig) => {
+    setExecuting(true)
+    const results = await App.KillAll(task.id, task.hosts)
+    onAudit('停止任务', `任务: ${task.id}`)
+    await onShowResults('停止结果',
+      results.map((r: ActionResult) => `${r.host}: ${r.error ? '失败: ' + r.error : '成功'}`).join('\n')
+    )
+    setExecuting(false)
+  }
+
+  const viewLogs = async (task: ExecutionTaskConfig) => {
+    const log = await App.GetExecutionLog(task.id)
+    await onShowResults(`执行日志 - ${task.id}`, log || '暂无日志')
   }
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <h3 style={{ fontSize: 14, color: '#4f46e5' }}>执行任务 ({tasks.length})</h3>
-        <button className="btn btn-primary btn-sm" onClick={addTask}>+ 添加任务</button>
+      <div className="tab-bar">
+        <button className={`tab ${activeTab === 'hosts' ? 'active' : ''}`} onClick={() => setActiveTab('hosts')}>
+          主机管理 ({hosts.length})
+        </button>
+        <button className={`tab ${activeTab === 'tasks' ? 'active' : ''}`} onClick={() => setActiveTab('tasks')}>
+          执行任务 ({executionTasks.length})
+        </button>
       </div>
 
-      {tasks.length === 0 && (
-        <div className="empty-state">
-          <p>暂无执行任务</p>
-          <p style={{ fontSize: 12, marginTop: 8 }}>点击上方按钮添加新任务</p>
-        </div>
-      )}
-
-      {tasks.map((task, taskIdx) => (
-        <div key={task.id} className="card">
-          <div className="card-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span
-                style={{ cursor: 'pointer' }}
-                onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
-              >
-                {expandedTask === task.id ? '▼' : '▶'}
-              </span>
-              <input
-                value={task.name}
-                onChange={(e) => updateTask(taskIdx, { name: e.target.value })}
-                style={{ border: 'none', fontWeight: 600, fontSize: 14, width: 200 }}
-              />
+      {activeTab === 'hosts' && (
+        <div>
+          <div className="panel">
+            <h3 style={{ marginBottom: 12, fontSize: 14, color: '#4f46e5' }}>添加主机</h3>
+            <div className="form-row">
+              <div className="form-group">
+                <label>主机 IP</label>
+                <input value={newHost.host} onChange={(e) => setNewHost({ ...newHost, host: e.target.value })}
+                  onKeyDown={(e) => { if (e.key === 'Enter') addHost() }} />
+              </div>
+              <div className="form-group">
+                <label>SSH 端口</label>
+                <input type="number" value={newHost.port} onChange={(e) => setNewHost({ ...newHost, port: parseInt(e.target.value) || 22 })} />
+              </div>
+              <div className="form-group">
+                <label>用户名</label>
+                <input value={newHost.user} onChange={(e) => setNewHost({ ...newHost, user: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label>密码</label>
+                <input type="password" value={newHost.password} onChange={(e) => setNewHost({ ...newHost, password: e.target.value })} />
+              </div>
             </div>
-            <button className="btn btn-danger btn-sm" onClick={() => deleteTask(taskIdx)}>删除</button>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button className="btn btn-primary btn-sm" onClick={addHost}>添加</button>
+              {hosts.length > 1 && (
+                <button className="btn btn-outline btn-sm" onClick={testAllConnectivity}>批量测试连通性</button>
+              )}
+            </div>
           </div>
 
-          {expandedTask === task.id && (
-            <div>
-              {/* Hosts */}
-              <div style={{ marginBottom: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, color: '#6b7280' }}>主机列表</span>
-                  <button className="btn btn-outline btn-sm" onClick={() => addHost(taskIdx)}>+ 添加主机</button>
+          {hosts.length > 0 && (
+            <div className="panel" style={{ marginTop: 12 }}>
+              <h3 style={{ marginBottom: 12, fontSize: 14, color: '#4f46e5' }}>已添加主机 ({hosts.length})</h3>
+              {hosts.map((h, idx) => (
+                <div key={idx} className="host-item">
+                  <span style={{ flex: 1, fontSize: 13 }}>
+                    {h.user}@{h.host}:{h.port}
+                  </span>
+                  <button className="btn btn-outline btn-sm" onClick={() => testConnectivity(h)}>测试</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => removeHost(idx)}>删除</button>
                 </div>
-                {task.hosts.map((host, hostIdx) => (
-                  <div key={hostIdx} className="host-item">
-                    <div className="host-dot" />
-                    <input
-                      placeholder="IP"
-                      value={host.host}
-                      onChange={(e) => updateHost(taskIdx, hostIdx, { host: e.target.value })}
-                      style={{ width: 140 }}
-                    />
-                    <input
-                      placeholder="端口"
-                      type="number"
-                      value={host.port}
-                      onChange={(e) => updateHost(taskIdx, hostIdx, { port: parseInt(e.target.value) || 22 })}
-                      style={{ width: 60 }}
-                    />
-                    <input
-                      placeholder="用户"
-                      value={host.user}
-                      onChange={(e) => updateHost(taskIdx, hostIdx, { user: e.target.value })}
-                      style={{ width: 80 }}
-                    />
-                    <input
-                      placeholder="密码 (可选)"
-                      type="password"
-                      value={host.password}
-                      onChange={(e) => updateHost(taskIdx, hostIdx, { password: e.target.value })}
-                      style={{ width: 100 }}
-                    />
-                    <button
-                      className="btn btn-danger btn-sm"
-                      onClick={() => removeHost(taskIdx, hostIdx)}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              {/* Actions */}
-              <div className="actions-grid">
-                <button
-                  className="btn btn-primary btn-sm"
-                  disabled={loading[task.id]}
-                  onClick={() => executeAction(task, 'deploy')}
-                >
-                  {loading[task.id] ? '执行中...' : '部署并运行'}
-                </button>
-                <button
-                  className="btn btn-outline btn-sm"
-                  disabled={loading[task.id]}
-                  onClick={() => executeAction(task, 'status')}
-                >
-                  查看状态
-                </button>
-                <button
-                  className="btn btn-outline btn-sm"
-                  disabled={loading[task.id]}
-                  onClick={() => executeAction(task, 'pull')}
-                >
-                  拉取数据
-                </button>
-                <button
-                  className="btn btn-danger btn-sm"
-                  disabled={loading[task.id]}
-                  onClick={() => executeAction(task, 'killall')}
-                >
-                  停止任务
-                </button>
-                <button
-                  className="btn btn-outline btn-sm"
-                  disabled={loading[task.id]}
-                  onClick={() => executeAction(task, 'clean_local')}
-                >
-                  清理本地
-                </button>
-                <button
-                  className="btn btn-outline btn-sm"
-                  disabled={loading[task.id]}
-                  onClick={() => executeAction(task, 'clean_remote')}
-                >
-                  清理远程
-                </button>
-              </div>
-
-              {/* Results */}
-              {results[task.id] && results[task.id].length > 0 && (
-                <div style={{ marginTop: 12 }}>
-                  <span style={{ fontSize: 12, color: '#6b7280', marginBottom: 4, display: 'block' }}>执行结果</span>
-                  <div className="table-container">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>主机</th>
-                          <th>状态</th>
-                          <th>消息</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {results[task.id].map((r, i) => (
-                          <tr key={i}>
-                            <td>{r.host}</td>
-                            <td>
-                              <span className={`status-badge ${r.error ? 'error' : 'success'}`}>
-                                {r.error ? '失败' : '成功'}
-                              </span>
-                            </td>
-                            <td>{r.error || r.msg}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+              ))}
             </div>
           )}
         </div>
-      ))}
+      )}
+
+      {activeTab === 'tasks' && (
+        <div>
+          <div style={{ marginBottom: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+            <select value={scriptName} onChange={(e) => onScriptNameChange(e.target.value)}>
+              {savedScripts.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <button className="btn btn-primary btn-sm" onClick={addExecutionTask} disabled={hosts.length === 0}>
+              添加任务
+            </button>
+          </div>
+
+          {executionTasks.length === 0 ? (
+            <p style={{ color: '#9ca3af', fontSize: 13 }}>暂无执行任务</p>
+          ) : (
+            executionTasks.map((task, idx) => (
+              <div key={task.id} className="card">
+                <div className="card-header">
+                  <span className="card-title">{task.name} ({task.hosts.length} 台主机)</span>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <button className="btn btn-outline btn-sm" onClick={() => preCheck(task)} disabled={executing}>
+                      预检查
+                    </button>
+                    <button className="btn btn-primary btn-sm" onClick={() => executeDeploy(task)} disabled={executing}>
+                      {currentTask === task.id ? '执行中...' : '执行'}
+                    </button>
+                    <button className="btn btn-danger btn-sm" onClick={() => killTask(task)} disabled={!executing}>
+                      停止
+                    </button>
+                    <button className="btn btn-outline btn-sm" onClick={() => viewLogs(task)}>
+                      日志
+                    </button>
+                    <button className="btn btn-danger btn-sm" onClick={() => removeTask(idx)}>
+                      删除
+                    </button>
+                  </div>
+                </div>
+                {checkResults.length > 0 && currentTask === task.id && (
+                  <div style={{ marginTop: 8 }}>
+                    {checkResults.map((r, ri) => (
+                      <div key={ri} className={`status-line ${r.running ? 'status-warning' : 'status-ok'}`}>
+                        {r.running ? '⚠' : '✓'} {r.host}: {r.msg}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+
+          {executionLogs.length > 0 && (
+            <div className="panel" style={{ marginTop: 12 }}>
+              <h3 style={{ marginBottom: 8, fontSize: 14, color: '#4f46e5' }}>执行日志</h3>
+              {executionLogs.map((log, idx) => (
+                <pre key={idx} className="code-preview" style={{ maxHeight: 200 }}>{log}</pre>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

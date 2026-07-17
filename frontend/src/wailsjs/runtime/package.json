@@ -1,0 +1,5 @@
+{
+  "name": "wailsjs-runtime",
+  "type": "module",
+  "types": "./runtime.d.ts"
+}
