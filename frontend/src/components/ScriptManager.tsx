@@ -12,22 +12,20 @@ interface Props {
 }
 
 const RW_OPTIONS = ['read', 'write', 'readwrite', 'randread', 'randwrite', 'randrw']
-
 const BS_PRESETS = [4, 8, 16, 32, 64, 128, 256, 512, 1024]
 
 const SCENE_PRESETS: Record<string, Partial<FioJob>> = {
-  '顺序读':   { bs: 128, rw: 'read',    iodepth: 32, numjobs: 1, direct: true, thread: true },
-  '顺序写':   { bs: 128, rw: 'write',   iodepth: 32, numjobs: 1, direct: true, thread: true },
-  '随机读':   { bs: 4,   rw: 'randread', iodepth: 32, numjobs: 1, direct: true, thread: true },
-  '随机写':   { bs: 4,   rw: 'randwrite', iodepth: 32, numjobs: 1, direct: true, thread: true },
-  '混合顺序': { bs: 128, rw: 'readwrite', iodepth: 32, numjobs: 1, rwmixread: 70, direct: true, thread: true },
-  '混合随机4k': { bs: 4, rw: 'randrw', iodepth: 32, numjobs: 1, rwmixread: 70, direct: true, thread: true },
-  '混合随机8k': { bs: 8, rw: 'randrw', iodepth: 64, numjobs: 1, rwmixread: 70, direct: true, thread: true },
-  '数据库':   { bs: 8,   rw: 'randrw',  iodepth: 64, numjobs: 1, rwmixread: 70, direct: true, thread: true },
+  '顺序读':     { bs: 128, rw: 'read',      iodepth: 32, numjobs: 1, direct: true, thread: true },
+  '顺序写':     { bs: 128, rw: 'write',     iodepth: 32, numjobs: 1, direct: true, thread: true },
+  '随机读':     { bs: 4,   rw: 'randread',   iodepth: 32, numjobs: 1, direct: true, thread: true },
+  '随机写':     { bs: 4,   rw: 'randwrite',  iodepth: 32, numjobs: 1, direct: true, thread: true },
+  '混合顺序':   { bs: 128, rw: 'readwrite',  iodepth: 32, numjobs: 1, rwmixread: 70, direct: true, thread: true },
+  '混合随机4k': { bs: 4,   rw: 'randrw',     iodepth: 32, numjobs: 1, rwmixread: 70, direct: true, thread: true },
+  '混合随机8k': { bs: 8,   rw: 'randrw',     iodepth: 64, numjobs: 1, rwmixread: 70, direct: true, thread: true },
+  '数据库':     { bs: 8,   rw: 'randrw',     iodepth: 64, numjobs: 1, rwmixread: 70, direct: true, thread: true },
 }
 
 const DEFAULT_JOB: FioJob = { bs: 4, rw: 'read', iodepth: 32, numjobs: 1, direct: true, thread: true }
-
 const DEFAULT_LOGGING: FioLogging = { enabled: true, log_avg_msec: 500, write_bw_log: true, write_lat_log: true, write_iops_log: true }
 
 function ensureConfig(config: FioConfig): FioConfigReady {
@@ -35,11 +33,7 @@ function ensureConfig(config: FioConfig): FioConfigReady {
     ...config,
     global: { ...config.global },
     logging: config.logging ?? { ...DEFAULT_LOGGING },
-    jobs: config.jobs.map(j => ({
-      ...j,
-      direct: j.direct !== false,
-      thread: j.thread !== false,
-    })),
+    jobs: config.jobs.map(j => ({ ...j, direct: j.direct !== false, thread: j.thread !== false })),
   }
 }
 
@@ -47,7 +41,7 @@ function bsLabel(bs: number): string {
   return bs >= 1024 ? `${bs / 1024}M` : `${bs}k`
 }
 
-export function FioConfigEditor({ config, configName, onConfigChange, onConfigNameChange, onAudit }: Props) {
+export function ScriptManager({ config, configName, onConfigChange, onConfigNameChange, onAudit }: Props) {
   const [expandedJob, setExpandedJob] = useState<number | null>(0)
   const [savedScripts, setSavedScripts] = useState<string[]>([])
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -62,10 +56,7 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
   useEffect(() => { loadScripts() }, [])
 
   const loadScripts = async () => {
-    try {
-      const scripts = await App.GetScripts()
-      setSavedScripts(scripts || [])
-    } catch { /* ignore */ }
+    try { setSavedScripts((await App.GetScripts()) || []) } catch { /* ignore */ }
   }
 
   const updateGlobal = (key: string, value: any) => {
@@ -77,8 +68,7 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
   }
 
   const addJob = () => {
-    const job = { ...DEFAULT_JOB }
-    onConfigChange({ ...cfg, jobs: [...cfg.jobs, job] })
+    onConfigChange({ ...cfg, jobs: [...cfg.jobs, { ...DEFAULT_JOB }] })
     setExpandedJob(cfg.jobs.length)
   }
 
@@ -138,8 +128,7 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
         if (parsed.global && parsed.jobs) {
           onConfigChange(ensureConfig(parsed))
           onConfigNameChange(name.replace('.fio', ''))
-          const content = await App.GetScriptContent(name)
-          setRawText(content)
+          setRawText(await App.GetScriptContent(name))
           onAudit('加载配置', `配置: ${name}`)
           return
         }
@@ -178,147 +167,144 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
   const previewText = editMode === 'raw' ? rawText : generateFioText(cfg, true)
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-      {/* 左列 */}
-      <div>
-        {/* 脚本管理 */}
-        <div className="panel">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <h3 style={{ fontSize: 14, color: '#4f46e5' }}>保存的脚本</h3>
-            <div style={{ display: 'flex', gap: 4 }}>
-              <button className="btn btn-outline btn-sm" onClick={loadScripts}>刷新</button>
-              <button className="btn btn-primary btn-sm" onClick={saveToServer}>
-                {saveStatus === 'saving' ? '保存中...' : saveStatus === 'saved' ? '已保存 ✓' : '保存到服务器'}
-              </button>
-            </div>
-          </div>
-          {savedScripts.length === 0 ? (
-            <p style={{ fontSize: 12, color: '#9ca3af' }}>暂无保存的脚本</p>
-          ) : (
-            <div style={{ maxHeight: 160, overflowY: 'auto' }}>
-              {savedScripts.map(name => (
-                <div key={name} className="host-item">
-                  <span style={{ flex: 1, fontSize: 13 }}>{name}</span>
-                  <button className="btn btn-outline btn-sm" onClick={() => loadFromServer(name)}>加载</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => deleteFromServer(name)}>删除</button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* 场景预设 */}
-        <div className="panel" style={{ marginTop: 12 }}>
-          <h3 style={{ marginBottom: 8, fontSize: 14, color: '#4f46e5' }}>场景预设</h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {Object.entries(SCENE_PRESETS).map(([name, preset]) => (
-              <button key={name} className="btn btn-outline btn-sm" onClick={() => applyPreset(preset)}>
-                {name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 全局配置 */}
-        <div className="panel" style={{ marginTop: 12 }}>
-          <h3 style={{ marginBottom: 12, fontSize: 14, color: '#4f46e5' }}>全局配置</h3>
-          <div className="form-group">
-            <label>配置名称</label>
-            <input value={configName} onChange={(e) => onConfigNameChange(e.target.value)} />
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>文件路径</label>
-              <input value={cfg.global.filename} onChange={(e) => updateGlobal('filename', e.target.value)} />
-            </div>
-            <div className="form-group">
-              <label>运行时间 (秒)</label>
-              <input type="number" value={cfg.global.runtime} onChange={(e) => updateGlobal('runtime', parseInt(e.target.value) || 0)} />
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>预热时间 (秒)</label>
-              <input type="number" value={cfg.global.ramp_time} onChange={(e) => updateGlobal('ramp_time', parseInt(e.target.value) || 0)} />
-            </div>
-            <div className="form-group">
-              <label>IO 引擎</label>
-              <select value={cfg.global.ioengine} onChange={(e) => updateGlobal('ioengine', e.target.value)}>
-                <option value="libaio">libaio</option>
-                <option value="io_uring">io_uring</option>
-                <option value="posixaio">posixaio</option>
-                <option value="sync">sync</option>
-              </select>
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>测试大小 (可选)</label>
-              <input value={cfg.global.size || ''} placeholder="留空=自动"
-                onChange={(e) => updateGlobal('size', e.target.value || undefined)} />
-            </div>
-            <div className="form-group">
-              <label>工作目录 (可选)</label>
-              <input value={cfg.global.directory || ''} placeholder="留空=默认"
-                onChange={(e) => updateGlobal('directory', e.target.value || undefined)} />
-            </div>
-          </div>
-        </div>
-
-        {/* 日志配置 */}
-        <div className="panel" style={{ marginTop: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showLogging ? 12 : 0 }}>
-            <h3 style={{ fontSize: 14, color: '#4f46e5' }}>日志配置</h3>
-            <button className="btn btn-outline btn-sm" onClick={() => setShowLogging(!showLogging)}>
-              {showLogging ? '收起' : '展开'}
-            </button>
-          </div>
-          {showLogging && (
-            <>
-              <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 8 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={log.enabled}
-                    onChange={(e) => updateLogging('enabled', e.target.checked)} />
-                  启用日志
-                </label>
-              </div>
-              {log.enabled && (
-                <>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>采样间隔 (ms)</label>
-                      <input type="number" value={log.log_avg_msec}
-                        onChange={(e) => updateLogging('log_avg_msec', parseInt(e.target.value) || 500)} />
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 16 }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                      <input type="checkbox" checked={log.write_bw_log}
-                        onChange={(e) => updateLogging('write_bw_log', e.target.checked)} />
-                      带宽日志
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                      <input type="checkbox" checked={log.write_lat_log}
-                        onChange={(e) => updateLogging('write_lat_log', e.target.checked)} />
-                      延迟日志
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                      <input type="checkbox" checked={log.write_iops_log}
-                        onChange={(e) => updateLogging('write_iops_log', e.target.checked)} />
-                      IOPS 日志
-                    </label>
-                  </div>
-                </>
-              )}
-            </>
-          )}
+    <div>
+      <div className="manager-header">
+        <h2>脚本管理</h2>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-outline btn-sm" onClick={loadScripts}>刷新</button>
+          <button className="btn btn-primary btn-sm" onClick={saveToServer}>
+            {saveStatus === 'saving' ? '保存中...' : saveStatus === 'saved' ? '已保存 ✓' : '保存配置'}
+          </button>
         </div>
       </div>
 
-      {/* 右列：任务列表 */}
-      <div>
+      {/* 脚本列表 */}
+      <div className="panel">
+        <h3 className="section-title">保存的脚本</h3>
+        {savedScripts.length === 0 ? (
+          <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>暂无保存的脚本</p>
+        ) : (
+          <div style={{ maxHeight: 160, overflowY: 'auto' }}>
+            {savedScripts.map(name => (
+              <div key={name} className="host-item">
+                <span style={{ flex: 1, fontSize: 13 }}>{name}</span>
+                <button className="btn btn-outline btn-sm" onClick={() => loadFromServer(name)}>加载</button>
+                <button className="btn btn-danger btn-sm" onClick={() => deleteFromServer(name)}>删除</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 场景预设 */}
+      <div className="panel">
+        <h3 className="section-title">场景预设</h3>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {Object.entries(SCENE_PRESETS).map(([name, preset]) => (
+            <button key={name} className="btn btn-outline btn-sm" onClick={() => applyPreset(preset)}>
+              {name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 全局配置 */}
+      <div className="panel">
+        <h3 className="section-title">全局配置</h3>
+        <div className="form-group">
+          <label>配置名称</label>
+          <input value={configName} onChange={(e) => onConfigNameChange(e.target.value)} />
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>文件路径</label>
+            <input value={cfg.global.filename} onChange={(e) => updateGlobal('filename', e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label>运行时间 (秒)</label>
+            <input type="number" value={cfg.global.runtime} onChange={(e) => updateGlobal('runtime', parseInt(e.target.value) || 0)} />
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>预热时间 (秒)</label>
+            <input type="number" value={cfg.global.ramp_time} onChange={(e) => updateGlobal('ramp_time', parseInt(e.target.value) || 0)} />
+          </div>
+          <div className="form-group">
+            <label>IO 引擎</label>
+            <select value={cfg.global.ioengine} onChange={(e) => updateGlobal('ioengine', e.target.value)}>
+              <option value="libaio">libaio</option>
+              <option value="io_uring">io_uring</option>
+              <option value="posixaio">posixaio</option>
+              <option value="sync">sync</option>
+            </select>
+          </div>
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label>测试大小 (可选)</label>
+            <input value={cfg.global.size || ''} placeholder="留空=自动"
+              onChange={(e) => updateGlobal('size', e.target.value || undefined)} />
+          </div>
+          <div className="form-group">
+            <label>工作目录 (可选)</label>
+            <input value={cfg.global.directory || ''} placeholder="留空=默认"
+              onChange={(e) => updateGlobal('directory', e.target.value || undefined)} />
+          </div>
+        </div>
+      </div>
+
+      {/* 日志配置 */}
+      <div className="panel">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showLogging ? 12 : 0 }}>
+          <h3 className="section-title" style={{ marginBottom: 0 }}>日志配置</h3>
+          <button className="btn btn-outline btn-sm" onClick={() => setShowLogging(!showLogging)}>
+            {showLogging ? '收起' : '展开'}
+          </button>
+        </div>
+        {showLogging && (
+          <>
+            <label className="toggle-label" style={{ marginBottom: 8 }}>
+              <input type="checkbox" checked={log.enabled}
+                onChange={(e) => updateLogging('enabled', e.target.checked)} />
+              启用日志
+            </label>
+            {log.enabled && (
+              <>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>采样间隔 (ms)</label>
+                    <input type="number" value={log.log_avg_msec}
+                      onChange={(e) => updateLogging('log_avg_msec', parseInt(e.target.value) || 500)} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 16 }}>
+                  <label className="toggle-label">
+                    <input type="checkbox" checked={log.write_bw_log}
+                      onChange={(e) => updateLogging('write_bw_log', e.target.checked)} />
+                    带宽日志
+                  </label>
+                  <label className="toggle-label">
+                    <input type="checkbox" checked={log.write_lat_log}
+                      onChange={(e) => updateLogging('write_lat_log', e.target.checked)} />
+                    延迟日志
+                  </label>
+                  <label className="toggle-label">
+                    <input type="checkbox" checked={log.write_iops_log}
+                      onChange={(e) => updateLogging('write_iops_log', e.target.checked)} />
+                    IOPS 日志
+                  </label>
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* 测试任务 */}
+      <div className="panel">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 style={{ fontSize: 14, color: '#4f46e5' }}>测试任务 ({cfg.jobs.length})</h3>
+          <h3 className="section-title" style={{ marginBottom: 0 }}>测试任务 ({cfg.jobs.length})</h3>
           <button className="btn btn-primary btn-sm" onClick={addJob}>+ 添加任务</button>
         </div>
 
@@ -335,10 +321,9 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
             </div>
             {expandedJob === idx && (
               <div style={{ marginTop: 12 }}>
-                {/* 块大小预设按钮 */}
                 <div style={{ marginBottom: 8 }}>
-                  <label style={{ fontSize: 12, color: '#6b7280', marginBottom: 4, display: 'block' }}>块大小 (KB)</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  <label style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>块大小 (KB)</label>
+                  <div className="preset-group">
                     {BS_PRESETS.map(bs => (
                       <button key={bs} className={`btn btn-sm ${job.bs === bs ? 'btn-primary' : 'btn-outline'}`}
                         onClick={() => updateJob(idx, { bs })}>
@@ -347,7 +332,6 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
                     ))}
                   </div>
                 </div>
-
                 <div className="form-row">
                   <div className="form-group">
                     <label>读写类型</label>
@@ -373,22 +357,18 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
                       onChange={(e) => updateJob(idx, { numjobs: parseInt(e.target.value) || 1 })} />
                   </div>
                 </div>
-
-                {/* 基础开关 */}
                 <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                  <label className="toggle-label">
                     <input type="checkbox" checked={job.direct}
                       onChange={(e) => updateJob(idx, { direct: e.target.checked })} />
                     Direct I/O
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                  <label className="toggle-label">
                     <input type="checkbox" checked={job.thread}
                       onChange={(e) => updateJob(idx, { thread: e.target.checked })} />
                     Thread 模式
                   </label>
                 </div>
-
-                {/* 高级选项 */}
                 <div style={{ marginTop: 8 }}>
                   <button className="btn btn-outline btn-sm"
                     onClick={() => setShowAdvanced({ ...showAdvanced, [idx]: !showAdvanced[idx] })}>
@@ -420,25 +400,22 @@ export function FioConfigEditor({ config, configName, onConfigChange, onConfigNa
         ))}
 
         {cfg.jobs.length === 0 && (
-          <p style={{ color: '#9ca3af', fontSize: 13 }}>点击「添加任务」或使用场景预设</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>点击「添加任务」或使用场景预设</p>
         )}
       </div>
 
-      {/* 底部：预览/编辑 */}
-      <div className="panel" style={{ gridColumn: '1 / -1' }}>
+      {/* 配置预览 */}
+      <div className="panel">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 style={{ fontSize: 14, color: '#4f46e5' }}>FIO 配置 {editMode === 'raw' ? '编辑' : '预览'}</h3>
+          <h3 className="section-title" style={{ marginBottom: 0 }}>FIO 配置 {editMode === 'raw' ? '编辑' : '预览'}</h3>
           <button className="btn btn-outline btn-sm" onClick={toggleEditMode}>
-            {editMode === 'raw' ? '切换到结构化编辑' : '切换到原始文本编辑'}
+            {editMode === 'raw' ? '结构化编辑' : '原始文本编辑'}
           </button>
         </div>
         {editMode === 'raw' ? (
-          <textarea
-            className="code-preview"
-            value={rawText}
+          <textarea className="code-preview" value={rawText}
             onChange={(e) => setRawText(e.target.value)}
-            style={{ width: '100%', minHeight: 300, resize: 'vertical' }}
-          />
+            style={{ width: '100%', minHeight: 300, resize: 'vertical' }} />
         ) : (
           <pre className="code-preview">{previewText}</pre>
         )}
