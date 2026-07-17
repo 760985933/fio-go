@@ -35,27 +35,20 @@ func (a *App) Startup(ctx context.Context) {
 
 // ========== 脚本管理 ==========
 
-var invalidScriptNameChars = regexp.MustCompile(`[/\\]`)
-
 // sanitizeScriptName 清洗脚本名，防止路径遍历攻击
 func sanitizeScriptName(name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return "", fmt.Errorf("脚本名称不能为空")
 	}
-	// 禁止包含 .. 的任何路径（在 Base 之前检测）
+	// 禁止包含 .. 或 . 的任何路径段
 	for _, part := range strings.Split(name, string(os.PathSeparator)) {
-		if part == ".." {
+		if part == ".." || part == "." {
 			return "", fmt.Errorf("非法的脚本名称: %s", name)
 		}
 	}
 	// 再检查正斜杠和反斜杠
 	if strings.Contains(name, "/") || strings.Contains(name, "\\") {
-		return "", fmt.Errorf("非法的脚本名称: %s", name)
-	}
-	// 去掉路径前缀，只取文件名
-	name = filepath.Base(name)
-	if name == "." || name == ".." {
 		return "", fmt.Errorf("非法的脚本名称: %s", name)
 	}
 	return name, nil
@@ -245,9 +238,10 @@ type CheckResult struct {
 }
 
 type ActionResult struct {
-	Host  string `json:"host"`
-	Error string `json:"error,omitempty"`
-	Msg   string `json:"msg"`
+	Host    string `json:"host"`
+	Error   string `json:"error,omitempty"`
+	Msg     string `json:"msg"`
+	Running bool   `json:"running"`
 }
 
 // CheckConnectivity 检查主机连通性
@@ -277,9 +271,7 @@ func (a *App) PreDeployCheck(taskID string, hosts []executor.HostConfig) ([]Chec
 		msg := ""
 		if i < len(statusResults) {
 			msg = statusResults[i].Msg
-			if strings.Contains(msg, "Running") {
-				running = true
-			}
+			running = statusResults[i].Running
 		}
 		residual := false
 		if i < len(residualResults) && residualResults[i].Msg == "Exists" {
@@ -347,7 +339,7 @@ func (a *App) CleanRemote(taskID string, hosts []executor.HostConfig) ([]ActionR
 func toActionResults(results []executor.ExecutionResult) []ActionResult {
 	actionResults := make([]ActionResult, 0, len(results))
 	for _, r := range results {
-		ar := ActionResult{Host: r.Host, Msg: r.Msg}
+		ar := ActionResult{Host: r.Host, Msg: r.Msg, Running: r.Running}
 		if r.Error != nil {
 			ar.Error = r.Error.Error()
 		}
@@ -716,19 +708,34 @@ func (a *App) ExecuteOrchestration(taskIDs []string, interval int) ([]Orchestrat
 		})
 
 		finished := false
+		statusErr := false
 		for !finished {
 			time.Sleep(10 * time.Second)
 			statusResults, err := a.CheckStatus(taskID, task.Hosts)
 			if err != nil {
+				progress = append(progress, OrchestrationProgress{
+					TaskID:   safeID,
+					TaskName: task.Name,
+					Step:     "running",
+					Status:   "error",
+					Error:    err.Error(),
+					Current:  i + 1,
+					Total:    total,
+				})
+				statusErr = true
 				break
 			}
 			finished = true
 			for _, r := range statusResults {
-				if strings.Contains(r.Msg, "Running") || strings.Contains(r.Msg, "running") {
+				if r.Running {
 					finished = false
 					break
 				}
 			}
+		}
+
+		if statusErr {
+			continue
 		}
 
 		progress = append(progress, OrchestrationProgress{

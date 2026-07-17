@@ -13,9 +13,10 @@ import (
 const baseFioDir = "/tmp/fio"
 
 type ExecutionResult struct {
-	Host  string
-	Error error
-	Msg   string
+	Host    string
+	Error   error
+	Msg     string
+	Running bool
 }
 
 var taskKeySanitizer = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
@@ -204,6 +205,7 @@ func CheckStatus(taskKey string, hosts []HostConfig) []ExecutionResult {
 			if res.Msg == "" {
 				res.Msg = "Not running"
 			}
+			res.Running = strings.HasPrefix(res.Msg, "Running")
 			results[idx] = res
 		}(i, host)
 	}

@@ -630,9 +630,7 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 			msg := ""
 			if i < len(statusResults) {
 				msg = statusResults[i].Msg
-				if strings.Contains(msg, "Running") {
-					running = true
-				}
+				running = statusResults[i].Running
 			}
 			residual := false
 			if i < len(residualResults) && residualResults[i].Msg == "Exists" {
@@ -660,7 +658,7 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 		statusResults := executor.CheckStatus(task.ID, task.Hosts)
 		var busyHosts []string
 		for _, res := range statusResults {
-			if strings.Contains(res.Msg, "Running") {
+			if res.Running {
 				busyHosts = append(busyHosts, res.Host)
 			}
 		}

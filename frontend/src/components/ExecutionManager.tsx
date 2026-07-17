@@ -119,7 +119,7 @@ export function ExecutionManager({ scriptName, onScriptNameChange, onAudit, onSh
         const statusResults = await App.CheckStatus(task.id, task.hosts)
         finished = true
         for (const r of statusResults) {
-          if (r.msg && (r.msg.includes('Running') || r.msg.includes('running'))) {
+          if (r.running) {
             finished = false
             break
           }

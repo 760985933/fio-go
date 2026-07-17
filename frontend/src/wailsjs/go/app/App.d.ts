@@ -53,6 +53,7 @@ export interface ActionResult {
     host: string;
     error: string;
     msg: string;
+    running: boolean;
 }
 
 export interface AnalysisSummary {
