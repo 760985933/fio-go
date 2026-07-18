@@ -45,6 +45,7 @@ export function ScriptManager({ onAudit }: Props) {
   const [createName, setCreateName] = useState('')
   const [createDesc, setCreateDesc] = useState('')
   const [createError, setCreateError] = useState('')
+  const [showJobJson, setShowJobJson] = useState<number | null>(null)
 
   const loadModels = useCallback(async () => {
     try {
@@ -216,28 +217,35 @@ export function ScriptManager({ onAudit }: Props) {
             )}
           </div>
 
-          {/* 下栏：选中模型下的配置条目 */}
+          {/* 下栏：选中模型下的参数列表 */}
           {selectedModel && (
             <div className="panel">
-              <h3 className="section-title">配置条目 ({cfg.jobs.length})</h3>
+              <h3 className="section-title">模型参数 ({cfg.jobs.length})</h3>
               {cfg.jobs.length === 0 ? (
                 <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>在右侧编辑后点击「添加模型」</p>
               ) : (
                 cfg.jobs.map((job, idx) => (
                   <div key={idx} className="card" style={{ marginBottom: 6, cursor: 'pointer', borderColor: editIdx === idx ? 'var(--primary)' : undefined }}
                     onClick={() => selectJob(idx)}>
-                    <div className="card-header" style={{ marginBottom: 0 }}>
+                    <div className="card-header" style={{ marginBottom: 0, flexWrap: 'wrap', gap: 4 }}>
                       <span className="card-title">
                         <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 11, fontWeight: 600, marginRight: 6 }}>{idx + 1}</span>
-                        {bsLabel(job.bs)} / {job.rw} / Q{job.iodepth}
                       </span>
-                      <div style={{ display: 'flex', gap: 4 }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'inline-flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span>rw: <b>{job.rw}</b></span>
+                        <span>bs: <b>{bsLabel(job.bs)}</b></span>
+                        <span>numjobs: <b>{job.numjobs}</b></span>
+                        <span>iodepth: <b>{job.iodepth}</b></span>
+                        {job.rwmixread != null && <span>rwmixread: <b>{job.rwmixread}%</b></span>}
+                      </span>
+                      <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
+                        <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); setShowJobJson(idx) }}>完整参数</button>
                         <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); duplicateJob(idx) }}>复制</button>
                         <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); deleteJob(idx) }}>删除</button>
                       </div>
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                      {cfg.global.filename || '无文件'} · {job.numjobs} 进程
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                      {cfg.global.filename || '无文件'} · {cfg.global.runtime}s
                     </div>
                   </div>
                 ))
@@ -262,7 +270,9 @@ export function ScriptManager({ onAudit }: Props) {
           <div className="panel">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <h3 className="section-title" style={{ marginBottom: 0 }}>
-                {isEditing ? `编辑条目 #${editIdx! + 1}` : selectedModel ? `添加模型 - ${selectedModel}` : '编辑配置'}
+                {isEditing ? (
+                  <span><span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 11, fontWeight: 600, marginRight: 6 }}>{editIdx! + 1}</span>编辑模型参数</span>
+                ) : selectedModel ? `添加模型 - ${selectedModel}` : '编辑配置'}
               </h3>
               {saveStatus === 'saved' && <span style={{ fontSize: 12, color: 'var(--success)' }}>已保存</span>}
               {saveStatus === 'error' && <span style={{ fontSize: 12, color: 'var(--danger)' }}>保存失败</span>}
@@ -393,7 +403,7 @@ export function ScriptManager({ onAudit }: Props) {
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               {isEditing ? (
                 <>
-                  <button className="btn btn-primary btn-sm" onClick={saveEditedJob}>更新条目</button>
+                  <button className="btn btn-primary btn-sm" onClick={saveEditedJob}>                  更新参数</button>
                   <button className="btn btn-outline btn-sm" onClick={resetForm}>取消编辑</button>
                 </>
               ) : (
@@ -436,6 +446,23 @@ export function ScriptManager({ onAudit }: Props) {
               <button className="btn btn-primary" onClick={doCreateModel} disabled={saveStatus === 'saving'}>
                 {saveStatus === 'saving' ? '保存中...' : '确定'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showJobJson !== null && (
+        <div className="modal-overlay" onClick={() => setShowJobJson(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>参数 #{showJobJson + 1} JSON</h3>
+              <button className="modal-close" onClick={() => setShowJobJson(null)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <pre style={{ fontSize: 12, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-all', background: 'var(--bg-secondary)', padding: 12, borderRadius: 6, margin: 0 }}>{JSON.stringify(cfg.jobs[showJobJson], null, 2)}</pre>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={() => { navigator.clipboard.writeText(JSON.stringify(cfg.jobs[showJobJson], null, 2)); setShowJobJson(null) }}>复制并关闭</button>
             </div>
           </div>
         </div>
