@@ -91,20 +91,6 @@ func StartServer(port int) error {
 	return http.ListenAndServe(addr, mux)
 }
 
-func defaultExecutionTask() executionTaskConfig {
-	return executionTaskConfig{
-		ID:      "default-task",
-		Name:    defaultTaskName,
-		Scripts: []string{},
-		Hosts: []executor.HostConfig{
-			{
-				Host: "127.0.0.1",
-				Port: 22,
-				User: "root",
-			},
-		},
-	}
-}
 
 func normalizeHostConfig(host executor.HostConfig) executor.HostConfig {
 	host.Host = strings.TrimSpace(host.Host)
@@ -125,6 +111,9 @@ func normalizeExecutionTask(task executionTaskConfig, idx int) executionTaskConf
 	task.Name = strings.TrimSpace(task.Name)
 	if task.Name == "" {
 		task.Name = fmt.Sprintf("执行任务 %d", idx+1)
+	}
+	if task.Scripts == nil {
+		task.Scripts = []string{}
 	}
 
 	filteredHosts := make([]executor.HostConfig, 0, len(task.Hosts))
@@ -359,19 +348,13 @@ func readExecutionTasks() ([]executionTaskConfig, error) {
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
-
-		// Initial default task
-		return []executionTaskConfig{defaultExecutionTask()}, nil
+		return []executionTaskConfig{}, nil
 	}
 
 	var payload executionTasksPayload
 	err = json.Unmarshal(content, &payload)
 	if err != nil {
 		return nil, err
-	}
-
-	if len(payload.Tasks) == 0 {
-		return []executionTaskConfig{defaultExecutionTask()}, nil
 	}
 
 	tasks := make([]executionTaskConfig, 0, len(payload.Tasks))
@@ -415,9 +398,6 @@ func handleExecutionTasks(w http.ResponseWriter, r *http.Request) {
 		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
-		}
-		if len(payload.Tasks) == 0 {
-			payload.Tasks = []executionTaskConfig{defaultExecutionTask()}
 		}
 		if err := writeExecutionTasks(payload.Tasks); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -673,8 +653,11 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 		for _, scriptName := range task.Scripts {
 			content, err := os.ReadFile(filepath.Join("scripts", scriptName))
 			if err != nil {
-				http.Error(w, "Failed to read script: "+err.Error(), http.StatusBadRequest)
-				return
+				results = append(results, executor.ExecutionResult{
+					Host:  "all",
+					Error: fmt.Errorf("读取脚本 %s 失败: %v", scriptName, err),
+				})
+				continue
 			}
 			results = append(results, executor.DeployAndRun(task.ID, task.Hosts, scriptName, content)...)
 		}

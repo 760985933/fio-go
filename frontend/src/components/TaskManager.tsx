@@ -14,9 +14,7 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
   const [executing, setExecuting] = useState(false)
   const [currentTask, setCurrentTask] = useState<string>('')
   const [checkResults, setCheckResults] = useState<CheckResult[]>([])
-  const [executionLogs, setExecutionLogs] = useState<string[]>([])
 
-  // 创建任务弹窗状态
   const [showCreate, setShowCreate] = useState(false)
   const [newTaskName, setNewTaskName] = useState('')
   const [newTaskScripts, setNewTaskScripts] = useState<string[]>([])
@@ -84,7 +82,7 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
       const results = await App.PreDeployCheck(task.id, task.hosts)
       setCheckResults(results)
       await onShowResults('预检查结果',
-        results.map((r: CheckResult) => `${r.host}: ${r.running ? '⚠ 有运行中的FIO' : '✓ 空闲'}${r.residual ? ' | 有残留数据' : ''}${r.msg ? '\n  ' + r.msg : ''}`).join('\n\n')
+        results.map((r: CheckResult) => `${r.host}: ${r.running ? '⚠ 有运行中的FIO' : r.msg.startsWith('连接失败') ? '✗ 连接失败' : '✓ 空闲'}${r.residual ? ' | 有残留数据' : ''}${r.msg ? '\n  ' + r.msg : ''}`).join('\n\n')
       )
       setCurrentTask('')
     } catch (err) {
@@ -121,9 +119,6 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
 
       const pullResults = await App.PullData(task.id, task.hosts)
       onAudit('数据拉取完成', `任务: ${task.id}`)
-
-      const log = await App.GetExecutionLog(task.id)
-      setExecutionLogs(prev => [...prev, log])
 
       await onShowResults('执行完成',
         `拉取结果:\n${pullResults.map((r: ActionResult) => `${r.host}: ${r.error ? '失败: ' + r.error : '成功'}`).join('\n')}`
@@ -211,123 +206,132 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
         <h2>任务管理</h2>
       </div>
 
-      <div className="two-col">
-        <div className="col-left">
-          {/* 创建任务弹窗 */}
-          {showCreate && (
-            <div className="panel" style={{ border: '1px solid var(--primary)' }}>
-              <h3 className="section-title">创建任务</h3>
+      {/* 创建任务弹窗 */}
+      {showCreate && (
+        <div className="modal-overlay" onClick={() => setShowCreate(false)}>
+          <div className="modal" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>创建任务</h3>
+              <button className="modal-close" onClick={() => setShowCreate(false)}>&times;</button>
+            </div>
+            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
               <div className="form-group">
                 <label>任务名称</label>
                 <input value={newTaskName} placeholder="可选"
                   onChange={(e) => setNewTaskName(e.target.value)} />
               </div>
               <div className="form-group">
-                <label>选择脚本 ({newTaskScripts.length}/{savedScripts.length})</label>
-                {savedScripts.length === 0 ? (
-                  <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>暂无脚本，请先在脚本管理中保存</p>
-                ) : (
-                  <div style={{ maxHeight: 160, overflowY: 'auto' }}>
-                    {savedScripts.map(s => (
-                      <label key={s} className="toggle-label" style={{ padding: '4px 0' }}>
-                        <input type="checkbox" checked={newTaskScripts.includes(s)}
-                          onChange={() => toggleScript(s)} />
-                        {s}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="form-group">
-                <label>选择主机 ({newTaskHostIds.length}/{hosts.length})</label>
-                {hosts.length === 0 ? (
-                  <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>暂无主机，请先在主机管理中添加</p>
-                ) : (
-                  <div style={{ maxHeight: 160, overflowY: 'auto' }}>
-                    {hosts.map(h => (
-                      <label key={h.id} className="toggle-label" style={{ padding: '4px 0' }}>
-                        <input type="checkbox" checked={newTaskHostIds.includes(h.id)}
-                          onChange={() => toggleHost(h.id)} />
-                        {h.user}@{h.host}:{h.port}
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button className="btn btn-primary btn-sm" onClick={confirmCreate}
-                  disabled={newTaskScripts.length === 0 || newTaskHostIds.length === 0}>
-                  确认创建
-                </button>
-                <button className="btn btn-outline btn-sm" onClick={() => setShowCreate(false)}>取消</button>
-              </div>
-            </div>
-          )}
-
-          {!showCreate && (
-            <div className="panel">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 className="section-title" style={{ marginBottom: 0 }}>创建任务</h3>
-                <button className="btn btn-primary btn-sm" onClick={openCreate}>添加任务</button>
-              </div>
-              {(hosts.length === 0 || savedScripts.length === 0) && (
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
-                  {hosts.length === 0 && '请先在主机管理中添加主机'}
-                  {hosts.length > 0 && savedScripts.length === 0 && '请先在脚本管理中保存脚本'}
-                </p>
-              )}
-            </div>
-          )}
-
-          {executionTasks.length > 0 && (
-            <div className="panel">
-              <h3 className="section-title">执行任务 ({executionTasks.length})</h3>
-              {executionTasks.map((task, idx) => (
-                <div key={task.id} className="card">
-                  <div className="card-header">
-                    <span className="card-title">{task.name} ({task.scripts.length} 脚本, {task.hosts.length} 主机)</span>
-                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                      <button className="btn btn-outline btn-sm" onClick={() => preCheck(task)} disabled={executing}>预检查</button>
-                      <button className="btn btn-primary btn-sm" onClick={() => executeDeploy(task)} disabled={executing}>
-                        {currentTask === task.id ? '执行中...' : '执行'}
-                      </button>
-                      <button className="btn btn-outline btn-sm" onClick={() => checkStatus(task)} disabled={executing}>状态</button>
-                      <button className="btn btn-danger btn-sm" onClick={() => killTask(task)}>停止</button>
-                      <button className="btn btn-outline btn-sm" onClick={() => viewLogs(task)}>日志</button>
-                      <button className="btn btn-outline btn-sm" onClick={() => viewHostLogs(task)}>单机日志</button>
-                      <button className="btn btn-outline btn-sm" onClick={() => cleanLocal(task)}>清理本地</button>
-                      <button className="btn btn-danger btn-sm" onClick={() => cleanRemote(task)}>清理远程</button>
-                      <button className="btn btn-danger btn-sm" onClick={() => removeTask(idx)}>删除</button>
-                    </div>
-                  </div>
-                  {checkResults.length > 0 && currentTask === task.id && (
-                    <div style={{ marginTop: 8 }}>
-                      {checkResults.map((r, ri) => (
-                        <div key={ri} className={`status-line ${r.running ? 'status-warning' : 'status-ok'}`}>
-                          {r.running ? '⚠' : '✓'} {r.host}: {r.msg}
-                        </div>
-                      ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <label style={{ margin: 0 }}>选择脚本 ({newTaskScripts.length}/{savedScripts.length})</label>
+                  {savedScripts.length > 0 && (
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '2px 6px' }}
+                        onClick={() => setNewTaskScripts(savedScripts)}>全选</button>
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '2px 6px' }}
+                        onClick={() => setNewTaskScripts([])}>全不选</button>
                     </div>
                   )}
                 </div>
-              ))}
+                {savedScripts.length === 0 ? (
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>暂无脚本，请先在脚本管理中保存</p>
+                ) : (
+                  <div className="checkbox-list" style={{ border: '1px solid #ccc', borderRadius: 8, maxHeight: 200, overflowY: 'auto' }}>
+                    {savedScripts.map(s => (
+                      <label key={s} className="toggle-label" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #eee' }}>
+                        <input type="checkbox" checked={newTaskScripts.includes(s)}
+                          onChange={() => toggleScript(s)} style={{ flexShrink: 0, marginLeft: 2 }} />
+                        <span>{s}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <label style={{ margin: 0 }}>选择主机 ({newTaskHostIds.length}/{hosts.length})</label>
+                  {hosts.length > 0 && (
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '2px 6px' }}
+                        onClick={() => setNewTaskHostIds(hosts.map(h => h.id))}>全选</button>
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '2px 6px' }}
+                        onClick={() => setNewTaskHostIds([])}>全不选</button>
+                    </div>
+                  )}
+                </div>
+                {hosts.length === 0 ? (
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>暂无主机，请先在主机管理中添加</p>
+                ) : (
+                  <div className="checkbox-list" style={{ border: '1px solid #ccc', borderRadius: 8, maxHeight: 200, overflowY: 'auto' }}>
+                    {hosts.map(h => (
+                      <label key={h.id} className="toggle-label" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 14px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #eee' }}>
+                        <input type="checkbox" checked={newTaskHostIds.includes(h.id)}
+                          onChange={() => toggleHost(h.id)} style={{ flexShrink: 0, marginLeft: 2 }} />
+                        <span>{h.user}@{h.host}:{h.port}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          )}
-        </div>
-
-        <div className="col-right">
-          <div className="panel">
-            <h3 className="section-title">执行日志</h3>
-            {executionLogs.length === 0 ? (
-              <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>暂无日志</p>
-            ) : (
-              executionLogs.map((log, idx) => (
-                <pre key={idx} className="code-preview" style={{ maxHeight: 400 }}>{log}</pre>
-              ))
-            )}
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setShowCreate(false)}>取消</button>
+              <button className="btn btn-primary" onClick={confirmCreate}
+                disabled={newTaskScripts.length === 0 || newTaskHostIds.length === 0}>
+                确认创建
+              </button>
+            </div>
           </div>
         </div>
+      )}
+
+      {/* 添加任务按钮 */}
+      <div className="panel">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 className="section-title" style={{ marginBottom: 0 }}>创建任务</h3>
+          <button className="btn btn-primary btn-sm" onClick={openCreate}>添加任务</button>
+        </div>
+        {(hosts.length === 0 || savedScripts.length === 0) && (
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+            {hosts.length === 0 && '请先在主机管理中添加主机'}
+            {hosts.length > 0 && savedScripts.length === 0 && '请先在脚本管理中保存脚本'}
+          </p>
+        )}
       </div>
+
+      {executionTasks.length > 0 && (
+        <div className="panel">
+          <h3 className="section-title">执行任务 ({executionTasks.length})</h3>
+          {executionTasks.map((task, idx) => (
+            <div key={task.id} className="card">
+              <div className="card-header">
+                <span className="card-title">{task.name} ({(task.scripts || []).length} 脚本, {(task.hosts || []).length} 主机)</span>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  <button className="btn btn-outline btn-sm" onClick={() => preCheck(task)} disabled={executing}>预检查</button>
+                  <button className="btn btn-primary btn-sm" onClick={() => executeDeploy(task)} disabled={executing}>
+                    {currentTask === task.id ? '执行中...' : '执行'}
+                  </button>
+                  <button className="btn btn-outline btn-sm" onClick={() => checkStatus(task)} disabled={executing}>状态</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => killTask(task)}>停止</button>
+                  <button className="btn btn-outline btn-sm" onClick={() => viewLogs(task)}>日志</button>
+                  <button className="btn btn-outline btn-sm" onClick={() => viewHostLogs(task)}>单机日志</button>
+                  <button className="btn btn-outline btn-sm" onClick={() => cleanLocal(task)}>清理本地</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => cleanRemote(task)}>清理远程</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => removeTask(idx)}>删除</button>
+                </div>
+              </div>
+              {checkResults.length > 0 && currentTask === task.id && (
+                <div style={{ marginTop: 8 }}>
+                  {checkResults.map((r, ri) => (
+                    <div key={ri} className={`status-line ${r.running || r.msg.startsWith('连接失败') ? 'status-warning' : 'status-ok'}`}>
+                      {r.running ? '⚠' : r.msg.startsWith('连接失败') ? '✗' : '✓'} {r.host}: {r.msg}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

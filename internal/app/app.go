@@ -167,17 +167,6 @@ func executionTasksFile() string {
 	return filepath.Join("scripts", "execution_tasks.json")
 }
 
-func defaultExecutionTask() ExecutionTaskConfig {
-	return ExecutionTaskConfig{
-		ID:      "default-task",
-		Name:    "默认执行任务",
-		Scripts: []string{},
-		Hosts: []executor.HostConfig{
-			{Host: "127.0.0.1", Port: 22, User: "root"},
-		},
-	}
-}
-
 var taskNameSanitizer = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 
 func sanitizeTaskID(taskID string) string {
@@ -209,6 +198,9 @@ func normalizeExecutionTask(task ExecutionTaskConfig, idx int) ExecutionTaskConf
 	if task.Name == "" {
 		task.Name = fmt.Sprintf("执行任务 %d", idx+1)
 	}
+	if task.Scripts == nil {
+		task.Scripts = []string{}
+	}
 
 	filteredHosts := make([]executor.HostConfig, 0, len(task.Hosts))
 	for _, host := range task.Hosts {
@@ -227,7 +219,7 @@ func (a *App) GetExecutionTasks() ([]ExecutionTaskConfig, error) {
 	data, err := os.ReadFile(executionTasksFile())
 	if err != nil {
 		if os.IsNotExist(err) {
-			return []ExecutionTaskConfig{defaultExecutionTask()}, nil
+			return []ExecutionTaskConfig{}, nil
 		}
 		return nil, err
 	}
@@ -235,10 +227,6 @@ func (a *App) GetExecutionTasks() ([]ExecutionTaskConfig, error) {
 	var payload ExecutionTasksPayload
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return nil, err
-	}
-
-	if len(payload.Tasks) == 0 {
-		return []ExecutionTaskConfig{defaultExecutionTask()}, nil
 	}
 
 	tasks := make([]ExecutionTaskConfig, 0, len(payload.Tasks))
@@ -357,12 +345,25 @@ func (a *App) PreDeployCheck(taskID string, hosts []executor.HostConfig) ([]Chec
 		running := false
 		msg := ""
 		if i < len(statusResults) {
-			msg = statusResults[i].Msg
-			running = statusResults[i].Running
+			if statusResults[i].Error != nil {
+				msg = "连接失败: " + statusResults[i].Error.Error()
+			} else {
+				msg = statusResults[i].Msg
+				running = statusResults[i].Running
+			}
 		}
 		residual := false
-		if i < len(residualResults) && residualResults[i].Msg == "Exists" {
-			residual = true
+		if i < len(residualResults) {
+			if residualResults[i].Error != nil {
+				if msg == "" {
+					msg = "连接失败: " + residualResults[i].Error.Error()
+				}
+			} else if residualResults[i].Msg == "Exists" {
+				residual = true
+			}
+		}
+		if msg == "" {
+			msg = "空闲"
 		}
 		checkResults = append(checkResults, CheckResult{
 			Host:     hostStr,

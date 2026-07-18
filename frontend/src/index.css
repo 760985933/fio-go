@@ -544,18 +544,55 @@ body {
 .toggle-label {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 13px;
   cursor: pointer;
   user-select: none;
   color: var(--text-secondary);
 }
 
+.checkbox-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.checkbox-list .toggle-label {
+  padding: 8px 14px;
+  margin: 0;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s ease;
+}
+
+.checkbox-list .toggle-label:last-child {
+  border-bottom: none;
+}
+
+.checkbox-list .toggle-label input[type="checkbox"] {
+  margin-left: 1px;
+}
+
+.checkbox-list .toggle-label:hover {
+  background: var(--primary-light);
+}
+
 .toggle-label input[type="checkbox"] {
   width: 16px;
   height: 16px;
+  flex-shrink: 0;
   accent-color: var(--primary);
   cursor: pointer;
+}
+
+.toggle-label span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ---- Preset Buttons ---- */
