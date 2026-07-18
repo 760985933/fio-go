@@ -291,18 +291,18 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
                       onChange={(e) => updateGlobal('directory', e.target.value || undefined)} />
                   </div>
                 </div>
-                <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-                  <button className="btn btn-primary btn-sm" onClick={saveToServer}>
-                    {saveStatus === 'saving' ? '保存中...' : saveStatus === 'saved' ? '已保存 ✓' : '保存配置'}
-                  </button>
-                  {(saveStatus === 'saved' || saveStatus === 'error') && (
-                    <span style={{ fontSize: 12, color: saveStatus === 'saved' ? 'var(--success)' : 'var(--danger)', display: 'flex', alignItems: 'center' }}>
-                      {saveStatus === 'saved' ? '已保存' : '保存失败'}
-                    </span>
-                  )}
-                </div>
               </>
             )}
+            <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+              <button className="btn btn-primary btn-sm" onClick={saveToServer}>
+                {saveStatus === 'saving' ? '保存中...' : saveStatus === 'saved' ? '已保存 ✓' : '保存配置'}
+              </button>
+              {(saveStatus === 'saved' || saveStatus === 'error') && (
+                <span style={{ fontSize: 12, color: saveStatus === 'saved' ? 'var(--success)' : 'var(--danger)', display: 'flex', alignItems: 'center' }}>
+                  {saveStatus === 'saved' ? '已保存' : '保存失败'}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* 日志配置 */}
