@@ -126,7 +126,7 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
               </div>
             </div>
             <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-secondary)', display: 'flex', gap: 16 }}>
-              <span>脚本: {task.script}</span>
+              <span>脚本: {(task.scripts || []).join(', ')}</span>
               <span>数据: {task.hasData ? '✓' : '✗'}</span>
               <span>报告: {task.hasReport ? '✓' : '未生成'}</span>
               <span>日志: {task.logAvailable ? '✓' : '✗'}</span>

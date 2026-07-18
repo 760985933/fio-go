@@ -153,10 +153,10 @@ func (a *App) DeleteScriptConfig(scriptName string) error {
 // ========== 执行任务管理 ==========
 
 type ExecutionTaskConfig struct {
-	ID     string                `json:"id"`
-	Name   string                `json:"name"`
-	Script string                `json:"script"`
-	Hosts  []executor.HostConfig `json:"hosts"`
+	ID      string                `json:"id"`
+	Name    string                `json:"name"`
+	Scripts []string              `json:"scripts"`
+	Hosts   []executor.HostConfig `json:"hosts"`
 }
 
 type ExecutionTasksPayload struct {
@@ -169,9 +169,9 @@ func executionTasksFile() string {
 
 func defaultExecutionTask() ExecutionTaskConfig {
 	return ExecutionTaskConfig{
-		ID:     "default-task",
-		Name:   "默认执行任务",
-		Script: "",
+		ID:      "default-task",
+		Name:    "默认执行任务",
+		Scripts: []string{},
 		Hosts: []executor.HostConfig{
 			{Host: "127.0.0.1", Port: 22, User: "root"},
 		},
@@ -282,19 +282,25 @@ type ActionResult struct {
 	Running bool   `json:"running"`
 }
 
+// ConnectivityResult 连通性测试结果
+type ConnectivityResult struct {
+	OK  bool   `json:"ok"`
+	Msg string `json:"msg"`
+}
+
 // CheckConnectivity 检查主机连通性
-func (a *App) CheckConnectivity(host executor.HostConfig) (bool, string) {
+func (a *App) CheckConnectivity(host executor.HostConfig) ConnectivityResult {
 	client, err := executor.NewSSHClient(host)
 	if err != nil {
-		return false, err.Error()
+		return ConnectivityResult{OK: false, Msg: err.Error()}
 	}
 	defer client.Close()
 
 	_, err = client.RunCommand("true")
 	if err != nil {
-		return false, err.Error()
+		return ConnectivityResult{OK: false, Msg: err.Error()}
 	}
-	return true, "连接成功"
+	return ConnectivityResult{OK: true, Msg: "连接成功"}
 }
 
 // ========== 主机管理 (SQLite 持久化) ==========
@@ -379,6 +385,21 @@ func (a *App) Deploy(taskID, scriptName string, hosts []executor.HostConfig) ([]
 	return toActionResults(results), nil
 }
 
+// DeployMulti 部署多个脚本到所有主机
+func (a *App) DeployMulti(taskID string, scripts []string, hosts []executor.HostConfig) ([]ActionResult, error) {
+	var allResults []ActionResult
+	for _, scriptName := range scripts {
+		content, err := os.ReadFile(filepath.Join("scripts", scriptName))
+		if err != nil {
+			allResults = append(allResults, ActionResult{Host: "all", Error: fmt.Sprintf("读取脚本 %s 失败: %v", scriptName, err)})
+			continue
+		}
+		results := executor.DeployAndRun(taskID, hosts, scriptName, content)
+		allResults = append(allResults, toActionResults(results)...)
+	}
+	return allResults, nil
+}
+
 // CheckStatus 检查 FIO 运行状态
 func (a *App) CheckStatus(taskID string, hosts []executor.HostConfig) ([]ActionResult, error) {
 	results := executor.CheckStatus(taskID, hosts)
@@ -432,16 +453,16 @@ func toActionResults(results []executor.ExecutionResult) []ActionResult {
 // ========== 分析报告 ==========
 
 type AnalysisSummary struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	Script        string `json:"script"`
-	HasData       bool   `json:"hasData"`
-	HasReport     bool   `json:"hasReport"`
-	LogAvailable  bool   `json:"logAvailable"`
-	DataDir       string `json:"dataDir"`
-	ReportDir     string `json:"reportDir"`
-	ReportHTMLURL string `json:"reportHtmlUrl"`
-	DownloadURL   string `json:"downloadUrl"`
+	ID            string   `json:"id"`
+	Name          string   `json:"name"`
+	Scripts       []string `json:"scripts"`
+	HasData       bool     `json:"hasData"`
+	HasReport     bool     `json:"hasReport"`
+	LogAvailable  bool     `json:"logAvailable"`
+	DataDir       string   `json:"dataDir"`
+	ReportDir     string   `json:"reportDir"`
+	ReportHTMLURL string   `json:"reportHtmlUrl"`
+	DownloadURL   string   `json:"downloadUrl"`
 }
 
 func taskRawDataDir(taskID string) string {
@@ -485,7 +506,7 @@ func (a *App) GetAnalysisTasks() ([]AnalysisSummary, error) {
 		summary := AnalysisSummary{
 			ID:            task.ID,
 			Name:          task.Name,
-			Script:        task.Script,
+			Scripts:       task.Scripts,
 			HasData:       dirHasFiles(taskRawDataDir(task.ID)),
 			HasReport:     false,
 			LogAvailable:  false,
@@ -755,7 +776,7 @@ func (a *App) ExecuteOrchestration(taskIDs []string, interval int) ([]Orchestrat
 			Total:    total,
 		})
 
-		deployResults, err := a.Deploy(taskID, task.Script, task.Hosts)
+		deployResults, err := a.DeployMulti(taskID, task.Scripts, task.Hosts)
 		if err != nil {
 			progress = append(progress, OrchestrationProgress{
 				TaskID:   safeID,

@@ -8,7 +8,7 @@ export function AddAuditLog(arg1:string,arg2:string):Promise<void>;
 
 export function AddHost(arg1:executor.HostConfig):Promise<number>;
 
-export function CheckConnectivity(arg1:executor.HostConfig):Promise<boolean|string>;
+export function CheckConnectivity(arg1:executor.HostConfig):Promise<app.ConnectivityResult>;
 
 export function CheckStatus(arg1:string,arg2:Array<executor.HostConfig>):Promise<Array<app.ActionResult>>;
 
@@ -25,6 +25,8 @@ export function DeleteScript(arg1:string):Promise<void>;
 export function DeleteScriptConfig(arg1:string):Promise<void>;
 
 export function Deploy(arg1:string,arg2:string,arg3:Array<executor.HostConfig>):Promise<Array<app.ActionResult>>;
+
+export function DeployMulti(arg1:string,arg2:Array<string>,arg3:Array<executor.HostConfig>):Promise<Array<app.ActionResult>>;
 
 export function ExecuteOrchestration(arg1:Array<string>,arg2:number):Promise<Array<app.OrchestrationProgress>>;
 

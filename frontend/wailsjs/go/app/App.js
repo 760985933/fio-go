@@ -46,6 +46,10 @@ export function Deploy(arg1, arg2, arg3) {
   return window['go']['app']['App']['Deploy'](arg1, arg2, arg3);
 }
 
+export function DeployMulti(arg1, arg2, arg3) {
+  return window['go']['app']['App']['DeployMulti'](arg1, arg2, arg3);
+}
+
 export function ExecuteOrchestration(arg1, arg2) {
   return window['go']['app']['App']['ExecuteOrchestration'](arg1, arg2);
 }

@@ -21,7 +21,7 @@ export namespace app {
 	export class AnalysisSummary {
 	    id: string;
 	    name: string;
-	    script: string;
+	    scripts: string[];
 	    hasData: boolean;
 	    hasReport: boolean;
 	    logAvailable: boolean;
@@ -38,7 +38,7 @@ export namespace app {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.name = source["name"];
-	        this.script = source["script"];
+	        this.scripts = source["scripts"];
 	        this.hasData = source["hasData"];
 	        this.hasReport = source["hasReport"];
 	        this.logAvailable = source["logAvailable"];
@@ -82,10 +82,24 @@ export namespace app {
 	        this.msg = source["msg"];
 	    }
 	}
+	export class ConnectivityResult {
+	    ok: boolean;
+	    msg: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ConnectivityResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ok = source["ok"];
+	        this.msg = source["msg"];
+	    }
+	}
 	export class ExecutionTaskConfig {
 	    id: string;
 	    name: string;
-	    script: string;
+	    scripts: string[];
 	    hosts: executor.HostConfig[];
 	
 	    static createFrom(source: any = {}) {
@@ -96,7 +110,7 @@ export namespace app {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.name = source["name"];
-	        this.script = source["script"];
+	        this.scripts = source["scripts"];
 	        this.hosts = this.convertValues(source["hosts"], executor.HostConfig);
 	    }
 	

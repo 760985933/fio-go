@@ -10,6 +10,7 @@ interface Props {
 export function HostManager({ onAudit, onShowResults }: Props) {
   const [hosts, setHosts] = useState<HostRecord[]>([])
   const [newHost, setNewHost] = useState<HostConfig>({ host: '', port: 22, user: 'root', password: '' })
+  const [testing, setTesting] = useState<number | null>(null)
 
   useEffect(() => { loadHosts() }, [])
 
@@ -40,27 +41,32 @@ export function HostManager({ onAudit, onShowResults }: Props) {
   }
 
   const testConnectivity = async (host: HostRecord) => {
+    setTesting(host.id)
     try {
-      const [ok, msg] = await App.CheckConnectivity(host)
-      await onShowResults('连通性测试', `主机 ${host.host} ${ok ? '连接成功' : '连接失败'}:\n${msg}`)
+      const result = await App.CheckConnectivity(host)
+      await onShowResults('连通性测试', `主机 ${host.host} ${result.ok ? '连接成功' : '连接失败'}:\n${result.msg}`)
       onAudit('测试连通性', `主机: ${host.host}`)
     } catch (err) {
       await onShowResults('测试失败', `主机 ${host.host} 错误: ${err}`)
+    } finally {
+      setTesting(null)
     }
   }
 
   const testAllConnectivity = async () => {
+    setTesting(-1)
     const results: string[] = []
     for (const host of hosts) {
       try {
-        const [ok, msg] = await App.CheckConnectivity(host)
-        results.push(`${ok ? '✓' : '✗'} ${host.host}: ${msg}`)
+        const result = await App.CheckConnectivity(host)
+        results.push(`${result.ok ? '✓' : '✗'} ${host.host}: ${result.msg}`)
       } catch (err) {
         results.push(`✗ ${host.host}: 错误 ${err}`)
       }
     }
     await onShowResults('批量连通性测试', results.join('\n'))
     onAudit('批量测试连通性', `测试 ${hosts.length} 台主机`)
+    setTesting(null)
   }
 
   return (
@@ -93,7 +99,9 @@ export function HostManager({ onAudit, onShowResults }: Props) {
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           <button className="btn btn-primary btn-sm" onClick={addHost}>添加</button>
           {hosts.length > 1 && (
-            <button className="btn btn-outline btn-sm" onClick={testAllConnectivity}>批量测试</button>
+            <button className="btn btn-outline btn-sm" onClick={testAllConnectivity} disabled={testing !== null}>
+              {testing === -1 ? '测试中...' : '批量测试'}
+            </button>
           )}
         </div>
       </div>
@@ -106,7 +114,9 @@ export function HostManager({ onAudit, onShowResults }: Props) {
               <span style={{ flex: 1, fontSize: 13 }}>
                 {h.user}@{h.host}:{h.port}
               </span>
-              <button className="btn btn-outline btn-sm" onClick={() => testConnectivity(h)}>测试</button>
+              <button className="btn btn-outline btn-sm" onClick={() => testConnectivity(h)} disabled={testing !== null}>
+                {testing === h.id ? '测试中...' : '测试'}
+              </button>
               <button className="btn btn-danger btn-sm" onClick={() => removeHost(h.id)}>删除</button>
             </div>
           ))}

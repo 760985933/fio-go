@@ -49,6 +49,10 @@ export function Deploy(taskID, scriptName, hosts) {
     return window['go']['app']['App']['Deploy'](taskID, scriptName, hosts);
 }
 
+export function DeployMulti(taskID, scripts, hosts) {
+    return window['go']['app']['App']['DeployMulti'](taskID, scripts, hosts);
+}
+
 export function CheckStatus(taskID, hosts) {
     return window['go']['app']['App']['CheckStatus'](taskID, hosts);
 }

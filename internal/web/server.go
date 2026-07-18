@@ -33,10 +33,10 @@ const (
 )
 
 type executionTaskConfig struct {
-	ID     string                `json:"id"`
-	Name   string                `json:"name"`
-	Script string                `json:"script"`
-	Hosts  []executor.HostConfig `json:"hosts"`
+	ID      string                `json:"id"`
+	Name    string                `json:"name"`
+	Scripts []string              `json:"scripts"`
+	Hosts   []executor.HostConfig `json:"hosts"`
 }
 
 type executionTasksPayload struct {
@@ -49,16 +49,16 @@ type executeRequest struct {
 }
 
 type analysisTaskSummary struct {
-	ID            string `json:"id"`
-	Name          string `json:"name"`
-	Script        string `json:"script"`
-	HasData       bool   `json:"hasData"`
-	HasReport     bool   `json:"hasReport"`
-	LogAvailable  bool   `json:"logAvailable"`
-	DataDir       string `json:"dataDir"`
-	ReportDir     string `json:"reportDir"`
-	ReportHTMLURL string `json:"reportHtmlUrl"`
-	DownloadURL   string `json:"downloadUrl"`
+	ID            string   `json:"id"`
+	Name          string   `json:"name"`
+	Scripts       []string `json:"scripts"`
+	HasData       bool     `json:"hasData"`
+	HasReport     bool     `json:"hasReport"`
+	LogAvailable  bool     `json:"logAvailable"`
+	DataDir       string   `json:"dataDir"`
+	ReportDir     string   `json:"reportDir"`
+	ReportHTMLURL string   `json:"reportHtmlUrl"`
+	DownloadURL   string   `json:"downloadUrl"`
 }
 
 func StartServer(port int) error {
@@ -93,9 +93,9 @@ func StartServer(port int) error {
 
 func defaultExecutionTask() executionTaskConfig {
 	return executionTaskConfig{
-		ID:     "default-task",
-		Name:   defaultTaskName,
-		Script: "",
+		ID:      "default-task",
+		Name:    defaultTaskName,
+		Scripts: []string{},
 		Hosts: []executor.HostConfig{
 			{
 				Host: "127.0.0.1",
@@ -245,7 +245,7 @@ func buildAnalysisTaskSummaries() ([]analysisTaskSummary, error) {
 		summary := analysisTaskSummary{
 			ID:            task.ID,
 			Name:          task.Name,
-			Script:        task.Script,
+			Scripts:       task.Scripts,
 			HasData:       dirHasFiles(taskRawDataDir(task.ID)),
 			HasReport:     dirHasFiles(taskReportDir(task.ID)),
 			LogAvailable:  false,
@@ -588,7 +588,7 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	appendTaskExecutionLog(task, fmt.Sprintf("开始执行动作: %s, 脚本: %s, 主机数: %d", req.Action, task.Script, len(task.Hosts)))
+	appendTaskExecutionLog(task, fmt.Sprintf("开始执行动作: %s, 脚本: %v, 主机数: %d", req.Action, task.Scripts, len(task.Hosts)))
 
 	var results []executor.ExecutionResult
 	switch req.Action {
@@ -649,8 +649,8 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	case "deploy":
-		if task.Script == "" {
-			http.Error(w, "task script is required", http.StatusBadRequest)
+		if len(task.Scripts) == 0 {
+			http.Error(w, "task scripts are required", http.StatusBadRequest)
 			return
 		}
 
@@ -670,12 +670,14 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		content, err := os.ReadFile(filepath.Join("scripts", task.Script))
-		if err != nil {
-			http.Error(w, "Failed to read script: "+err.Error(), http.StatusBadRequest)
-			return
+		for _, scriptName := range task.Scripts {
+			content, err := os.ReadFile(filepath.Join("scripts", scriptName))
+			if err != nil {
+				http.Error(w, "Failed to read script: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+			results = append(results, executor.DeployAndRun(task.ID, task.Hosts, scriptName, content)...)
 		}
-		results = executor.DeployAndRun(task.ID, task.Hosts, task.Script, content)
 	case "status":
 		results = executor.CheckStatus(task.ID, task.Hosts)
 	case "killall":
@@ -720,7 +722,7 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var output strings.Builder
-	output.WriteString(fmt.Sprintf("任务[%s] 脚本[%s]\n", task.Name, task.Script))
+	output.WriteString(fmt.Sprintf("任务[%s] 脚本[%v]\n", task.Name, task.Scripts))
 	for _, res := range results {
 		if res.Error != nil {
 			output.WriteString(fmt.Sprintf("[%s] Error: %v\n", res.Host, res.Error))

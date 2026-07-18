@@ -19,48 +19,53 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
   // 创建任务弹窗状态
   const [showCreate, setShowCreate] = useState(false)
   const [newTaskName, setNewTaskName] = useState('')
-  const [newTaskScript, setNewTaskScript] = useState('')
+  const [newTaskScripts, setNewTaskScripts] = useState<string[]>([])
   const [newTaskHostIds, setNewTaskHostIds] = useState<number[]>([])
 
   useEffect(() => { loadData() }, [])
 
   const loadData = async () => {
-    try {
-      const [scripts, tasks, hostList] = await Promise.all([
-        App.GetScripts(),
-        App.GetExecutionTasks(),
-        App.GetHosts(),
-      ])
-      setSavedScripts(scripts || [])
-      setExecutionTasks(tasks || [])
-      setHosts(hostList || [])
-    } catch { /* ignore */ }
+    let scripts: string[] = []
+    let tasks: ExecutionTaskConfig[] = []
+    let hostList: HostRecord[] = []
+    try { scripts = (await App.GetScripts()) || [] } catch { /* ignore */ }
+    try { tasks = (await App.GetExecutionTasks()) || [] } catch { /* ignore */ }
+    try { hostList = (await App.GetHosts()) || [] } catch { /* ignore */ }
+    setSavedScripts(scripts)
+    setExecutionTasks(tasks)
+    setHosts(hostList)
+    return hostList
   }
 
-  const openCreate = () => {
+  const openCreate = async () => {
+    const freshHosts = await loadData()
     setNewTaskName('')
-    setNewTaskScript(savedScripts[0] || '')
-    setNewTaskHostIds(hosts.map(h => h.id))
+    setNewTaskScripts([])
+    setNewTaskHostIds(freshHosts.map((h: any) => h.id))
     setShowCreate(true)
   }
 
   const confirmCreate = () => {
-    if (!newTaskScript) return
+    if (newTaskScripts.length === 0) return
     const selectedHosts = hosts.filter(h => newTaskHostIds.includes(h.id))
     if (selectedHosts.length === 0) return
 
-    const name = newTaskName.trim() || newTaskScript.replace('.fio', '')
+    const name = newTaskName.trim() || newTaskScripts.join('+')
     const task: ExecutionTaskConfig = {
       id: `task_${Date.now()}`,
       name,
-      script: newTaskScript,
+      scripts: newTaskScripts,
       hosts: selectedHosts.map(h => ({ host: h.host, port: h.port, user: h.user, password: h.password })),
     }
     const newTasks = [...executionTasks, task]
     setExecutionTasks(newTasks)
     App.SaveExecutionTasks(newTasks).catch(() => {})
-    onAudit('添加执行任务', `任务: ${name}, 脚本: ${newTaskScript}, 主机: ${selectedHosts.length}台`)
+    onAudit('添加执行任务', `任务: ${name}, 脚本: ${newTaskScripts.length}个, 主机: ${selectedHosts.length}台`)
     setShowCreate(false)
+  }
+
+  const toggleScript = (name: string) => {
+    setNewTaskScripts(prev => prev.includes(name) ? prev.filter(s => s !== name) : [...prev, name])
   }
 
   const toggleHost = (id: number) => {
@@ -102,7 +107,7 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
         return
       }
 
-      await App.Deploy(task.id, task.script, task.hosts)
+      await App.DeployMulti(task.id, task.scripts, task.hosts)
       onAudit('部署完成', `任务: ${task.id}`)
 
       let finished = false
@@ -214,31 +219,44 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
               <h3 className="section-title">创建任务</h3>
               <div className="form-group">
                 <label>任务名称</label>
-                <input value={newTaskName} placeholder={newTaskScript.replace('.fio', '') || '可选'}
+                <input value={newTaskName} placeholder="可选"
                   onChange={(e) => setNewTaskName(e.target.value)} />
               </div>
               <div className="form-group">
-                <label>选择脚本</label>
-                <select value={newTaskScript} onChange={(e) => setNewTaskScript(e.target.value)}>
-                  {savedScripts.length === 0 && <option value="">暂无脚本</option>}
-                  {savedScripts.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <label>选择脚本 ({newTaskScripts.length}/{savedScripts.length})</label>
+                {savedScripts.length === 0 ? (
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>暂无脚本，请先在脚本管理中保存</p>
+                ) : (
+                  <div style={{ maxHeight: 160, overflowY: 'auto' }}>
+                    {savedScripts.map(s => (
+                      <label key={s} className="toggle-label" style={{ padding: '4px 0' }}>
+                        <input type="checkbox" checked={newTaskScripts.includes(s)}
+                          onChange={() => toggleScript(s)} />
+                        {s}
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="form-group">
                 <label>选择主机 ({newTaskHostIds.length}/{hosts.length})</label>
-                <div style={{ maxHeight: 160, overflowY: 'auto' }}>
-                  {hosts.map(h => (
-                    <label key={h.id} className="toggle-label" style={{ padding: '4px 0' }}>
-                      <input type="checkbox" checked={newTaskHostIds.includes(h.id)}
-                        onChange={() => toggleHost(h.id)} />
-                      {h.user}@{h.host}:{h.port}
-                    </label>
-                  ))}
-                </div>
+                {hosts.length === 0 ? (
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>暂无主机，请先在主机管理中添加</p>
+                ) : (
+                  <div style={{ maxHeight: 160, overflowY: 'auto' }}>
+                    {hosts.map(h => (
+                      <label key={h.id} className="toggle-label" style={{ padding: '4px 0' }}>
+                        <input type="checkbox" checked={newTaskHostIds.includes(h.id)}
+                          onChange={() => toggleHost(h.id)} />
+                        {h.user}@{h.host}:{h.port}
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <button className="btn btn-primary btn-sm" onClick={confirmCreate}
-                  disabled={!newTaskScript || newTaskHostIds.length === 0}>
+                  disabled={newTaskScripts.length === 0 || newTaskHostIds.length === 0}>
                   确认创建
                 </button>
                 <button className="btn btn-outline btn-sm" onClick={() => setShowCreate(false)}>取消</button>
@@ -252,6 +270,12 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
                 <h3 className="section-title" style={{ marginBottom: 0 }}>创建任务</h3>
                 <button className="btn btn-primary btn-sm" onClick={openCreate}>添加任务</button>
               </div>
+              {(hosts.length === 0 || savedScripts.length === 0) && (
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+                  {hosts.length === 0 && '请先在主机管理中添加主机'}
+                  {hosts.length > 0 && savedScripts.length === 0 && '请先在脚本管理中保存脚本'}
+                </p>
+              )}
             </div>
           )}
 
@@ -261,7 +285,7 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
               {executionTasks.map((task, idx) => (
                 <div key={task.id} className="card">
                   <div className="card-header">
-                    <span className="card-title">{task.name} ({task.hosts.length} 台主机)</span>
+                    <span className="card-title">{task.name} ({task.scripts.length} 脚本, {task.hosts.length} 主机)</span>
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                       <button className="btn btn-outline btn-sm" onClick={() => preCheck(task)} disabled={executing}>预检查</button>
                       <button className="btn btn-primary btn-sm" onClick={() => executeDeploy(task)} disabled={executing}>

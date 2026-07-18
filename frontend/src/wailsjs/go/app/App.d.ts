@@ -10,9 +10,10 @@ export function GetScriptConfig(scriptName: string): Promise<string>;
 export function DeleteScriptConfig(scriptName: string): Promise<void>;
 export function GetExecutionTasks(): Promise<ExecutionTaskConfig[]>;
 export function SaveExecutionTasks(tasks: ExecutionTaskConfig[]): Promise<void>;
-export function CheckConnectivity(host: HostConfig): Promise<[boolean, string]>;
+export function CheckConnectivity(host: HostConfig): Promise<{ok: boolean, msg: string}>;
 export function PreDeployCheck(taskID: string, hosts: HostConfig[]): Promise<CheckResult[]>;
 export function Deploy(taskID: string, scriptName: string, hosts: HostConfig[]): Promise<ActionResult[]>;
+export function DeployMulti(taskID: string, scripts: string[], hosts: HostConfig[]): Promise<ActionResult[]>;
 export function CheckStatus(taskID: string, hosts: HostConfig[]): Promise<ActionResult[]>;
 export function KillAll(taskID: string, hosts: HostConfig[]): Promise<ActionResult[]>;
 export function PullData(taskID: string, hosts: HostConfig[]): Promise<ActionResult[]>;
@@ -54,7 +55,7 @@ export interface HostRecord {
 export interface ExecutionTaskConfig {
     id: string;
     name: string;
-    script: string;
+    scripts: string[];
     hosts: HostConfig[];
 }
 
@@ -75,7 +76,7 @@ export interface ActionResult {
 export interface AnalysisSummary {
     id: string;
     name: string;
-    script: string;
+    scripts: string[];
     hasData: boolean;
     hasReport: boolean;
     logAvailable: boolean;
