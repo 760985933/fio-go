@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FioConfig, FioJob, FioLogging, FioLoggingKey } from '../types'
+import { FioConfig, FioJob } from '../types'
 import { generateFioText } from '../utils/fioGenerator'
 import { ensureConfig, bsLabel } from '../utils/config'
 import * as App from '../wailsjs/go/app/App'
@@ -31,18 +31,12 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
   const [editIdx, setEditIdx] = useState<number | null>(null)
   const [editJob, setEditJob] = useState<FioJob>({ ...DEFAULT_JOB })
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const [showLogging, setShowLogging] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   const cfg = ensureConfig(config)
-  const log = cfg.logging
 
   const updateGlobal = (key: string, value: any) => {
     onConfigChange({ ...cfg, global: { ...cfg.global, [key]: value } })
-  }
-
-  const updateLogging = <K extends FioLoggingKey>(key: K, value: FioLogging[K]) => {
-    onConfigChange({ ...cfg, logging: { ...log, [key]: value } })
   }
 
   const updateEditJob = (updates: Partial<FioJob>) => {
@@ -91,14 +85,14 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
     setEditJob(prev => ({ ...prev, ...preset }))
   }
 
-  const saveToServer = async () => {
+  const saveConfig = async (name: string) => {
     setSaveStatus('saving')
     try {
       const text = generateFioText(cfg, true)
-      await App.SaveScript(configName, text)
-      await App.SaveScriptConfig(configName, JSON.stringify(cfg))
+      await App.SaveScript(name, text)
+      await App.SaveScriptConfig(name, JSON.stringify(cfg))
       setSaveStatus('saved')
-      onAudit('保存配置', `配置: ${configName}`)
+      onAudit('保存配置', `配置: ${name}`)
       setTimeout(() => setSaveStatus('idle'), 2000)
     } catch {
       setSaveStatus('error')
@@ -106,14 +100,17 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
     }
   }
 
+  const saveAsNewConfig = async () => {
+    const newName = window.prompt('请输入新配置名称：')
+    if (!newName || !newName.trim()) return
+    onConfigNameChange(newName.trim())
+    await saveConfig(newName.trim())
+  }
+
   const isEditing = editIdx !== null && editIdx >= 0 && editIdx < cfg.jobs.length
 
   return (
     <div>
-      <div className="manager-header">
-        <h2>脚本管理</h2>
-      </div>
-
       <div className="two-col">
         {/* 左栏：条目列表 */}
         <div className="col-left">
@@ -156,14 +153,14 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
           <div className="panel">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <h3 className="section-title" style={{ marginBottom: 0 }}>编辑配置</h3>
-              <button className="btn btn-primary btn-sm" onClick={saveToServer}>
-                {saveStatus === 'saving' ? '保存中...' : saveStatus === 'saved' ? '已保存 ✓' : '保存到服务器'}
-              </button>
-              {(saveStatus === 'saved' || saveStatus === 'error') && (
-                <span style={{ fontSize: 12, color: saveStatus === 'saved' ? 'var(--success)' : 'var(--danger)', marginLeft: 8 }}>
-                  {saveStatus === 'saved' ? '已保存' : '保存失败'}
-                </span>
-              )}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button className="btn btn-primary btn-sm" onClick={() => saveConfig(configName)}>
+                  {saveStatus === 'saving' ? '保存中...' : saveStatus === 'saved' ? '已保存 ✓' : '保存配置'}
+                </button>
+                <button className="btn btn-outline btn-sm" onClick={saveAsNewConfig}>新增配置</button>
+                {saveStatus === 'saved' && <span style={{ fontSize: 12, color: 'var(--success)' }}>已保存</span>}
+                {saveStatus === 'error' && <span style={{ fontSize: 12, color: 'var(--danger)' }}>保存失败</span>}
+              </div>
             </div>
 
             <div className="form-group">
@@ -299,52 +296,7 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
             </div>
           </div>
 
-          {/* 日志配置 */}
-          <div className="panel">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showLogging ? 12 : 0 }}>
-              <h3 className="section-title" style={{ marginBottom: 0 }}>日志配置</h3>
-              <button className="btn btn-outline btn-sm" onClick={() => setShowLogging(!showLogging)}>
-                {showLogging ? '收起' : '展开'}
-              </button>
-            </div>
-            {showLogging && (
-              <>
-                <label className="toggle-label" style={{ marginBottom: 8 }}>
-                  <input type="checkbox" checked={log.enabled}
-                    onChange={(e) => updateLogging('enabled', e.target.checked)} />
-                  启用日志
-                </label>
-                {log.enabled && (
-                  <>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>采样间隔 (ms)</label>
-                        <input type="number" value={log.log_avg_msec}
-                          onChange={(e) => updateLogging('log_avg_msec', parseInt(e.target.value) || 500)} />
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 16 }}>
-                      <label className="toggle-label">
-                        <input type="checkbox" checked={log.write_bw_log}
-                          onChange={(e) => updateLogging('write_bw_log', e.target.checked)} />
-                        带宽日志
-                      </label>
-                      <label className="toggle-label">
-                        <input type="checkbox" checked={log.write_lat_log}
-                          onChange={(e) => updateLogging('write_lat_log', e.target.checked)} />
-                        延迟日志
-                      </label>
-                      <label className="toggle-label">
-                        <input type="checkbox" checked={log.write_iops_log}
-                          onChange={(e) => updateLogging('write_iops_log', e.target.checked)} />
-                        IOPS 日志
-                      </label>
-                    </div>
-                  </>
-                )}
-              </>
-            )}
-          </div>
+
         </div>
       </div>
     </div>
