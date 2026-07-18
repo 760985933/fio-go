@@ -1,9 +1,12 @@
 package app
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
+
+	_ "modernc.org/sqlite"
 )
 
 func setupTestDir(t *testing.T) string {
@@ -13,6 +16,21 @@ func setupTestDir(t *testing.T) string {
 	os.Chdir(dir)
 	t.Cleanup(func() { os.Chdir(orig) })
 	return dir
+}
+
+func setupTestDB(t *testing.T) *App {
+	t.Helper()
+	app := NewApp()
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if err := initDB(db); err != nil {
+		t.Fatalf("init db: %v", err)
+	}
+	app.db = db
+	t.Cleanup(func() { db.Close() })
+	return app
 }
 
 func TestSanitizeScriptName(t *testing.T) {
@@ -75,15 +93,9 @@ func TestSaveScriptAddsFioSuffix(t *testing.T) {
 		t.Fatalf("SaveScript error: %v", err)
 	}
 
-	scripts, _ := app.GetScripts()
-	found := false
-	for _, s := range scripts {
-		if s == "myscript.fio" {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("expected myscript.fio in scripts list, got: %v", scripts)
+	// Verify file exists with .fio suffix
+	if _, err := os.Stat(filepath.Join("scripts", "myscript.fio")); err != nil {
+		t.Errorf("expected myscript.fio to exist: %v", err)
 	}
 }
 
@@ -97,11 +109,8 @@ func TestDeleteScript(t *testing.T) {
 		t.Fatalf("DeleteScript error: %v", err)
 	}
 
-	scripts, _ := app.GetScripts()
-	for _, s := range scripts {
-		if s == "to_delete.fio" {
-			t.Error("script should have been deleted")
-		}
+	if _, err := os.Stat(filepath.Join("scripts", "to_delete.fio")); !os.IsNotExist(err) {
+		t.Error("script file should have been deleted")
 	}
 }
 
@@ -138,14 +147,16 @@ func TestPathTraversalBlocked(t *testing.T) {
 	}
 }
 
-func TestGetScripts(t *testing.T) {
-	setupTestDir(t)
-	app := NewApp()
+func TestGetScriptsFromDB(t *testing.T) {
+	app := setupTestDB(t)
 
-	os.MkdirAll("scripts", 0755)
-	os.WriteFile("scripts/a.fio", []byte("a"), 0644)
-	os.WriteFile("scripts/b.fio", []byte("b"), 0644)
-	os.WriteFile("scripts/c.txt", []byte("c"), 0644) // should be excluded
+	// Add configs via SaveScriptConfig
+	if err := app.SaveScriptConfig("model_a", `{"global":{"filename":"/dev/sda"}}`); err != nil {
+		t.Fatalf("SaveScriptConfig error: %v", err)
+	}
+	if err := app.SaveScriptConfig("model_b", `{"global":{"filename":"/dev/sdb"}}`); err != nil {
+		t.Fatalf("SaveScriptConfig error: %v", err)
+	}
 
 	scripts, err := app.GetScripts()
 	if err != nil {
@@ -153,6 +164,45 @@ func TestGetScripts(t *testing.T) {
 	}
 	if len(scripts) != 2 {
 		t.Errorf("expected 2 scripts, got %d: %v", len(scripts), scripts)
+	}
+}
+
+func TestGetScriptsEmpty(t *testing.T) {
+	app := setupTestDB(t)
+
+	scripts, err := app.GetScripts()
+	if err != nil {
+		t.Fatalf("GetScripts error: %v", err)
+	}
+	if len(scripts) != 0 {
+		t.Errorf("expected 0 scripts, got %d: %v", len(scripts), scripts)
+	}
+}
+
+func TestScriptConfigRoundTrip(t *testing.T) {
+	app := setupTestDB(t)
+
+	err := app.SaveScriptConfig("test_model", `{"global":{"filename":"/dev/vdb"},"jobs":[{"bs":4}]}`)
+	if err != nil {
+		t.Fatalf("SaveScriptConfig error: %v", err)
+	}
+
+	got, err := app.GetScriptConfig("test_model")
+	if err != nil {
+		t.Fatalf("GetScriptConfig error: %v", err)
+	}
+	if got != `{"global":{"filename":"/dev/vdb"},"jobs":[{"bs":4}]}` {
+		t.Errorf("config mismatch: %q", got)
+	}
+
+	err = app.DeleteScriptConfig("test_model")
+	if err != nil {
+		t.Fatalf("DeleteScriptConfig error: %v", err)
+	}
+
+	scripts, _ := app.GetScripts()
+	if len(scripts) != 0 {
+		t.Errorf("expected 0 scripts after delete, got %d", len(scripts))
 	}
 }
 

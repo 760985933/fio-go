@@ -141,3 +141,21 @@ func dbDeleteScriptConfig(db *sql.DB, scriptName string) error {
 	_, err := db.Exec(`DELETE FROM script_configs WHERE script_name = ?`, scriptName)
 	return err
 }
+
+func dbGetAllScriptNames(db *sql.DB) ([]string, error) {
+	rows, err := db.Query(`SELECT script_name FROM script_configs ORDER BY script_name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var names []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			return nil, err
+		}
+		names = append(names, n)
+	}
+	return names, rows.Err()
+}

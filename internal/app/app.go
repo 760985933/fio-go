@@ -68,25 +68,12 @@ func sanitizeScriptName(name string) (string, error) {
 	return name, nil
 }
 
-// GetScripts 获取所有 .fio 脚本文件列表
+// GetScripts 获取所有配置模型名称（从数据库）
 func (a *App) GetScripts() ([]string, error) {
-	scriptsDir := "scripts"
-	if err := os.MkdirAll(scriptsDir, 0755); err != nil {
-		return nil, err
+	if a.db == nil {
+		return nil, fmt.Errorf("数据库未初始化")
 	}
-
-	entries, err := os.ReadDir(scriptsDir)
-	if err != nil {
-		return nil, err
-	}
-
-	var scripts []string
-	for _, f := range entries {
-		if !f.IsDir() && strings.HasSuffix(f.Name(), ".fio") {
-			scripts = append(scripts, f.Name())
-		}
-	}
-	return scripts, nil
+	return dbGetAllScriptNames(a.db)
 }
 
 // GetScriptContent 获取指定脚本的内容
@@ -94,6 +81,9 @@ func (a *App) GetScriptContent(name string) (string, error) {
 	safeName, err := sanitizeScriptName(name)
 	if err != nil {
 		return "", err
+	}
+	if !strings.HasSuffix(safeName, ".fio") {
+		safeName += ".fio"
 	}
 	data, err := os.ReadFile(filepath.Join("scripts", safeName))
 	if err != nil {
@@ -122,6 +112,9 @@ func (a *App) DeleteScript(name string) error {
 	safeName, err := sanitizeScriptName(name)
 	if err != nil {
 		return err
+	}
+	if !strings.HasSuffix(safeName, ".fio") {
+		safeName += ".fio"
 	}
 	return os.Remove(filepath.Join("scripts", safeName))
 }

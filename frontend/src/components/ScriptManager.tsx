@@ -1,17 +1,19 @@
-import { useState, useRef, useMemo, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { FioConfig, FioJob } from '../types'
-import { generateFioText } from '../utils/fioGenerator'
 import { ensureConfig, bsLabel } from '../utils/config'
 import * as App from '../wailsjs/go/app/App'
 
 interface Props {
-  config: FioConfig
-  configName: string
-  onConfigChange: (config: FioConfig) => void
-  onConfigNameChange: (name: string) => void
   onAudit: (action: string, details: string) => void
 }
 
+const DEFAULT_CONFIG: FioConfig = {
+  global: { filename: '/dev/vdb', runtime: 180, ramp_time: 30, ioengine: 'libaio' },
+  logging: { enabled: true, log_avg_msec: 500, write_bw_log: true, write_lat_log: true, write_iops_log: true },
+  jobs: [{ bs: 4, rw: 'read', iodepth: 32, numjobs: 1, direct: true, thread: true }],
+}
+
+const DEFAULT_JOB: FioJob = { bs: 4, rw: 'read', iodepth: 32, numjobs: 1, direct: true, thread: true }
 const RW_OPTIONS = ['read', 'write', 'readwrite', 'randread', 'randwrite', 'randrw']
 const BS_PRESETS = [4, 8, 16, 32, 64, 128, 256, 512, 1024]
 
@@ -25,34 +27,105 @@ const SCENE_PRESETS: Record<string, Partial<FioJob>> = {
   '数据库':     { bs: 8,   rw: 'randrw',     iodepth: 64, numjobs: 1, rwmixread: 70, direct: true, thread: true },
 }
 
-const DEFAULT_JOB: FioJob = { bs: 4, rw: 'read', iodepth: 32, numjobs: 1, direct: true, thread: true }
+function autoName(cfg: FioConfig, job: FioJob): string {
+  const fn = cfg.global.filename || ''
+  const base = fn.split('/').pop()?.split('.')[0] || 'config'
+  return `fio_${base}_${job.bs || 4}k_${job.rw || 'read'}`
+}
 
-export function ScriptManager({ config, configName, onConfigChange, onConfigNameChange, onAudit }: Props) {
+export function ScriptManager({ onAudit }: Props) {
+  const [models, setModels] = useState<string[]>([])
+  const [selectedModel, setSelectedModel] = useState<string | null>(null)
+  const [cfg, setCfg] = useState<FioConfig>({ ...DEFAULT_CONFIG, jobs: DEFAULT_CONFIG.jobs.map(j => ({ ...j })) })
   const [editIdx, setEditIdx] = useState<number | null>(null)
   const [editJob, setEditJob] = useState<FioJob>({ ...DEFAULT_JOB })
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [showCreate, setShowCreate] = useState(false)
+  const [createName, setCreateName] = useState('')
+  const [createDesc, setCreateDesc] = useState('')
+  const [createError, setCreateError] = useState('')
 
-  const cfg = ensureConfig(config)
+  const loadModels = useCallback(async () => {
+    try {
+      const list = await App.GetScripts()
+      setModels(list || [])
+    } catch { /* ignore */ }
+  }, [])
 
-  const autoName = useMemo(() => {
-    const fn = cfg.global.filename || ''
-    const base = fn.split('/').pop()?.split('.')[0] || 'config'
-    const bs = editJob.bs || 4
-    const rw = editJob.rw || 'read'
-    return `fio_${base}_${bs}k_${rw}`
-  }, [cfg.global.filename, editJob.bs, editJob.rw])
+  useEffect(() => { loadModels() }, [loadModels])
 
-  const lastAutoName = useRef(autoName)
-  useEffect(() => {
-    if (autoName !== lastAutoName.current) {
-      lastAutoName.current = autoName
-      onConfigNameChange(autoName)
+  const loadConfig = async (name: string) => {
+    try {
+      const json = await App.GetScriptConfig(name)
+      if (json) {
+        const parsed = JSON.parse(json) as FioConfig
+        const ensured = ensureConfig(parsed)
+        setCfg(ensured)
+      } else {
+        setCfg({ ...DEFAULT_CONFIG, jobs: [] })
+      }
+      setSelectedModel(name)
+      setEditIdx(null)
+      setEditJob({ ...DEFAULT_JOB })
+      setShowAdvanced(false)
+    } catch {
+      setSelectedModel(name)
+      setCfg({ ...DEFAULT_CONFIG, jobs: [] })
+      setEditIdx(null)
+      setEditJob({ ...DEFAULT_JOB })
+      setShowAdvanced(false)
     }
-  }, [autoName, onConfigNameChange])
+  }
+
+  const saveConfig = async (name: string, config: FioConfig) => {
+    setSaveStatus('saving')
+    await App.SaveScriptConfig(name, JSON.stringify(config))
+    setSaveStatus('saved')
+    onAudit('保存配置', `配置: ${name}`)
+    setTimeout(() => setSaveStatus('idle'), 2000)
+  }
+
+  const openCreateDialog = () => {
+    setCreateName('')
+    setCreateDesc('')
+    setCreateError('')
+    setShowCreate(true)
+  }
+
+  const doCreateModel = async () => {
+    const name = createName.trim() || autoName(DEFAULT_CONFIG, DEFAULT_JOB)
+    const newCfg = { ...DEFAULT_CONFIG, description: createDesc.trim() || undefined, jobs: [] }
+    try {
+      await saveConfig(name, newCfg)
+      await loadModels()
+      await loadConfig(name)
+      setShowCreate(false)
+    } catch (e: any) {
+      setSaveStatus('error')
+      setCreateError(String(e?.message || e))
+      setTimeout(() => setSaveStatus('idle'), 5000)
+    }
+  }
+
+  const deleteModel = async (name: string) => {
+    try {
+      await App.DeleteScriptConfig(name)
+      if (selectedModel === name) {
+        setSelectedModel(null)
+        setCfg({ ...DEFAULT_CONFIG, jobs: DEFAULT_CONFIG.jobs.map(j => ({ ...j })) })
+        setEditIdx(null)
+        setEditJob({ ...DEFAULT_JOB })
+      }
+      await loadModels()
+    } catch { /* ignore */ }
+  }
+
+  const isEditing = editIdx !== null && editIdx >= 0 && editIdx < cfg.jobs.length
+  const canAdd = selectedModel !== null
 
   const updateGlobal = (key: string, value: any) => {
-    onConfigChange({ ...cfg, global: { ...cfg.global, [key]: value } })
+    setCfg(prev => ({ ...prev, global: { ...prev.global, [key]: value } }))
   }
 
   const updateEditJob = (updates: Partial<FioJob>) => {
@@ -65,30 +138,44 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
     setShowAdvanced(false)
   }
 
-  const addJob = () => {
+  const addJob = async () => {
+    if (!canAdd || !selectedModel) return
     const newJobs = [...cfg.jobs, { ...editJob }]
-    onConfigChange({ ...cfg, jobs: newJobs })
+    const newCfg = { ...cfg, jobs: newJobs }
+    setCfg(newCfg)
     setEditIdx(newJobs.length - 1)
+    try { await saveConfig(selectedModel, newCfg) } catch { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000) }
   }
 
-  const saveEditedJob = () => {
-    if (editIdx === null || editIdx < 0 || editIdx >= cfg.jobs.length) return
+  const saveEditedJob = async () => {
+    if (editIdx === null || editIdx < 0 || editIdx >= cfg.jobs.length || !selectedModel) return
     const newJobs = [...cfg.jobs]
     newJobs[editIdx] = { ...editJob }
-    onConfigChange({ ...cfg, jobs: newJobs })
+    const newCfg = { ...cfg, jobs: newJobs }
+    setCfg(newCfg)
+    try { await saveConfig(selectedModel, newCfg) } catch { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000) }
   }
 
-  const deleteJob = (idx: number) => {
-    onConfigChange({ ...cfg, jobs: cfg.jobs.filter((_, i) => i !== idx) })
+  const deleteJob = async (idx: number) => {
+    if (!selectedModel) return
+    const newJobs = cfg.jobs.filter((_, i) => i !== idx)
+    const newCfg = { ...cfg, jobs: newJobs }
+    setCfg(newCfg)
     if (editIdx === idx) resetForm()
     else if (editIdx !== null && editIdx > idx) setEditIdx(editIdx - 1)
+    try { await saveConfig(selectedModel, newCfg) } catch { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000) }
   }
 
-  const duplicateJob = (idx: number) => {
+  const duplicateJob = async (idx: number) => {
+    if (!selectedModel) return
     const newJobs = [...cfg.jobs]
     newJobs.splice(idx + 1, 0, { ...cfg.jobs[idx] })
-    onConfigChange({ ...cfg, jobs: newJobs })
-    selectJob(idx + 1)
+    const newCfg = { ...cfg, jobs: newJobs }
+    setCfg(newCfg)
+    setEditIdx(idx + 1)
+    setEditJob({ ...cfg.jobs[idx] })
+    setShowAdvanced(false)
+    try { await saveConfig(selectedModel, newCfg) } catch { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000) }
   }
 
   const selectJob = (idx: number) => {
@@ -101,66 +188,66 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
     setEditJob(prev => ({ ...prev, ...preset }))
   }
 
-  const saveConfig = async (name: string) => {
-    setSaveStatus('saving')
-    try {
-      const text = generateFioText(cfg, true)
-      await App.SaveScript(name, text)
-      await App.SaveScriptConfig(name, JSON.stringify(cfg))
-      setSaveStatus('saved')
-      onAudit('保存配置', `配置: ${name}`)
-      setTimeout(() => setSaveStatus('idle'), 2000)
-    } catch {
-      setSaveStatus('error')
-      setTimeout(() => setSaveStatus('idle'), 3000)
-    }
-  }
-
-  const saveAsNewConfig = async () => {
-    if (!isEditing) {
-      const newJobs = [...cfg.jobs, { ...editJob }]
-      onConfigChange({ ...cfg, jobs: newJobs })
-    }
-    const ts = new Date().toISOString().slice(0, 19).replace(/[T:-]/g, '')
-    const newName = `${autoName}_${ts}`
-    await saveConfig(newName)
-  }
-
-  const isEditing = editIdx !== null && editIdx >= 0 && editIdx < cfg.jobs.length
-
   return (
     <div>
       <div className="two-col">
-        {/* 左栏：条目列表 */}
+        {/* 左栏 */}
         <div className="col-left">
-          <div className="panel">
-            <h3 className="section-title">配置条目 ({cfg.jobs.length})</h3>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, wordBreak: 'break-all' }}>{autoName}</div>
-            {cfg.jobs.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>在右侧编辑后点击「添加条目」</p>
+          {/* 上栏：配置模型列表 */}
+          <div className="panel" style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <h3 className="section-title" style={{ marginBottom: 0 }}>配置模型</h3>
+              <button className="btn btn-primary btn-sm" onClick={openCreateDialog}>新建配置模型</button>
+            </div>
+            {models.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>暂无配置模型，请新建</p>
             ) : (
-              cfg.jobs.map((job, idx) => (
-                <div key={idx} className="card" style={{ marginBottom: 6, cursor: 'pointer', borderColor: editIdx === idx ? 'var(--primary)' : undefined }}
-                  onClick={() => selectJob(idx)}>
+              models.map(name => (
+                <div key={name} className="card" style={{ marginBottom: 6, cursor: 'pointer', borderColor: selectedModel === name ? 'var(--primary)' : undefined }}
+                  onClick={() => loadConfig(name)}>
                   <div className="card-header" style={{ marginBottom: 0 }}>
-                    <span className="card-title"><span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 11, fontWeight: 600, marginRight: 6 }}>{idx + 1}</span> {bsLabel(job.bs)} / {job.rw} / Q{job.iodepth}</span>
+                    <span className="card-title">{name}</span>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); duplicateJob(idx) }}>复制</button>
-                      <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); deleteJob(idx) }}>删除</button>
+                      <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); deleteModel(name) }}>删除</button>
                     </div>
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                    {cfg.global.filename || '无文件'} · {job.numjobs} 进程
                   </div>
                 </div>
               ))
             )}
           </div>
+
+          {/* 下栏：选中模型下的配置条目 */}
+          {selectedModel && (
+            <div className="panel">
+              <h3 className="section-title">配置条目 ({cfg.jobs.length})</h3>
+              {cfg.jobs.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>在右侧编辑后点击「添加模型」</p>
+              ) : (
+                cfg.jobs.map((job, idx) => (
+                  <div key={idx} className="card" style={{ marginBottom: 6, cursor: 'pointer', borderColor: editIdx === idx ? 'var(--primary)' : undefined }}
+                    onClick={() => selectJob(idx)}>
+                    <div className="card-header" style={{ marginBottom: 0 }}>
+                      <span className="card-title">
+                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 11, fontWeight: 600, marginRight: 6 }}>{idx + 1}</span>
+                        {bsLabel(job.bs)} / {job.rw} / Q{job.iodepth}
+                      </span>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); duplicateJob(idx) }}>复制</button>
+                        <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); deleteJob(idx) }}>删除</button>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                      {cfg.global.filename || '无文件'} · {job.numjobs} 进程
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
 
         {/* 右栏：编辑器 */}
         <div className="col-right">
-          {/* 场景预设 */}
           <div className="panel">
             <h3 className="section-title">场景预设</h3>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -172,18 +259,13 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
             </div>
           </div>
 
-          {/* 配置编辑 */}
           <div className="panel">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <h3 className="section-title" style={{ marginBottom: 0 }}>编辑配置</h3>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button className="btn btn-primary btn-sm" onClick={() => saveConfig(configName)}>
-                  {saveStatus === 'saving' ? '保存中...' : saveStatus === 'saved' ? '已保存 ✓' : '保存配置'}
-                </button>
-                <button className="btn btn-outline btn-sm" onClick={saveAsNewConfig}>新增配置</button>
-                {saveStatus === 'saved' && <span style={{ fontSize: 12, color: 'var(--success)' }}>已保存</span>}
-                {saveStatus === 'error' && <span style={{ fontSize: 12, color: 'var(--danger)' }}>保存失败</span>}
-              </div>
+              <h3 className="section-title" style={{ marginBottom: 0 }}>
+                {isEditing ? `编辑条目 #${editIdx! + 1}` : selectedModel ? `添加模型 - ${selectedModel}` : '编辑配置'}
+              </h3>
+              {saveStatus === 'saved' && <span style={{ fontSize: 12, color: 'var(--success)' }}>已保存</span>}
+              {saveStatus === 'error' && <span style={{ fontSize: 12, color: 'var(--danger)' }}>保存失败</span>}
             </div>
 
             <div className="form-row">
@@ -231,8 +313,8 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
               {(editJob.rw === 'readwrite' || editJob.rw === 'randrw') && (
                 <div className="form-group">
                   <label>读占比 (%)</label>
-                  <input type="number" min={0} max={100} value={editJob.rwmixread ?? 50}
-                    onChange={(e) => updateEditJob({ rwmixread: parseInt(e.target.value) || 50 })} />
+                  <input type="number" min={0} max={100} value={editJob.rwmixread ?? 70}
+                    onChange={(e) => updateEditJob({ rwmixread: parseInt(e.target.value) || 70 })} />
                 </div>
               )}
               <div className="form-group">
@@ -315,14 +397,49 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
                   <button className="btn btn-outline btn-sm" onClick={resetForm}>取消编辑</button>
                 </>
               ) : (
-                <button className="btn btn-primary btn-sm" onClick={addJob}>添加条目</button>
+                <button className="btn btn-primary btn-sm" onClick={addJob} disabled={!canAdd}
+                  style={{ opacity: canAdd ? 1 : 0.5, cursor: canAdd ? 'pointer' : 'not-allowed' }}>
+                  添加模型
+                </button>
               )}
             </div>
+            {!canAdd && (
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>请先在左侧选中一个配置模型</p>
+            )}
           </div>
-
-
         </div>
       </div>
+
+      {showCreate && (
+        <div className="modal-overlay" onClick={() => setShowCreate(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>新建配置模型</h3>
+              <button className="modal-close" onClick={() => setShowCreate(false)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>配置名称</label>
+                <input value={createName} onChange={(e) => setCreateName(e.target.value)}
+                  placeholder={`例如: ${autoName(DEFAULT_CONFIG, DEFAULT_JOB)}`} />
+              </div>
+              <div className="form-group">
+                <label>描述信息</label>
+                <textarea value={createDesc} onChange={(e) => setCreateDesc(e.target.value)}
+                  placeholder="可选，描述该模型的用途" rows={3}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, resize: 'vertical', fontFamily: 'inherit' }}></textarea>
+              </div>
+            </div>
+            <div className="modal-footer">
+              {createError && <span style={{ fontSize: 12, color: 'var(--danger)', marginRight: 'auto' }}>{createError}</span>}
+              <button className="btn btn-outline" onClick={() => setShowCreate(false)}>取消</button>
+              <button className="btn btn-primary" onClick={doCreateModel} disabled={saveStatus === 'saving'}>
+                {saveStatus === 'saving' ? '保存中...' : '确定'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -233,7 +233,7 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
                   )}
                 </div>
                 {savedScripts.length === 0 ? (
-                  <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>暂无脚本，请先在脚本管理中保存</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>暂无脚本，请先在配置模型中保存</p>
                 ) : (
                   <div className="checkbox-list" style={{ border: '1px solid #ccc', borderRadius: 8, maxHeight: 200, overflowY: 'auto' }}>
                     {savedScripts.map(s => (

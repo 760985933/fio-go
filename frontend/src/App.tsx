@@ -40,7 +40,7 @@ const MAIN_TABS = [
 ]
 
 const SIDEBAR_ITEMS: SidebarItem[] = [
-  { id: 'script', icon: IconDoc, label: '脚本管理' },
+  { id: 'script', icon: IconDoc, label: '配置模型' },
   { id: 'host', icon: IconServer, label: '主机管理' },
   { id: 'task', icon: IconClipboard, label: '任务管理' },
   { id: 'template', icon: IconLayers, label: '模板管理' },
@@ -104,10 +104,6 @@ function App() {
         >
           {sidebarItem === 'script' && (
             <ScriptManager
-              config={config}
-              configName={configName}
-              onConfigChange={setConfig}
-              onConfigNameChange={setConfigName}
               onAudit={handleAudit}
             />
           )}

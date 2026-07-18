@@ -46,6 +46,7 @@ export interface FioConfig {
   }
   logging?: FioLogging
   jobs: FioJob[]
+  description?: string
 }
 
 export type FioConfigReady = Omit<FioConfig, 'logging'> & { logging: FioLogging }
