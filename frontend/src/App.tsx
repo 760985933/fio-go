@@ -20,22 +20,34 @@ const DEFAULT_CONFIG: FioConfig = {
   jobs: [{ bs: 4, rw: 'read', iodepth: 32, numjobs: 1, direct: true, thread: true }],
 }
 
+const svgProps = { width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+
+const IconHome = <svg {...svgProps}><path d="M2 8.5L8 3l6 5.5V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8.5z"/><path d="M6 14V9h4v5"/></svg>
+const IconSliders = <svg {...svgProps}><line x1="4" y1="3" x2="4" y2="13"/><line x1="8" y1="3" x2="8" y2="13"/><line x1="12" y1="3" x2="12" y2="13"/><circle cx="4" cy="6" r="1.5" fill="currentColor"/><circle cx="8" cy="10" r="1.5" fill="currentColor"/><circle cx="12" cy="5" r="1.5" fill="currentColor"/></svg>
+const IconChart = <svg {...svgProps}><rect x="2" y="9" width="3" height="5" rx="0.5"/><rect x="6.5" y="5" width="3" height="9" rx="0.5"/><rect x="11" y="2" width="3" height="12" rx="0.5"/></svg>
+const IconWrench = <svg {...svgProps}><path d="M9.5 2.5a3.5 3.5 0 0 0-5 5L2 10l-0.5 0.5 4 4L6 14l2.5-2.5a3.5 3.5 0 0 0 5-5z"/><path d="M5.5 6.5l5 5"/></svg>
+const IconDoc = <svg {...svgProps}><path d="M4 2h5.5L12 4.5V13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M9 2v3h3"/><line x1="6" y1="7" x2="10" y2="7"/><line x1="6" y1="9.5" x2="10" y2="9.5"/><line x1="6" y1="12" x2="8" y2="12"/></svg>
+const IconServer = <svg {...svgProps}><rect x="2" y="2" width="12" height="4" rx="1"/><rect x="2" y="10" width="12" height="4" rx="1"/><circle cx="4.5" cy="4" r="0.75" fill="currentColor"/><circle cx="4.5" cy="12" r="0.75" fill="currentColor"/><line x1="8" y1="4" x2="12" y2="4"/><line x1="8" y1="12" x2="12" y2="12"/></svg>
+const IconClipboard = <svg {...svgProps}><rect x="4" y="1.5" width="8" height="13" rx="1"/><line x1="6" y1="5" x2="10" y2="5"/><line x1="6" y1="8" x2="10" y2="8"/><line x1="6" y1="11" x2="8" y2="11"/></svg>
+const IconLayers = <svg {...svgProps}><polygon points="8,2 14,5.5 8,9 2,5.5"/><polyline points="2,8 8,11.5 14,8"/><polyline points="2,10.5 8,14 14,10.5"/></svg>
+const IconRocket = <svg {...svgProps}><path d="M8 2C5 2 3 5 3 8c0 2 1 4 2.5 5.5L8 14l2.5-0.5C12 12 13 10 13 8c0-3-2-6-5-6z"/><circle cx="8" cy="7" r="1.5"/><path d="M3 8c-1 0-1.5 1-1.5 2L3 12"/><path d="M13 8c1 0 1.5 1 1.5 2L13 12"/></svg>
+
 const MAIN_TABS = [
-  { id: 'home', label: '首页', icon: '🏠' },
-  { id: 'configure', label: '配置与执行', icon: '⚙️' },
-  { id: 'analysis', label: '分析报告', icon: '📊' },
-  { id: 'settings', label: '系统设置', icon: '🔧' },
+  { id: 'home', label: '首页', icon: IconHome },
+  { id: 'configure', label: '配置与执行', icon: IconSliders },
+  { id: 'analysis', label: '分析报告', icon: IconChart },
+  { id: 'settings', label: '系统设置', icon: IconWrench },
 ]
 
 const SIDEBAR_ITEMS: SidebarItem[] = [
-  { id: 'script', icon: '📄', label: '脚本管理' },
-  { id: 'host', icon: '🖥️', label: '主机管理' },
-  { id: 'task', icon: '📋', label: '任务管理' },
-  { id: 'template', icon: '📦', label: '模板管理' },
+  { id: 'script', icon: IconDoc, label: '脚本管理' },
+  { id: 'host', icon: IconServer, label: '主机管理' },
+  { id: 'task', icon: IconClipboard, label: '任务管理' },
+  { id: 'template', icon: IconLayers, label: '模板管理' },
 ]
 
 const SIDEBAR_ITEMS_TOOL: SidebarItem[] = [
-  { id: 'orchestration', icon: '🚀', label: '编排' },
+  { id: 'orchestration', icon: IconRocket, label: '编排' },
 ]
 
 function App() {
@@ -107,7 +119,6 @@ function App() {
           )}
           {sidebarItem === 'task' && (
             <TaskManager
-              scriptName={configName}
               onAudit={handleAudit}
               onShowResults={showResults}
             />

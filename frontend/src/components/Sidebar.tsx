@@ -2,7 +2,7 @@ import { ReactNode } from 'react'
 
 export interface SidebarItem {
   id: string
-  icon: string
+  icon: ReactNode
   label: string
 }
 

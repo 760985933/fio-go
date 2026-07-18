@@ -3,7 +3,7 @@ import { ReactNode } from 'react'
 interface Tab {
   id: string
   label: string
-  icon: string
+  icon: ReactNode
 }
 
 interface Props {

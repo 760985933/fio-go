@@ -3,24 +3,26 @@ import { HostRecord, ExecutionTaskConfig, CheckResult, ActionResult } from '../t
 import * as App from '../wailsjs/go/app/App'
 
 interface Props {
-  scriptName: string
   onAudit: (action: string, details: string) => void
   onShowResults: (title: string, content: string) => Promise<void>
 }
 
-export function TaskManager({ scriptName, onAudit, onShowResults }: Props) {
+export function TaskManager({ onAudit, onShowResults }: Props) {
   const [savedScripts, setSavedScripts] = useState<string[]>([])
   const [executionTasks, setExecutionTasks] = useState<ExecutionTaskConfig[]>([])
   const [hosts, setHosts] = useState<HostRecord[]>([])
-  const [selectedScript, setSelectedScript] = useState(scriptName)
   const [executing, setExecuting] = useState(false)
   const [currentTask, setCurrentTask] = useState<string>('')
   const [checkResults, setCheckResults] = useState<CheckResult[]>([])
   const [executionLogs, setExecutionLogs] = useState<string[]>([])
 
-  useEffect(() => { loadData() }, [])
+  // 创建任务弹窗状态
+  const [showCreate, setShowCreate] = useState(false)
+  const [newTaskName, setNewTaskName] = useState('')
+  const [newTaskScript, setNewTaskScript] = useState('')
+  const [newTaskHostIds, setNewTaskHostIds] = useState<number[]>([])
 
-  useEffect(() => { setSelectedScript(scriptName) }, [scriptName])
+  useEffect(() => { loadData() }, [])
 
   const loadData = async () => {
     try {
@@ -35,17 +37,34 @@ export function TaskManager({ scriptName, onAudit, onShowResults }: Props) {
     } catch { /* ignore */ }
   }
 
-  const addExecutionTask = () => {
+  const openCreate = () => {
+    setNewTaskName('')
+    setNewTaskScript(savedScripts[0] || '')
+    setNewTaskHostIds(hosts.map(h => h.id))
+    setShowCreate(true)
+  }
+
+  const confirmCreate = () => {
+    if (!newTaskScript) return
+    const selectedHosts = hosts.filter(h => newTaskHostIds.includes(h.id))
+    if (selectedHosts.length === 0) return
+
+    const name = newTaskName.trim() || newTaskScript.replace('.fio', '')
     const task: ExecutionTaskConfig = {
       id: `task_${Date.now()}`,
-      name: selectedScript,
-      script: selectedScript,
-      hosts: hosts.map(h => ({ host: h.host, port: h.port, user: h.user, password: h.password })),
+      name,
+      script: newTaskScript,
+      hosts: selectedHosts.map(h => ({ host: h.host, port: h.port, user: h.user, password: h.password })),
     }
     const newTasks = [...executionTasks, task]
     setExecutionTasks(newTasks)
     App.SaveExecutionTasks(newTasks).catch(() => {})
-    onAudit('添加执行任务', `任务: ${task.id}`)
+    onAudit('添加执行任务', `任务: ${name}, 脚本: ${newTaskScript}, 主机: ${selectedHosts.length}台`)
+    setShowCreate(false)
+  }
+
+  const toggleHost = (id: number) => {
+    setNewTaskHostIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
   }
 
   const removeTask = (idx: number) => {
@@ -189,20 +208,61 @@ export function TaskManager({ scriptName, onAudit, onShowResults }: Props) {
 
       <div className="two-col">
         <div className="col-left">
-          <div className="panel">
-            <h3 className="section-title">创建任务</h3>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <select value={selectedScript} onChange={(e) => setSelectedScript(e.target.value)}>
-                {savedScripts.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-              <button className="btn btn-primary btn-sm" onClick={addExecutionTask} disabled={hosts.length === 0}>
-                添加任务
-              </button>
+          {/* 创建任务弹窗 */}
+          {showCreate && (
+            <div className="panel" style={{ border: '1px solid var(--primary)' }}>
+              <h3 className="section-title">创建任务</h3>
+              <div className="form-group">
+                <label>任务名称</label>
+                <input value={newTaskName} placeholder={newTaskScript.replace('.fio', '') || '可选'}
+                  onChange={(e) => setNewTaskName(e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label>选择脚本</label>
+                <select value={newTaskScript} onChange={(e) => setNewTaskScript(e.target.value)}>
+                  {savedScripts.length === 0 && <option value="">暂无脚本</option>}
+                  {savedScripts.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>选择主机 ({newTaskHostIds.length}/{hosts.length})</label>
+                <div style={{ maxHeight: 160, overflowY: 'auto' }}>
+                  {hosts.map(h => (
+                    <label key={h.id} className="toggle-label" style={{ padding: '4px 0' }}>
+                      <input type="checkbox" checked={newTaskHostIds.includes(h.id)}
+                        onChange={() => toggleHost(h.id)} />
+                      {h.user}@{h.host}:{h.port}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button className="btn btn-primary btn-sm" onClick={confirmCreate}
+                  disabled={!newTaskScript || newTaskHostIds.length === 0}>
+                  确认创建
+                </button>
+                <button className="btn btn-outline btn-sm" onClick={() => setShowCreate(false)}>取消</button>
+              </div>
             </div>
-            {hosts.length === 0 && (
-              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>请先在主机管理中添加主机</p>
-            )}
-          </div>
+          )}
+
+          {!showCreate && (
+            <div className="panel">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 className="section-title" style={{ marginBottom: 0 }}>创建任务</h3>
+                <button className="btn btn-primary btn-sm" onClick={openCreate}
+                  disabled={hosts.length === 0 || savedScripts.length === 0}>
+                  添加任务
+                </button>
+              </div>
+              {(hosts.length === 0 || savedScripts.length === 0) && (
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+                  {hosts.length === 0 && '请先在主机管理中添加主机'}
+                  {hosts.length > 0 && savedScripts.length === 0 && '请先在脚本管理中保存脚本'}
+                </p>
+              )}
+            </div>
+          )}
 
           {executionTasks.length > 0 && (
             <div className="panel">

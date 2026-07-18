@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { FioConfig, FioJob, FioLogging, FioLoggingKey } from '../types'
 import { generateFioText } from '../utils/fioGenerator'
 import { ensureConfig, bsLabel } from '../utils/config'
@@ -30,19 +30,12 @@ const DEFAULT_JOB: FioJob = { bs: 4, rw: 'read', iodepth: 32, numjobs: 1, direct
 
 export function ScriptManager({ config, configName, onConfigChange, onConfigNameChange, onAudit }: Props) {
   const [expandedJob, setExpandedJob] = useState<number | null>(0)
-  const [savedScripts, setSavedScripts] = useState<string[]>([])
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [showLogging, setShowLogging] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState<Record<number, boolean>>({})
 
   const cfg = ensureConfig(config)
   const log = cfg.logging
-
-  useEffect(() => { loadScripts() }, [])
-
-  const loadScripts = async () => {
-    try { setSavedScripts((await App.GetScripts()) || []) } catch { /* ignore */ }
-  }
 
   const updateGlobal = (key: string, value: any) => {
     onConfigChange({ ...cfg, global: { ...cfg.global, [key]: value } })
@@ -88,7 +81,6 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
       await App.SaveScriptConfig(configName, JSON.stringify(cfg))
       setSaveStatus('saved')
       onAudit('保存配置', `配置: ${configName}`)
-      loadScripts()
       setTimeout(() => setSaveStatus('idle'), 2000)
     } catch {
       setSaveStatus('error')
@@ -96,80 +88,18 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
     }
   }
 
-  const loadFromServer = async (name: string) => {
-    try {
-      const configJSON = await App.GetScriptConfig(name)
-      if (configJSON) {
-        const parsed = JSON.parse(configJSON)
-        if (parsed.global && parsed.jobs) {
-          onConfigChange(ensureConfig(parsed))
-          onConfigNameChange(name.replace('.fio', ''))
-          onAudit('加载配置', `配置: ${name}`)
-          return
-        }
-      }
-      const content = await App.GetScriptContent(name)
-      const jsonMatch = content.match(/# FIO_CONFIG_JSON: ({.*})/)
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[1])
-        if (parsed.global && parsed.jobs) {
-          onConfigChange(ensureConfig(parsed))
-          onConfigNameChange(name.replace('.fio', ''))
-          onAudit('加载配置', `配置: ${name}`)
-          return
-        }
-      }
-      onConfigNameChange(name.replace('.fio', ''))
-      onAudit('加载配置 (文本)', `配置: ${name}`)
-    } catch (err) {
-      console.error('加载配置失败:', err)
-    }
-  }
-
-  const deleteFromServer = async (name: string) => {
-    try {
-      await App.DeleteScript(name)
-      await App.DeleteScriptConfig(name)
-      onAudit('删除配置', `配置: ${name}`)
-      loadScripts()
-    } catch (err) {
-      console.error('删除配置失败:', err)
-    }
-  }
-
   return (
     <div>
       <div className="manager-header">
         <h2>脚本管理</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-outline btn-sm" onClick={loadScripts}>刷新</button>
-          <button className="btn btn-primary btn-sm" onClick={saveToServer}>
-            {saveStatus === 'saving' ? '保存中...' : saveStatus === 'saved' ? '已保存 ✓' : '保存配置'}
-          </button>
-        </div>
+        <button className="btn btn-primary btn-sm" onClick={saveToServer}>
+          {saveStatus === 'saving' ? '保存中...' : saveStatus === 'saved' ? '已保存 ✓' : '保存配置'}
+        </button>
       </div>
 
       <div className="two-col">
         {/* 左栏：脚本列表 + 配置条目 */}
         <div className="col-left">
-          {/* 脚本列表 */}
-          <div className="panel">
-            <h3 className="section-title">保存的脚本</h3>
-            {savedScripts.length === 0 ? (
-              <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>暂无保存的脚本</p>
-            ) : (
-              <div style={{ maxHeight: 120, overflowY: 'auto' }}>
-                {savedScripts.map(name => (
-                  <div key={name} className="host-item">
-                    <span style={{ flex: 1, fontSize: 13 }}>{name}</span>
-                    <button className="btn btn-outline btn-sm" onClick={() => loadFromServer(name)}>加载</button>
-                    <button className="btn btn-danger btn-sm" onClick={() => deleteFromServer(name)}>删除</button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* 配置条目 */}
           <div className="panel">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
