@@ -117,8 +117,10 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
   }
 
   const saveAsNewConfig = async () => {
-    const newJobs = [...cfg.jobs, { ...editJob }]
-    onConfigChange({ ...cfg, jobs: newJobs })
+    if (!isEditing) {
+      const newJobs = [...cfg.jobs, { ...editJob }]
+      onConfigChange({ ...cfg, jobs: newJobs })
+    }
     const ts = new Date().toISOString().slice(0, 19).replace(/[T:-]/g, '')
     const newName = `${autoName}_${ts}`
     await saveConfig(newName)
