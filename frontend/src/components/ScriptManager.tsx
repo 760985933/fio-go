@@ -79,6 +79,7 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
     const newJobs = [...cfg.jobs]
     newJobs.splice(idx + 1, 0, { ...cfg.jobs[idx] })
     onConfigChange({ ...cfg, jobs: newJobs })
+    selectJob(idx + 1)
   }
 
   const selectJob = (idx: number) => {
