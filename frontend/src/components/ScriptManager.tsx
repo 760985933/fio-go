@@ -31,7 +31,6 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
   const [editIdx, setEditIdx] = useState<number | null>(null)
   const [editJob, setEditJob] = useState<FioJob>({ ...DEFAULT_JOB })
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const [showGlobal, setShowGlobal] = useState(false)
   const [showLogging, setShowLogging] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
 
@@ -153,9 +152,43 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
             </div>
           </div>
 
-          {/* 条目编辑 */}
+          {/* 配置编辑 */}
           <div className="panel">
-            <h3 className="section-title">{isEditing ? `编辑条目 #${editIdx! + 1}` : '新建条目'}</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3 className="section-title" style={{ marginBottom: 0 }}>编辑配置</h3>
+              <button className="btn btn-primary btn-sm" onClick={saveToServer}>
+                {saveStatus === 'saving' ? '保存中...' : saveStatus === 'saved' ? '已保存 ✓' : '保存到服务器'}
+              </button>
+              {(saveStatus === 'saved' || saveStatus === 'error') && (
+                <span style={{ fontSize: 12, color: saveStatus === 'saved' ? 'var(--success)' : 'var(--danger)', marginLeft: 8 }}>
+                  {saveStatus === 'saved' ? '已保存' : '保存失败'}
+                </span>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label>配置名称</label>
+              <input value={configName} onChange={(e) => onConfigNameChange(e.target.value)} />
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>文件路径</label>
+                <input value={cfg.global.filename} onChange={(e) => updateGlobal('filename', e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label>运行时间 (秒)</label>
+                <input type="number" value={cfg.global.runtime} onChange={(e) => updateGlobal('runtime', parseInt(e.target.value) || 0)} />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>预热时间 (秒)</label>
+                <input type="number" value={cfg.global.ramp_time} onChange={(e) => updateGlobal('ramp_time', parseInt(e.target.value) || 0)} />
+              </div>
+            </div>
+
+            <hr style={{ margin: '12px 0', border: 'none', borderTop: '1px solid var(--border)' }} />
+
             <div style={{ marginBottom: 8 }}>
               <label style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>块大小 (KB)</label>
               <div className="preset-group">
@@ -192,43 +225,68 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
                   onChange={(e) => updateEditJob({ numjobs: parseInt(e.target.value) || 1 })} />
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
-              <label className="toggle-label">
-                <input type="checkbox" checked={editJob.direct}
-                  onChange={(e) => updateEditJob({ direct: e.target.checked })} />
-                Direct I/O
-              </label>
-              <label className="toggle-label">
-                <input type="checkbox" checked={editJob.thread}
-                  onChange={(e) => updateEditJob({ thread: e.target.checked })} />
-                Thread 模式
-              </label>
-            </div>
-            <div style={{ marginTop: 8 }}>
+
+            <div style={{ marginTop: 12 }}>
               <button className="btn btn-outline btn-sm"
                 onClick={() => setShowAdvanced(!showAdvanced)}>
-                {showAdvanced ? '收起高级' : '高级选项'}
+                {showAdvanced ? '收起高级选项' : '高级选项'}
               </button>
               {showAdvanced && (
-                <div className="form-row" style={{ marginTop: 8 }}>
-                  <div className="form-group">
-                    <label>fsync</label>
-                    <input type="number" value={editJob.fsync ?? 0} placeholder="0=关闭"
-                      onChange={(e) => updateEditJob({ fsync: parseInt(e.target.value) || 0 })} />
+                <div style={{ marginTop: 8 }}>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>IO 引擎</label>
+                      <select value={cfg.global.ioengine} onChange={(e) => updateGlobal('ioengine', e.target.value)}>
+                        <option value="libaio">libaio</option>
+                        <option value="io_uring">io_uring</option>
+                        <option value="posixaio">posixaio</option>
+                        <option value="sync">sync</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>测试大小 (可选)</label>
+                      <input value={cfg.global.size || ''} placeholder="留空=自动"
+                        onChange={(e) => updateGlobal('size', e.target.value || undefined)} />
+                    </div>
+                    <div className="form-group">
+                      <label>工作目录 (可选)</label>
+                      <input value={cfg.global.directory || ''} placeholder="留空=默认"
+                        onChange={(e) => updateGlobal('directory', e.target.value || undefined)} />
+                    </div>
                   </div>
-                  <div className="form-group">
-                    <label>batch</label>
-                    <input type="number" value={editJob.iodepth_batch ?? 0} placeholder="0=自动"
-                      onChange={(e) => updateEditJob({ iodepth_batch: parseInt(e.target.value) || 0 })} />
+                  <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+                    <label className="toggle-label">
+                      <input type="checkbox" checked={editJob.direct}
+                        onChange={(e) => updateEditJob({ direct: e.target.checked })} />
+                      Direct I/O
+                    </label>
+                    <label className="toggle-label">
+                      <input type="checkbox" checked={editJob.thread}
+                        onChange={(e) => updateEditJob({ thread: e.target.checked })} />
+                      Thread 模式
+                    </label>
                   </div>
-                  <div className="form-group">
-                    <label>限速 (IOPS)</label>
-                    <input type="number" value={editJob.rate_iops ?? 0} placeholder="0=不限"
-                      onChange={(e) => updateEditJob({ rate_iops: parseInt(e.target.value) || 0 })} />
+                  <div className="form-row" style={{ marginTop: 8 }}>
+                    <div className="form-group">
+                      <label>fsync</label>
+                      <input type="number" value={editJob.fsync ?? 0} placeholder="0=关闭"
+                        onChange={(e) => updateEditJob({ fsync: parseInt(e.target.value) || 0 })} />
+                    </div>
+                    <div className="form-group">
+                      <label>batch</label>
+                      <input type="number" value={editJob.iodepth_batch ?? 0} placeholder="0=自动"
+                        onChange={(e) => updateEditJob({ iodepth_batch: parseInt(e.target.value) || 0 })} />
+                    </div>
+                    <div className="form-group">
+                      <label>限速 (IOPS)</label>
+                      <input type="number" value={editJob.rate_iops ?? 0} placeholder="0=不限"
+                        onChange={(e) => updateEditJob({ rate_iops: parseInt(e.target.value) || 0 })} />
+                    </div>
                   </div>
                 </div>
               )}
             </div>
+
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               {isEditing ? (
                 <>
@@ -237,71 +295,6 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
                 </>
               ) : (
                 <button className="btn btn-primary btn-sm" onClick={addJob}>添加条目</button>
-              )}
-            </div>
-          </div>
-
-          {/* 全局配置 */}
-          <div className="panel">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showGlobal ? 12 : 0 }}>
-              <h3 className="section-title" style={{ marginBottom: 0 }}>全局配置</h3>
-              <button className="btn btn-outline btn-sm" onClick={() => setShowGlobal(!showGlobal)}>
-                {showGlobal ? '收起' : '展开'}
-              </button>
-            </div>
-            {showGlobal && (
-              <>
-                <div className="form-group">
-                  <label>配置名称</label>
-                  <input value={configName} onChange={(e) => onConfigNameChange(e.target.value)} />
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>文件路径</label>
-                    <input value={cfg.global.filename} onChange={(e) => updateGlobal('filename', e.target.value)} />
-                  </div>
-                  <div className="form-group">
-                    <label>运行时间 (秒)</label>
-                    <input type="number" value={cfg.global.runtime} onChange={(e) => updateGlobal('runtime', parseInt(e.target.value) || 0)} />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>预热时间 (秒)</label>
-                    <input type="number" value={cfg.global.ramp_time} onChange={(e) => updateGlobal('ramp_time', parseInt(e.target.value) || 0)} />
-                  </div>
-                  <div className="form-group">
-                    <label>IO 引擎</label>
-                    <select value={cfg.global.ioengine} onChange={(e) => updateGlobal('ioengine', e.target.value)}>
-                      <option value="libaio">libaio</option>
-                      <option value="io_uring">io_uring</option>
-                      <option value="posixaio">posixaio</option>
-                      <option value="sync">sync</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>测试大小 (可选)</label>
-                    <input value={cfg.global.size || ''} placeholder="留空=自动"
-                      onChange={(e) => updateGlobal('size', e.target.value || undefined)} />
-                  </div>
-                  <div className="form-group">
-                    <label>工作目录 (可选)</label>
-                    <input value={cfg.global.directory || ''} placeholder="留空=默认"
-                      onChange={(e) => updateGlobal('directory', e.target.value || undefined)} />
-                  </div>
-                </div>
-              </>
-            )}
-            <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-              <button className="btn btn-primary btn-sm" onClick={saveToServer}>
-                {saveStatus === 'saving' ? '保存中...' : saveStatus === 'saved' ? '已保存 ✓' : '保存配置'}
-              </button>
-              {(saveStatus === 'saved' || saveStatus === 'error') && (
-                <span style={{ fontSize: 12, color: saveStatus === 'saved' ? 'var(--success)' : 'var(--danger)', display: 'flex', alignItems: 'center' }}>
-                  {saveStatus === 'saved' ? '已保存' : '保存失败'}
-                </span>
               )}
             </div>
           </div>
