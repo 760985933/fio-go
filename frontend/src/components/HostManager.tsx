@@ -40,16 +40,24 @@ export function HostManager({ onAudit, onShowResults }: Props) {
   }
 
   const testConnectivity = async (host: HostRecord) => {
-    const [ok, msg] = await App.CheckConnectivity(host)
-    await onShowResults('连通性测试', `主机 ${host.host} ${ok ? '连接成功' : '连接失败'}:\n${msg}`)
-    onAudit('测试连通性', `主机: ${host.host}`)
+    try {
+      const [ok, msg] = await App.CheckConnectivity(host)
+      await onShowResults('连通性测试', `主机 ${host.host} ${ok ? '连接成功' : '连接失败'}:\n${msg}`)
+      onAudit('测试连通性', `主机: ${host.host}`)
+    } catch (err) {
+      await onShowResults('测试失败', `主机 ${host.host} 错误: ${err}`)
+    }
   }
 
   const testAllConnectivity = async () => {
     const results: string[] = []
     for (const host of hosts) {
-      const [ok, msg] = await App.CheckConnectivity(host)
-      results.push(`${ok ? '✓' : '✗'} ${host.host}: ${msg}`)
+      try {
+        const [ok, msg] = await App.CheckConnectivity(host)
+        results.push(`${ok ? '✓' : '✗'} ${host.host}: ${msg}`)
+      } catch (err) {
+        results.push(`✗ ${host.host}: 错误 ${err}`)
+      }
     }
     await onShowResults('批量连通性测试', results.join('\n'))
     onAudit('批量测试连通性', `测试 ${hosts.length} 台主机`)

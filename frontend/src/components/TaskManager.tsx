@@ -250,17 +250,8 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
             <div className="panel">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 className="section-title" style={{ marginBottom: 0 }}>创建任务</h3>
-                <button className="btn btn-primary btn-sm" onClick={openCreate}
-                  disabled={hosts.length === 0 || savedScripts.length === 0}>
-                  添加任务
-                </button>
+                <button className="btn btn-primary btn-sm" onClick={openCreate}>添加任务</button>
               </div>
-              {(hosts.length === 0 || savedScripts.length === 0) && (
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
-                  {hosts.length === 0 && '请先在主机管理中添加主机'}
-                  {hosts.length > 0 && savedScripts.length === 0 && '请先在脚本管理中保存脚本'}
-                </p>
-              )}
             </div>
           )}
 
