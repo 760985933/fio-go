@@ -117,6 +117,8 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
   }
 
   const saveAsNewConfig = async () => {
+    const newJobs = [...cfg.jobs, { ...editJob }]
+    onConfigChange({ ...cfg, jobs: newJobs })
     const ts = new Date().toISOString().slice(0, 19).replace(/[T:-]/g, '')
     const newName = `${autoName}_${ts}`
     await saveConfig(newName)
@@ -131,7 +133,7 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
         <div className="col-left">
           <div className="panel">
             <h3 className="section-title">配置条目 ({cfg.jobs.length})</h3>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, wordBreak: 'break-all' }}>{configName}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, wordBreak: 'break-all' }}>{autoName}</div>
             {cfg.jobs.length === 0 ? (
               <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>在右侧编辑后点击「添加条目」</p>
             ) : (
@@ -203,13 +205,18 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
 
             <div style={{ marginBottom: 8 }}>
               <label style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>块大小 (KB)</label>
-              <div className="preset-group">
-                {BS_PRESETS.map(bs => (
-                  <button key={bs} className={`btn btn-sm ${editJob.bs === bs ? 'btn-primary' : 'btn-outline'}`}
-                    onClick={() => updateEditJob({ bs })}>
-                    {bsLabel(bs)}
-                  </button>
-                ))}
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <div className="preset-group">
+                  {BS_PRESETS.map(bs => (
+                    <button key={bs} className={`btn btn-sm ${editJob.bs === bs ? 'btn-primary' : 'btn-outline'}`}
+                      onClick={() => updateEditJob({ bs })}>
+                      {bsLabel(bs)}
+                    </button>
+                  ))}
+                </div>
+                <input type="number" value={editJob.bs} min={1}
+                  onChange={(e) => updateEditJob({ bs: parseInt(e.target.value) || 4 })}
+                  style={{ width: 80 }} />
               </div>
             </div>
             <div className="form-row">
@@ -302,7 +309,7 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               {isEditing ? (
                 <>
-                  <button className="btn btn-primary btn-sm" onClick={saveEditedJob}>保存配置</button>
+                  <button className="btn btn-primary btn-sm" onClick={saveEditedJob}>更新条目</button>
                   <button className="btn btn-outline btn-sm" onClick={resetForm}>取消编辑</button>
                 </>
               ) : (
