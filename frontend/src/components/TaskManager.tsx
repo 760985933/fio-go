@@ -114,7 +114,6 @@ export function TaskManager({ scriptName, onAudit, onShowResults }: Props) {
 
   const killTask = async (task: ExecutionTaskConfig) => {
     try {
-      setCheckResults([])
       const results = await App.KillAll(task.id, task.hosts)
       onAudit('停止任务', `任务: ${task.id}`)
       await onShowResults('停止结果',
