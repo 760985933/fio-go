@@ -35,20 +35,19 @@ export function Layout({ tabs, activeTab, onTabChange, headerActions, children }
           </svg>
           <h1>FIO 测试工具 <span className="app-version">v1.0.3</span></h1>
         </div>
+        <div className="tab-bar">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              className={`tab ${activeTab === tab.id ? 'active' : ''}`}
+              onClick={() => onTabChange(tab.id)}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
+        </div>
         {headerActions && <div className="header-actions">{headerActions}</div>}
       </header>
-
-      <div className="tab-bar">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            className={`tab ${activeTab === tab.id ? 'active' : ''}`}
-            onClick={() => onTabChange(tab.id)}
-          >
-            {tab.icon} {tab.label}
-          </button>
-        ))}
-      </div>
 
       <main className="content-area">
         {children}

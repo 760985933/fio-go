@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { FioConfig, FioJob } from '../types'
 import { generateFioText } from '../utils/fioGenerator'
 import { ensureConfig, bsLabel } from '../utils/config'
@@ -34,6 +34,22 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   const cfg = ensureConfig(config)
+
+  const autoName = useMemo(() => {
+    const fn = cfg.global.filename || ''
+    const base = fn.split('/').pop()?.split('.')[0] || 'config'
+    const bs = editJob.bs || 4
+    const rw = editJob.rw || 'read'
+    return `fio_${base}_${bs}k_${rw}`
+  }, [cfg.global.filename, editJob.bs, editJob.rw])
+
+  const lastAutoName = useRef(autoName)
+  useEffect(() => {
+    if (autoName !== lastAutoName.current) {
+      lastAutoName.current = autoName
+      onConfigNameChange(autoName)
+    }
+  }, [autoName, onConfigNameChange])
 
   const updateGlobal = (key: string, value: any) => {
     onConfigChange({ ...cfg, global: { ...cfg.global, [key]: value } })
@@ -101,10 +117,9 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
   }
 
   const saveAsNewConfig = async () => {
-    const newName = window.prompt('请输入新配置名称：')
-    if (!newName || !newName.trim()) return
-    onConfigNameChange(newName.trim())
-    await saveConfig(newName.trim())
+    const ts = new Date().toISOString().slice(0, 19).replace(/[T:-]/g, '')
+    const newName = `${autoName}_${ts}`
+    await saveConfig(newName)
   }
 
   const isEditing = editIdx !== null && editIdx >= 0 && editIdx < cfg.jobs.length
@@ -116,6 +131,7 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
         <div className="col-left">
           <div className="panel">
             <h3 className="section-title">配置条目 ({cfg.jobs.length})</h3>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, wordBreak: 'break-all' }}>{configName}</div>
             {cfg.jobs.length === 0 ? (
               <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>在右侧编辑后点击「添加条目」</p>
             ) : (
@@ -123,11 +139,14 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
                 <div key={idx} className="card" style={{ marginBottom: 6, cursor: 'pointer', borderColor: editIdx === idx ? 'var(--primary)' : undefined }}
                   onClick={() => selectJob(idx)}>
                   <div className="card-header" style={{ marginBottom: 0 }}>
-                    <span className="card-title">#{idx + 1} {bsLabel(job.bs)} / {job.rw} / Q{job.iodepth}</span>
+                    <span className="card-title"><span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 11, fontWeight: 600, marginRight: 6 }}>{idx + 1}</span> {bsLabel(job.bs)} / {job.rw} / Q{job.iodepth}</span>
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); duplicateJob(idx) }}>复制</button>
                       <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); deleteJob(idx) }}>删除</button>
                     </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                    {cfg.global.filename || '无文件'} · {job.numjobs} 进程
                   </div>
                 </div>
               ))
@@ -163,10 +182,6 @@ export function ScriptManager({ config, configName, onConfigChange, onConfigName
               </div>
             </div>
 
-            <div className="form-group">
-              <label>配置名称</label>
-              <input value={configName} onChange={(e) => onConfigNameChange(e.target.value)} />
-            </div>
             <div className="form-row">
               <div className="form-group">
                 <label>文件路径</label>
