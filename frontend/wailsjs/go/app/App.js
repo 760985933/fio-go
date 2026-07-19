@@ -134,6 +134,14 @@ export function SaveScriptConfig(arg1, arg2) {
   return window['go']['app']['App']['SaveScriptConfig'](arg1, arg2);
 }
 
+export function SetTaskFinished(arg1) {
+  return window['go']['app']['App']['SetTaskFinished'](arg1);
+}
+
+export function SetTaskStarted(arg1) {
+  return window['go']['app']['App']['SetTaskStarted'](arg1);
+}
+
 export function Shutdown(arg1) {
   return window['go']['app']['App']['Shutdown'](arg1);
 }

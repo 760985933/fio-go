@@ -142,6 +142,11 @@ func initWebDB(db *sql.DB) error {
 			details   TEXT NOT NULL DEFAULT '',
 			timestamp TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS task_timestamps (
+			task_id    TEXT PRIMARY KEY,
+			started_at TEXT NOT NULL DEFAULT '',
+			finished_at TEXT NOT NULL DEFAULT ''
+		)`,
 	} {
 		if _, err := db.Exec(stmt); err != nil {
 			return err

@@ -95,6 +95,16 @@ func initDB(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS task_timestamps (
+			task_id    TEXT PRIMARY KEY,
+			started_at TEXT NOT NULL DEFAULT '',
+			finished_at TEXT NOT NULL DEFAULT ''
+		)
+	`)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -226,6 +236,43 @@ func dbGetExecutionTasks(db *sql.DB) ([]ExecutionTaskConfig, error) {
 	if err := json.Unmarshal([]byte(data), &tasks); err != nil {
 		return nil, err
 	}
+	if len(tasks) > 0 {
+		ids := make([]interface{}, len(tasks))
+		placeholders := ""
+		for i, t := range tasks {
+			if i > 0 {
+				placeholders += ","
+			}
+			placeholders += "?"
+			ids[i] = t.ID
+		}
+		rows, err := db.Query(
+			fmt.Sprintf(`SELECT task_id, started_at, finished_at FROM task_timestamps WHERE task_id IN (%s)`, placeholders),
+			ids...,
+		)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		type ts struct{ started, finished string }
+		tsMap := make(map[string]ts)
+		for rows.Next() {
+			var tid, s, f string
+			if err := rows.Scan(&tid, &s, &f); err != nil {
+				return nil, err
+			}
+			tsMap[tid] = ts{started: s, finished: f}
+		}
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+		for i := range tasks {
+			if t, ok := tsMap[tasks[i].ID]; ok {
+				tasks[i].StartedAt = t.started
+				tasks[i].FinishedAt = t.finished
+			}
+		}
+	}
 	return tasks, nil
 }
 
@@ -244,22 +291,22 @@ func dbGetKV(db *sql.DB, key string) (string, error) {
 }
 
 func dbUpdateTaskTimestamp(db *sql.DB, taskID, field, value string) error {
-	tasks, err := dbGetExecutionTasks(db)
-	if err != nil {
+	switch field {
+	case "startedAt":
+		_, err := db.Exec(`
+			INSERT INTO task_timestamps (task_id, started_at, finished_at) VALUES (?, ?, '')
+			ON CONFLICT(task_id) DO UPDATE SET started_at = excluded.started_at
+		`, taskID, value)
 		return err
+	case "finishedAt":
+		_, err := db.Exec(`
+			INSERT INTO task_timestamps (task_id, started_at, finished_at) VALUES (?, '', ?)
+			ON CONFLICT(task_id) DO UPDATE SET finished_at = excluded.finished_at
+		`, taskID, value)
+		return err
+	default:
+		return fmt.Errorf("unknown timestamp field: %s", field)
 	}
-	for i := range tasks {
-		if tasks[i].ID == taskID {
-			switch field {
-			case "startedAt":
-				tasks[i].StartedAt = value
-			case "finishedAt":
-				tasks[i].FinishedAt = value
-			}
-			break
-		}
-	}
-	return dbSaveExecutionTasks(db, tasks)
 }
 
 func dbAddAuditLog(db *sql.DB, action, details, timestamp string) error {

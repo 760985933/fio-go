@@ -29,6 +29,8 @@ export namespace app {
 	    reportDir: string;
 	    reportHtmlUrl: string;
 	    downloadUrl: string;
+	    startedAt?: string;
+	    finishedAt?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new AnalysisSummary(source);
@@ -46,6 +48,8 @@ export namespace app {
 	        this.reportDir = source["reportDir"];
 	        this.reportHtmlUrl = source["reportHtmlUrl"];
 	        this.downloadUrl = source["downloadUrl"];
+	        this.startedAt = source["startedAt"];
+	        this.finishedAt = source["finishedAt"];
 	    }
 	}
 	export class AuditEntry {
@@ -101,6 +105,8 @@ export namespace app {
 	    name: string;
 	    scripts: string[];
 	    hosts: executor.HostConfig[];
+	    startedAt?: string;
+	    finishedAt?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ExecutionTaskConfig(source);
@@ -112,6 +118,8 @@ export namespace app {
 	        this.name = source["name"];
 	        this.scripts = source["scripts"];
 	        this.hosts = this.convertValues(source["hosts"], executor.HostConfig);
+	        this.startedAt = source["startedAt"];
+	        this.finishedAt = source["finishedAt"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

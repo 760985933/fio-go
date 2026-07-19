@@ -70,6 +70,10 @@ export function SaveScript(arg1:string,arg2:string):Promise<void>;
 
 export function SaveScriptConfig(arg1:string,arg2:string):Promise<void>;
 
+export function SetTaskFinished(arg1:string):Promise<void>;
+
+export function SetTaskStarted(arg1:string):Promise<void>;
+
 export function Shutdown(arg1:context.Context):Promise<void>;
 
 export function UpdateHost(arg1:number,arg2:executor.HostConfig):Promise<void>;
