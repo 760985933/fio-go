@@ -867,6 +867,58 @@ func (a *App) ExecuteOrchestration(taskIDs []string, interval int) ([]Orchestrat
 
 		safeID := sanitizeTaskID(taskID)
 
+		// Step 0: Pre-check
+		progress = append(progress, OrchestrationProgress{
+			TaskID:   safeID,
+			TaskName: task.Name,
+			Step:     "precheck",
+			Status:   "running",
+			Current:  i + 1,
+			Total:    total,
+		})
+
+		checkResults, checkErr := a.PreDeployCheck(taskID, task.Hosts)
+		if checkErr != nil {
+			progress = append(progress, OrchestrationProgress{
+				TaskID:   safeID,
+				TaskName: task.Name,
+				Step:     "precheck",
+				Status:   "error",
+				Error:    checkErr.Error(),
+				Current:  i + 1,
+				Total:    total,
+			})
+			continue
+		}
+		hasRunning := false
+		var checkErrHosts []string
+		for _, cr := range checkResults {
+			if cr.Running {
+				hasRunning = true
+				checkErrHosts = append(checkErrHosts, fmt.Sprintf("%s: %s", cr.Host, cr.Msg))
+			}
+		}
+		if hasRunning {
+			progress = append(progress, OrchestrationProgress{
+				TaskID:   safeID,
+				TaskName: task.Name,
+				Step:     "precheck",
+				Status:   "error",
+				Error:    fmt.Sprintf("主机有FIO运行中: %s", strings.Join(checkErrHosts, "; ")),
+				Current:  i + 1,
+				Total:    total,
+			})
+			continue
+		}
+		progress = append(progress, OrchestrationProgress{
+			TaskID:   safeID,
+			TaskName: task.Name,
+			Step:     "precheck",
+			Status:   "completed",
+			Current:  i + 1,
+			Total:    total,
+		})
+
 		// Step 1: Deploy
 		progress = append(progress, OrchestrationProgress{
 			TaskID:   safeID,
