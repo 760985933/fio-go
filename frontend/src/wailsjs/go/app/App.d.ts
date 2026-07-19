@@ -102,8 +102,8 @@ export interface OrchestrationProgress {
     taskName: string;
     step: string;
     status: string;
-    error: string;
-    results: ActionResult[];
+    error?: string;
+    results?: ActionResult[];
     current: number;
     total: number;
 }

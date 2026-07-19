@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { FioConfig, OrchestrationProgress } from './types'
+import { FioConfig, OrchestrationProgress, ExecutionTaskConfig } from './types'
 import { Layout } from './components/Layout'
 import { Sidebar, SidebarItem } from './components/Sidebar'
 import { HomePage } from './components/HomePage'
@@ -129,7 +129,7 @@ function App() {
 function OrchestrationManager({ onShowResults }: { onShowResults: (title: string, content: string) => Promise<void> }) {
   const [taskIds, setTaskIds] = useState<string[]>([])
   const [interval, setInterval_] = useState(10)
-  const [tasks, setTasks] = useState<{ id: string; name: string }[]>([])
+  const [tasks, setTasks] = useState<ExecutionTaskConfig[]>([])
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [executing, setExecuting] = useState(false)
   const [progress, setProgress] = useState<OrchestrationProgress[]>([])
@@ -146,7 +146,7 @@ function OrchestrationManager({ onShowResults }: { onShowResults: (title: string
         ])
         setTaskIds(config.sequence || [])
         setInterval_(config.interval || 10)
-        setTasks(executionTasks.map((t: any) => ({ id: t.id, name: t.name })))
+        setTasks(executionTasks)
       } catch { /* ignore */ }
       setLoaded(true)
     }
@@ -167,26 +167,131 @@ function OrchestrationManager({ onShowResults }: { onShowResults: (title: string
     if (taskIds.length === 0) return
     setExecuting(true)
     setProgress([])
-    setCurrentStep('初始化编排...')
+    const allProgress: OrchestrationProgress[] = []
 
-    try {
-      const result = await WailsApp.ExecuteOrchestration(taskIds, interval)
-      setProgress(result || [])
-
-      const lastStep = result?.[result.length - 1]
-      setCurrentStep(lastStep ? `${lastStep.taskName} - ${lastStep.step} ${lastStep.status}` : '完成')
-
-      await onShowResults('编排执行完成',
-        (result || []).map((p: any) =>
-          `[${p.current}/${p.total}] ${p.taskName} | ${p.step}: ${p.status}${p.error ? ' - ' + p.error : ''}`
-        ).join('\n')
-      )
-    } catch (err) {
-      await onShowResults('编排执行异常', `错误: ${err}`)
-    } finally {
-      setExecuting(false)
-      setCurrentStep('')
+    const addProgress = (p: OrchestrationProgress) => {
+      allProgress.push(p)
+      setProgress([...allProgress])
     }
+
+    const showError = async (title: string, msg: string) => {
+      await onShowResults(title, msg)
+    }
+
+    const total = taskIds.length
+
+    for (let i = 0; i < taskIds.length; i++) {
+      const taskId = taskIds[i]
+      const task = tasks.find(t => t.id === taskId)
+      const taskName = task?.name || taskId
+      const safeId = taskId
+
+      setCurrentStep(`${taskName} - 预检查...`)
+
+      // Step 0: Pre-check
+      addProgress({ taskId: safeId, taskName, step: 'precheck', status: 'running', current: i + 1, total })
+      let checkResults: any[]
+      try {
+        checkResults = await WailsApp.PreDeployCheck(taskId, task?.hosts || [])
+      } catch (err) {
+        addProgress({ taskId: safeId, taskName, step: 'precheck', status: 'error', error: String(err), current: i + 1, total })
+        await showError(`[${i+1}/${total}] ${taskName} 预检查失败`, `错误: ${err}`)
+        continue
+      }
+      const hasRunning = checkResults.some((r: any) => r.running)
+      if (hasRunning) {
+        const runningHosts = checkResults.filter((r: any) => r.running).map((r: any) => `${r.host}: ${r.msg}`).join('\n')
+        addProgress({ taskId: safeId, taskName, step: 'precheck', status: 'error', error: `主机有FIO运行中: ${runningHosts}`, current: i + 1, total })
+        await showError(`[${i+1}/${total}] ${taskName} 预检查失败`, `主机有FIO运行中:\n${runningHosts}`)
+        continue
+      }
+      addProgress({ taskId: safeId, taskName, step: 'precheck', status: 'completed', current: i + 1, total })
+
+      // Step 1: Deploy
+      setCurrentStep(`${taskName} - 部署中...`)
+      addProgress({ taskId: safeId, taskName, step: 'deploy', status: 'running', current: i + 1, total })
+      let deployResults: any[]
+      try {
+        deployResults = await WailsApp.DeployMulti(taskId, task?.scripts || [], task?.hosts || [])
+      } catch (err) {
+        addProgress({ taskId: safeId, taskName, step: 'deploy', status: 'error', error: String(err), current: i + 1, total })
+        await showError(`[${i+1}/${total}] ${taskName} 部署失败`, `错误: ${err}`)
+        continue
+      }
+      const deployErrors = deployResults.filter((r: any) => r.error)
+      if (deployErrors.length > 0) {
+        const errMsg = deployErrors.map((r: any) => `${r.host}: ${r.error}`).join('\n')
+        addProgress({ taskId: safeId, taskName, step: 'deploy', status: 'error', error: errMsg, results: deployResults, current: i + 1, total })
+        await showError(`[${i+1}/${total}] ${taskName} 部署失败`, errMsg)
+        continue
+      }
+      addProgress({ taskId: safeId, taskName, step: 'deploy', status: 'completed', results: deployResults, current: i + 1, total })
+
+      // Step 2: Poll until all hosts finish
+      setCurrentStep(`${taskName} - 运行中...`)
+      addProgress({ taskId: safeId, taskName, step: 'running', status: 'running', current: i + 1, total })
+      let pollFinished = false
+      while (!pollFinished) {
+        await new Promise(resolve => setTimeout(resolve, 10000))
+        let statusResults: any[]
+        try {
+          statusResults = await WailsApp.CheckStatus(taskId, task?.hosts || [])
+        } catch (err) {
+          addProgress({ taskId: safeId, taskName, step: 'running', status: 'error', error: String(err), current: i + 1, total })
+          await showError(`[${i+1}/${total}] ${taskName} 状态检查失败`, `错误: ${err}`)
+          pollFinished = true
+          continue
+        }
+        const statusErrors = statusResults.filter((r: any) => r.error)
+        if (statusErrors.length > 0) {
+          const errMsg = statusErrors.map((r: any) => `${r.host}: ${r.error}`).join('\n')
+          addProgress({ taskId: safeId, taskName, step: 'running', status: 'error', error: errMsg, current: i + 1, total })
+          await showError(`[${i+1}/${total}] ${taskName} 状态检查失败`, errMsg)
+          pollFinished = true
+          continue
+        }
+        pollFinished = statusResults.every((r: any) => !r.running)
+      }
+      if (allProgress[allProgress.length - 1]?.status === 'error') continue
+      addProgress({ taskId: safeId, taskName, step: 'running', status: 'completed', current: i + 1, total })
+
+      // Step 3: Pull data
+      setCurrentStep(`${taskName} - 拉取数据...`)
+      addProgress({ taskId: safeId, taskName, step: 'pull', status: 'running', current: i + 1, total })
+      let pullResults: any[]
+      try {
+        pullResults = await WailsApp.PullData(taskId, task?.hosts || [])
+      } catch (err) {
+        addProgress({ taskId: safeId, taskName, step: 'pull', status: 'error', error: String(err), current: i + 1, total })
+        await showError(`[${i+1}/${total}] ${taskName} 数据拉取失败`, `错误: ${err}`)
+        continue
+      }
+      const pullErrors = pullResults.filter((r: any) => r.error)
+      if (pullErrors.length > 0) {
+        const errMsg = pullErrors.map((r: any) => `${r.host}: ${r.error}`).join('\n')
+        addProgress({ taskId: safeId, taskName, step: 'pull', status: 'error', error: errMsg, results: pullResults, current: i + 1, total })
+        await showError(`[${i+1}/${total}] ${taskName} 数据拉取失败`, errMsg)
+        continue
+      }
+      addProgress({ taskId: safeId, taskName, step: 'pull', status: 'completed', results: pullResults, current: i + 1, total })
+
+      // Step 4: Wait interval (except last task)
+      if (i < total - 1 && interval > 0) {
+        setCurrentStep(`${taskName} - 等待 ${interval} 秒...`)
+        addProgress({ taskId: safeId, taskName, step: 'wait', status: 'running', current: i + 1, total })
+        await new Promise(resolve => setTimeout(resolve, interval * 1000))
+        addProgress({ taskId: safeId, taskName, step: 'wait', status: 'completed', current: i + 1, total })
+      }
+    }
+
+    setCurrentStep('编排完成')
+    await onShowResults('编排执行完成',
+      allProgress.map((p: any) =>
+        `[${p.current}/${p.total}] ${p.taskName} | ${p.step}: ${p.status}${p.error ? ' - ' + p.error : ''}`
+      ).join('\n')
+    )
+    setExecuting(false)
+    setCurrentStep('')
   }
 
   const addTask = (taskId: string) => {
