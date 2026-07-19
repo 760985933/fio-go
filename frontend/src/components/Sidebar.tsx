@@ -16,7 +16,7 @@ interface Props {
 
 export function Sidebar({ items, dividerAfter, activeItem, onSelect, children }: Props) {
   return (
-    <div className="layout-body">
+    <>
       <nav className="sidebar">
         <div className="sidebar-label">管理</div>
         {items.map(item => (
@@ -40,6 +40,6 @@ export function Sidebar({ items, dividerAfter, activeItem, onSelect, children }:
       <div className="content-area">
         {children}
       </div>
-    </div>
+    </>
   )
 }

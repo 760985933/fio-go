@@ -90,58 +90,59 @@ function App() {
 
   const currentStepIdx = stepItems.findIndex(s => s.section === sidebarItem)
 
+  const configureSidebar = (
+    <Sidebar
+      items={allSidebarItems}
+      dividerAfter="analysis"
+      activeItem={sidebarItem}
+      onSelect={selectSidebar}
+    >
+      <div className="step-bar">
+        {stepItems.map((step, idx) => {
+          const done = step.section === 'script' ? stats.scripts > 0
+            : step.section === 'host' ? stats.hosts > 0
+            : step.section === 'task' ? stats.tasks > 0
+            : false
+          const active = idx === currentStepIdx
+          return (
+            <div key={step.section} className={`step-bar-item ${active ? 'active' : ''} ${done ? 'done' : ''}`}
+              onClick={() => selectSidebar(step.section)}>
+              <div className={`step-bar-dot ${done ? 'done' : ''} ${active ? 'active' : ''}`}>
+                {done ? '✓' : idx + 1}
+              </div>
+              <span className="step-bar-label">{step.label}</span>
+              {idx < stepItems.length - 1 && <div className={`step-bar-line ${idx < currentStepIdx ? 'done' : ''}`} />}
+            </div>
+          )
+        })}
+      </div>
+
+      <div style={{ display: sidebarItem === 'script' ? 'block' : 'none' }}>
+        {mountedSidebar.script && <ScriptManager onAudit={handleAudit} />}
+      </div>
+      <div style={{ display: sidebarItem === 'host' ? 'block' : 'none' }}>
+        {mountedSidebar.host && <HostManager onAudit={handleAudit} onShowResults={showResults} />}
+      </div>
+      <div style={{ display: sidebarItem === 'task' ? 'block' : 'none' }}>
+        {mountedSidebar.task && <TaskManager onAudit={handleAudit} onShowResults={showResults} />}
+      </div>
+      <div style={{ display: sidebarItem === 'analysis' ? 'block' : 'none' }}>
+        {mountedSidebar.analysis && <AnalysisView onAudit={handleAudit} onShowResults={showResults} />}
+      </div>
+      <div style={{ display: sidebarItem === 'orchestration' ? 'block' : 'none' }}>
+        {mountedSidebar.orchestration && <OrchestrationManager onShowResults={showResults} />}
+      </div>
+    </Sidebar>
+  )
+
   return (
     <Layout
       tabs={MAIN_TABS}
       activeTab={activeTab}
       onTabChange={selectTab}
       headerActions={null}
+      sidebar={activeTab === 'configure' ? configureSidebar : undefined}
     >
-      {activeTab === 'configure' && (
-        <Sidebar
-          items={allSidebarItems}
-          dividerAfter="analysis"
-          activeItem={sidebarItem}
-          onSelect={selectSidebar}
-        >
-          <div className="step-bar">
-            {stepItems.map((step, idx) => {
-              const done = step.section === 'script' ? stats.scripts > 0
-                : step.section === 'host' ? stats.hosts > 0
-                : step.section === 'task' ? stats.tasks > 0
-                : false
-              const active = idx === currentStepIdx
-              return (
-                <div key={step.section} className={`step-bar-item ${active ? 'active' : ''} ${done ? 'done' : ''}`}
-                  onClick={() => selectSidebar(step.section)}>
-                  <div className={`step-bar-dot ${done ? 'done' : ''} ${active ? 'active' : ''}`}>
-                    {done ? '✓' : idx + 1}
-                  </div>
-                  <span className="step-bar-label">{step.label}</span>
-                  {idx < stepItems.length - 1 && <div className={`step-bar-line ${idx < currentStepIdx ? 'done' : ''}`} />}
-                </div>
-              )
-            })}
-          </div>
-
-          <div style={{ display: sidebarItem === 'script' ? 'block' : 'none' }}>
-            {mountedSidebar.script && <ScriptManager onAudit={handleAudit} />}
-          </div>
-          <div style={{ display: sidebarItem === 'host' ? 'block' : 'none' }}>
-            {mountedSidebar.host && <HostManager onAudit={handleAudit} onShowResults={showResults} />}
-          </div>
-          <div style={{ display: sidebarItem === 'task' ? 'block' : 'none' }}>
-            {mountedSidebar.task && <TaskManager onAudit={handleAudit} onShowResults={showResults} />}
-          </div>
-          <div style={{ display: sidebarItem === 'analysis' ? 'block' : 'none' }}>
-            {mountedSidebar.analysis && <AnalysisView onAudit={handleAudit} onShowResults={showResults} />}
-          </div>
-          <div style={{ display: sidebarItem === 'orchestration' ? 'block' : 'none' }}>
-            {mountedSidebar.orchestration && <OrchestrationManager onShowResults={showResults} />}
-          </div>
-        </Sidebar>
-      )}
-
       <div style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
         {mountedTabs.settings && <SystemSettings />}
       </div>

@@ -11,10 +11,11 @@ interface Props {
   activeTab: string
   onTabChange: (id: string) => void
   headerActions?: ReactNode
+  sidebar?: ReactNode
   children: ReactNode
 }
 
-export function Layout({ tabs, activeTab, onTabChange, headerActions, children }: Props) {
+export function Layout({ tabs, activeTab, onTabChange, headerActions, sidebar, children }: Props) {
   return (
     <div className="layout">
       <header className="header">
@@ -49,9 +50,15 @@ export function Layout({ tabs, activeTab, onTabChange, headerActions, children }
         {headerActions && <div className="header-actions">{headerActions}</div>}
       </header>
 
-      <main className="content-area">
-        {children}
-      </main>
+      {sidebar ? (
+        <div className="layout-body">
+          {sidebar}
+        </div>
+      ) : (
+        <main className="content-area">
+          {children}
+        </main>
+      )}
     </div>
   )
 }
