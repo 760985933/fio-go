@@ -555,8 +555,12 @@ func (a *App) DeleteExecutionTask(taskID string) error {
 	if err := dbSaveExecutionTasks(a.db, newTasks); err != nil {
 		return err
 	}
-	dbDeleteTaskTimestamp(a.db, taskID)
-	a.CleanLocal(taskID)
+	if err := dbDeleteTaskTimestamp(a.db, taskID); err != nil {
+		return fmt.Errorf("删除任务时间戳失败: %v", err)
+	}
+	if err := a.CleanLocal(taskID); err != nil {
+		return fmt.Errorf("清理本地数据失败: %v", err)
+	}
 	return nil
 }
 
