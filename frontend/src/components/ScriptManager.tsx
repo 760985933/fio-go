@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { FioConfig, FioJob } from '../types'
+import { generateFioText } from '../utils/fioGenerator'
 import { ensureConfig, bsLabel } from '../utils/config'
 import { ConfirmDialog } from './ConfirmDialog'
+import { PreviewModal } from './PreviewModal'
 import * as App from '../wailsjs/go/app/App'
 
 interface Props {
@@ -34,6 +36,10 @@ function autoName(cfg: FioConfig, job: FioJob): string {
   return `fio_${base}_${job.bs || 4}k_${job.rw || 'read'}`
 }
 
+function isValidModelName(name: string): boolean {
+  return /^[a-zA-Z0-9_-]+$/.test(name)
+}
+
 export function ScriptManager({ onAudit }: Props) {
   const [models, setModels] = useState<string[]>([])
   const [selectedModel, setSelectedModel] = useState<string | null>(null)
@@ -48,6 +54,8 @@ export function ScriptManager({ onAudit }: Props) {
   const [createError, setCreateError] = useState('')
   const [showJobJson, setShowJobJson] = useState<number | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ name: string; type: 'model' | 'job'; idx?: number } | null>(null)
+  const [previewModel, setPreviewModel] = useState<string | null>(null)
+  const [editModel, setEditModel] = useState<{ name: string; desc: string } | null>(null)
 
   const loadModels = useCallback(async () => {
     try {
@@ -98,6 +106,10 @@ export function ScriptManager({ onAudit }: Props) {
 
   const doCreateModel = async () => {
     const name = createName.trim() || autoName(DEFAULT_CONFIG, DEFAULT_JOB)
+    if (!isValidModelName(name)) {
+      setCreateError('名称只能包含英文字母、数字、下划线和连字符')
+      return
+    }
     const newCfg = { ...DEFAULT_CONFIG, description: createDesc.trim() || undefined, jobs: [] }
     try {
       await saveConfig(name, newCfg)
@@ -119,6 +131,32 @@ export function ScriptManager({ onAudit }: Props) {
       doDeleteJob(deleteTarget.idx)
     }
     setDeleteTarget(null)
+  }
+
+  const doEditModel = async () => {
+    if (!editModel) return
+    const newName = editModel.name.trim()
+    const newDesc = editModel.desc.trim()
+    if (!isValidModelName(newName)) { setCreateError('名称只能包含英文字母、数字、下划线和连字符'); return }
+    setCreateError('')
+    try {
+      const json = await App.GetScriptConfig(editModel.name)
+      const config: FioConfig = json ? { ...JSON.parse(json), description: newDesc || undefined } : { ...DEFAULT_CONFIG, description: newDesc || undefined, jobs: [] }
+      if (newName !== editModel.name) {
+        await App.DeleteScriptConfig(editModel.name)
+        await App.SaveScriptConfig(newName, JSON.stringify(config))
+      } else {
+        await App.SaveScriptConfig(newName, JSON.stringify(config))
+      }
+      await loadModels()
+      if (selectedModel === editModel.name || selectedModel === newName) {
+        setSelectedModel(newName)
+        setCfg(ensureConfig(config))
+      }
+      setEditModel(null)
+    } catch (e: any) {
+      setCreateError(String(e?.message || e))
+    }
   }
 
   const doDeleteModel = async (name: string) => {
@@ -221,6 +259,8 @@ export function ScriptManager({ onAudit }: Props) {
                   <div className="card-header" style={{ marginBottom: 0 }}>
                     <span className="card-title">{name}</span>
                     <div style={{ display: 'flex', gap: 4 }}>
+                      <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); setPreviewModel(name) }}>预览</button>
+                      <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); (async () => { try { const json = await App.GetScriptConfig(name); const parsed = json ? JSON.parse(json) as FioConfig : null; setEditModel({ name, desc: parsed?.description || '' }) } catch { setEditModel({ name, desc: '' }) } })() }}>编辑</button>
                       <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); setDeleteTarget({ name, type: 'model' }) }}>删除</button>
                     </div>
                   </div>
@@ -297,17 +337,24 @@ export function ScriptManager({ onAudit }: Props) {
             </div>
 
             <div className="form-row">
-              <div className="form-group">
+              <div className="form-group" style={{ flex: 2 }}>
                 <label>文件路径(filename)</label>
                 <input value={cfg.global.filename} onChange={(e) => updateGlobal('filename', e.target.value)} />
               </div>
-              <div className="form-group">
-                <label>运行时间(runtime)(秒)</label>
-                <input type="number" value={cfg.global.runtime} onChange={(e) => updateGlobal('runtime', parseInt(e.target.value) || 0)} />
+              <div className="form-group" style={{ flex: '0 0 160px' }}>
+                <label>读写类型(rw)</label>
+                <select value={editJob.rw} onChange={(e) => updateEditJob({ rw: e.target.value })}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: '#fff', color: 'var(--text)', cursor: 'pointer', appearance: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M2 4l4 4 4-4'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center', paddingRight: 28 }}>
+                  {RW_OPTIONS.map(rw => <option key={rw} value={rw}>{rw}</option>)}
+                </select>
               </div>
             </div>
             <div className="form-row">
-              <div className="form-group">
+              <div className="form-group" style={{ flex: '0 0 100px' }}>
+                <label>运行时间(runtime)(秒)</label>
+                <input type="number" value={cfg.global.runtime} onChange={(e) => updateGlobal('runtime', parseInt(e.target.value) || 0)} />
+              </div>
+              <div className="form-group" style={{ flex: '0 0 100px' }}>
                 <label>预热时间(ramp_time)(秒)</label>
                 <input type="number" value={cfg.global.ramp_time} onChange={(e) => updateGlobal('ramp_time', parseInt(e.target.value) || 0)} />
               </div>
@@ -317,27 +364,20 @@ export function ScriptManager({ onAudit }: Props) {
 
             <div style={{ marginBottom: 8 }}>
               <label style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>块大小(bs)(KB)</label>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <div className="preset-group">
-                  {BS_PRESETS.map(bs => (
-                    <button key={bs} className={`btn btn-sm ${editJob.bs === bs ? 'btn-primary' : 'btn-outline'}`}
-                      onClick={() => updateEditJob({ bs })}>
-                      {bsLabel(bs)}
-                    </button>
-                  ))}
-                </div>
-                <input type="number" value={editJob.bs} min={1}
-                  onChange={(e) => updateEditJob({ bs: parseInt(e.target.value) || 4 })}
-                  style={{ width: 80 }} />
+              <div className="preset-group" style={{ marginBottom: 6 }}>
+                {BS_PRESETS.map(bs => (
+                  <button key={bs} className={`btn btn-sm ${editJob.bs === bs ? 'btn-primary' : 'btn-outline'}`}
+                    onClick={() => updateEditJob({ bs })}>
+                    {bsLabel(bs)}
+                  </button>
+                ))}
               </div>
+              <input type="number" value={editJob.bs || ''} min={1} placeholder="4"
+                onChange={(e) => { const v = e.target.value; updateEditJob({ bs: v === '' ? 4 : (parseInt(v) || 4) }) }}
+                style={{ width: 100, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'var(--panel)', color: 'var(--text)', textAlign: 'center' }} />
             </div>
+
             <div className="form-row">
-              <div className="form-group">
-                <label>读写类型(rw)</label>
-                <select value={editJob.rw} onChange={(e) => updateEditJob({ rw: e.target.value })}>
-                  {RW_OPTIONS.map(rw => <option key={rw} value={rw}>{rw}</option>)}
-                </select>
-              </div>
               {(editJob.rw === 'readwrite' || editJob.rw === 'randrw') && (
                 <div className="form-group">
                   <label>读占比(rwmixread)(%)</label>
@@ -447,8 +487,8 @@ export function ScriptManager({ onAudit }: Props) {
             </div>
             <div className="modal-body">
               <div className="form-group">
-                <label>配置名称</label>
-                <input value={createName} onChange={(e) => setCreateName(e.target.value)}
+                <label>配置名称 <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>(仅英文、数字、下划线、连字符)</span></label>
+                <input value={createName} onChange={(e) => { setCreateName(e.target.value); setCreateError('') }}
                   placeholder={`例如: ${autoName(DEFAULT_CONFIG, DEFAULT_JOB)}`} />
               </div>
               <div className="form-group">
@@ -463,6 +503,36 @@ export function ScriptManager({ onAudit }: Props) {
               <button className="btn btn-outline" onClick={() => setShowCreate(false)}>取消</button>
               <button className="btn btn-primary" onClick={doCreateModel} disabled={saveStatus === 'saving'}>
                 {saveStatus === 'saving' ? '保存中...' : '确定'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editModel && (
+        <div className="modal-overlay" onClick={() => { setEditModel(null); setCreateError('') }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>编辑配置模型</h3>
+              <button className="modal-close" onClick={() => { setEditModel(null); setCreateError('') }}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>配置名称 <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>(仅英文、数字、下划线、连字符)</span></label>
+                <input value={editModel.name} onChange={(e) => { setEditModel({ ...editModel, name: e.target.value }); setCreateError('') }} />
+              </div>
+              <div className="form-group">
+                <label>描述信息</label>
+                <textarea value={editModel.desc} onChange={(e) => setEditModel({ ...editModel, desc: e.target.value })}
+                  placeholder="可选" rows={3}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, resize: 'vertical', fontFamily: 'inherit' }}></textarea>
+              </div>
+            </div>
+            <div className="modal-footer">
+              {createError && <span style={{ fontSize: 12, color: 'var(--danger)', marginRight: 'auto' }}>{createError}</span>}
+              <button className="btn btn-outline" onClick={() => { setEditModel(null); setCreateError('') }}>取消</button>
+              <button className="btn btn-primary" onClick={doEditModel} disabled={saveStatus === 'saving'}>
+                {saveStatus === 'saving' ? '保存中...' : '保存'}
               </button>
             </div>
           </div>
@@ -495,6 +565,10 @@ export function ScriptManager({ onAudit }: Props) {
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      {previewModel && (
+        <PreviewModal name={previewModel} onClose={() => setPreviewModel(null)} />
+      )}
     </div>
   )
 }

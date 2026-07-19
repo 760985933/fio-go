@@ -61,20 +61,6 @@ function App() {
     try { await WailsApp.AddAuditLog(action, details) } catch { /* ignore */ }
   }, [])
 
-  const handleExportConfig = useCallback(async () => {
-    const text = generateFioText(config, true)
-    const ok = await showConfirm(`导出配置 "${configName}"?`, '确认导出当前FIO配置到服务器')
-    if (ok) {
-      try {
-        await WailsApp.SaveScript(configName, text)
-        await handleAudit('导出配置', `配置: ${configName}`)
-        await showInfo('导出成功', `配置已保存为 ${configName}.fio`)
-      } catch (err) {
-        await showInfo('导出失败', `错误: ${err}`)
-      }
-    }
-  }, [config, configName, showConfirm, showInfo, handleAudit])
-
   const handleNavigateTo = useCallback((section: string) => {
     setActiveTab('configure')
     setSidebarItem(section)
@@ -87,9 +73,7 @@ function App() {
       tabs={MAIN_TABS}
       activeTab={activeTab}
       onTabChange={setActiveTab}
-      headerActions={
-        <button className="btn btn-outline btn-sm" onClick={handleExportConfig}>导出配置</button>
-      }
+      headerActions={null}
     >
       {activeTab === 'home' && (
         <HomePage onNavigateTo={handleNavigateTo} />
