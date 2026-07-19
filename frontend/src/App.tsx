@@ -130,10 +130,10 @@ function OrchestrationManager({ onShowResults }: { onShowResults: (title: string
   const [interval, setInterval_] = useState(10)
   const [tasks, setTasks] = useState<{ id: string; name: string }[]>([])
   const [dragIdx, setDragIdx] = useState<number | null>(null)
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [executing, setExecuting] = useState(false)
   const [progress, setProgress] = useState<OrchestrationProgress[]>([])
   const [currentStep, setCurrentStep] = useState('')
+  const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -146,20 +146,15 @@ function OrchestrationManager({ onShowResults }: { onShowResults: (title: string
         setInterval_(config.interval || 10)
         setTasks(executionTasks.map((t: any) => ({ id: t.id, name: t.name })))
       } catch { /* ignore */ }
+      setLoaded(true)
     }
     load()
   }, [])
 
-  const saveConfig = async () => {
-    setSaveStatus('saving')
-    try {
-      await WailsApp.SaveOrchestrationConfig({ sequence: taskIds, interval })
-      setSaveStatus('saved')
-      setTimeout(() => setSaveStatus('idle'), 2000)
-    } catch {
-      setSaveStatus('error')
-    }
-  }
+  useEffect(() => {
+    if (!loaded) return
+    WailsApp.SaveOrchestrationConfig({ sequence: taskIds, interval }).catch(() => {})
+  }, [taskIds, interval, loaded])
 
   const executeOrchestration = async () => {
     if (taskIds.length === 0) return
@@ -220,15 +215,10 @@ function OrchestrationManager({ onShowResults }: { onShowResults: (title: string
     <div>
       <div className="manager-header">
         <h2>执行编排</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-primary btn-sm" onClick={saveConfig} disabled={executing}>
-            {saveStatus === 'saving' ? '保存中...' : saveStatus === 'saved' ? '已保存 ✓' : '保存配置'}
-          </button>
-          <button className="btn btn-primary btn-sm" onClick={executeOrchestration}
-            disabled={executing || taskIds.length === 0}>
-            {executing ? `执行中... ${currentStep}` : '执行编排'}
-          </button>
-        </div>
+        <button className="btn btn-primary btn-sm" onClick={executeOrchestration}
+          disabled={executing || taskIds.length === 0}>
+          {executing ? `执行中... ${currentStep}` : '执行编排'}
+        </button>
       </div>
 
       <div className="panel">
