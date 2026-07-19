@@ -240,6 +240,9 @@ function OrchestrationManager({ onShowResults }: { onShowResults: (title: string
       }
       addProgress({ taskId: safeId, taskName, step: 'precheck', status: 'completed', current: i + 1, total })
 
+      // Record task start time
+      try { await WailsApp.SetTaskStarted(taskId) } catch { /* ignore */ }
+
       // Step 1: Deploy
       setCurrentStep(`${taskName} - 部署中...`)
       addProgress({ taskId: safeId, taskName, step: 'deploy', status: 'running', current: i + 1, total })
@@ -307,6 +310,9 @@ function OrchestrationManager({ onShowResults }: { onShowResults: (title: string
         continue
       }
       addProgress({ taskId: safeId, taskName, step: 'pull', status: 'completed', results: pullResults, current: i + 1, total })
+
+      // Record task finish time
+      try { await WailsApp.SetTaskFinished(taskId) } catch { /* ignore */ }
 
       // Step 4: Wait interval (except last task)
       if (i < total - 1 && interval > 0) {

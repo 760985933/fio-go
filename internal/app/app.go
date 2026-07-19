@@ -254,10 +254,12 @@ func generateFioText(cfg *FioConfig) string {
 // ========== 执行任务管理 ==========
 
 type ExecutionTaskConfig struct {
-	ID      string                `json:"id"`
-	Name    string                `json:"name"`
-	Scripts []string              `json:"scripts"`
-	Hosts   []executor.HostConfig `json:"hosts"`
+	ID         string                `json:"id"`
+	Name       string                `json:"name"`
+	Scripts    []string              `json:"scripts"`
+	Hosts      []executor.HostConfig `json:"hosts"`
+	StartedAt  string                `json:"startedAt,omitempty"`
+	FinishedAt string                `json:"finishedAt,omitempty"`
 }
 
 type ExecutionTasksPayload struct {
@@ -330,6 +332,16 @@ func (a *App) SaveExecutionTasks(tasks []ExecutionTaskConfig) error {
 		normalizedTasks = append(normalizedTasks, normalizeExecutionTask(task, idx))
 	}
 	return dbSaveExecutionTasks(a.db, normalizedTasks)
+}
+
+// SetTaskStarted 记录任务开始时间
+func (a *App) SetTaskStarted(taskID string) error {
+	return dbUpdateTaskTimestamp(a.db, taskID, "startedAt", time.Now().Format(time.RFC3339))
+}
+
+// SetTaskFinished 记录任务完成时间
+func (a *App) SetTaskFinished(taskID string) error {
+	return dbUpdateTaskTimestamp(a.db, taskID, "finishedAt", time.Now().Format(time.RFC3339))
 }
 
 // ========== 执行操作 ==========
@@ -578,6 +590,8 @@ type AnalysisSummary struct {
 	ReportDir     string   `json:"reportDir"`
 	ReportHTMLURL string   `json:"reportHtmlUrl"`
 	DownloadURL   string   `json:"downloadUrl"`
+	StartedAt     string   `json:"startedAt,omitempty"`
+	FinishedAt    string   `json:"finishedAt,omitempty"`
 }
 
 func taskRawDataDir(taskID string) string {
@@ -629,6 +643,8 @@ func (a *App) GetAnalysisTasks() ([]AnalysisSummary, error) {
 			ReportDir:     taskReportDir(task.ID),
 			ReportHTMLURL: taskReportHTMLPath(task.ID),
 			DownloadURL:   taskReportDir(task.ID),
+			StartedAt:     task.StartedAt,
+			FinishedAt:    task.FinishedAt,
 		}
 		if _, err := os.Stat(filepath.Join(taskReportDir(task.ID), "execution.log")); err == nil {
 			summary.LogAvailable = true
@@ -719,64 +735,14 @@ type AuditEntry struct {
 	Timestamp string `json:"timestamp"`
 }
 
-func auditLogFile() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return filepath.Join("data", "audit.log")
-	}
-	return filepath.Join(home, ".fio-gui", "audit.log")
-}
-
 // GetAuditLog 获取审计日志
 func (a *App) GetAuditLog() ([]AuditEntry, error) {
-	data, err := os.ReadFile(auditLogFile())
-	if err != nil {
-		if os.IsNotExist(err) {
-			return []AuditEntry{}, nil
-		}
-		return nil, err
-	}
-
-	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
-	var entries []AuditEntry
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		var entry AuditEntry
-		if err := json.Unmarshal([]byte(line), &entry); err == nil {
-			entries = append(entries, entry)
-		}
-	}
-	return entries, nil
+	return dbGetAuditLogs(a.db)
 }
 
 // AddAuditLog 添加审计日志条目
 func (a *App) AddAuditLog(action, details string) error {
-	if err := os.MkdirAll(filepath.Dir(auditLogFile()), 0755); err != nil {
-		return err
-	}
-
-	entry := AuditEntry{
-		Action:    action,
-		Details:   details,
-		Timestamp: time.Now().Format(time.RFC3339),
-	}
-
-	data, err := json.Marshal(entry)
-	if err != nil {
-		return err
-	}
-
-	f, err := os.OpenFile(auditLogFile(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	_, err = f.Write(append(data, '\n'))
-	return err
+	return dbAddAuditLog(a.db, action, details, time.Now().Format(time.RFC3339))
 }
 
 // ========== 执行日志 ==========

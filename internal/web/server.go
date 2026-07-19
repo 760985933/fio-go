@@ -32,14 +32,6 @@ const (
 	taskReportRoot  = "output/tasks"
 )
 
-func auditLogFile() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return filepath.Join("data", "audit.log")
-	}
-	return filepath.Join(home, ".fio-gui", "audit.log")
-}
-
 type executionTaskConfig struct {
 	ID      string                `json:"id"`
 	Name    string                `json:"name"`
@@ -143,6 +135,12 @@ func initWebDB(db *sql.DB) error {
 			id   INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL,
 			data TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS audit_log (
+			id        INTEGER PRIMARY KEY AUTOINCREMENT,
+			action    TEXT NOT NULL,
+			details   TEXT NOT NULL DEFAULT '',
+			timestamp TEXT NOT NULL
 		)`,
 	} {
 		if _, err := db.Exec(stmt); err != nil {
@@ -984,31 +982,33 @@ func handleOrchestrationConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleAuditLog(w http.ResponseWriter, r *http.Request) {
-	os.MkdirAll(filepath.Dir(auditLogFile()), 0755)
+	db, err := openWebDB()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
 
 	switch r.Method {
 	case http.MethodGet:
-		content, err := os.ReadFile(auditLogFile())
+		rows, err := db.Query(`SELECT action, details, timestamp FROM audit_log ORDER BY id DESC`)
 		if err != nil {
-			if os.IsNotExist(err) {
-				// Return empty array if file doesn't exist
-				w.Header().Set("Content-Type", "application/json")
-				w.Write([]byte("[]"))
-				return
-			}
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		// The file contains newline-separated JSON objects
-		lines := strings.Split(strings.TrimSpace(string(content)), "\n")
-		var logs []json.RawMessage
-		for _, line := range lines {
-			if strings.TrimSpace(line) != "" {
-				logs = append(logs, json.RawMessage(line))
+		defer rows.Close()
+		var logs []map[string]string
+		for rows.Next() {
+			var action, details, timestamp string
+			if err := rows.Scan(&action, &details, &timestamp); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
+			logs = append(logs, map[string]string{"action": action, "details": details, "timestamp": timestamp})
 		}
-
+		if logs == nil {
+			logs = []map[string]string{}
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(logs)
 
@@ -1018,34 +1018,17 @@ func handleAuditLog(w http.ResponseWriter, r *http.Request) {
 			Details   string `json:"details"`
 			Timestamp string `json:"timestamp"`
 		}
-
 		if err := json.NewDecoder(r.Body).Decode(&logEntry); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
 		if logEntry.Timestamp == "" {
 			logEntry.Timestamp = time.Now().Format(time.RFC3339)
 		}
-
-		logData, err := json.Marshal(logEntry)
-		if err != nil {
+		if _, err := db.Exec(`INSERT INTO audit_log (action, details, timestamp) VALUES (?, ?, ?)`, logEntry.Action, logEntry.Details, logEntry.Timestamp); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		f, err := os.OpenFile(auditLogFile(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		defer f.Close()
-
-		if _, err := f.Write(append(logData, '\n')); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
 		w.WriteHeader(http.StatusOK)
 
 	default:

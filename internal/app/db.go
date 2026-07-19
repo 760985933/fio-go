@@ -84,6 +84,17 @@ func initDB(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS audit_log (
+			id        INTEGER PRIMARY KEY AUTOINCREMENT,
+			action    TEXT NOT NULL,
+			details   TEXT NOT NULL DEFAULT '',
+			timestamp TEXT NOT NULL
+		)
+	`)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -230,4 +241,45 @@ func dbGetKV(db *sql.DB, key string) (string, error) {
 		return "", nil
 	}
 	return value, err
+}
+
+func dbUpdateTaskTimestamp(db *sql.DB, taskID, field, value string) error {
+	tasks, err := dbGetExecutionTasks(db)
+	if err != nil {
+		return err
+	}
+	for i := range tasks {
+		if tasks[i].ID == taskID {
+			switch field {
+			case "startedAt":
+				tasks[i].StartedAt = value
+			case "finishedAt":
+				tasks[i].FinishedAt = value
+			}
+			break
+		}
+	}
+	return dbSaveExecutionTasks(db, tasks)
+}
+
+func dbAddAuditLog(db *sql.DB, action, details, timestamp string) error {
+	_, err := db.Exec(`INSERT INTO audit_log (action, details, timestamp) VALUES (?, ?, ?)`, action, details, timestamp)
+	return err
+}
+
+func dbGetAuditLogs(db *sql.DB) ([]AuditEntry, error) {
+	rows, err := db.Query(`SELECT action, details, timestamp FROM audit_log ORDER BY id DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var entries []AuditEntry
+	for rows.Next() {
+		var e AuditEntry
+		if err := rows.Scan(&e.Action, &e.Details, &e.Timestamp); err != nil {
+			return nil, err
+		}
+		entries = append(entries, e)
+	}
+	return entries, rows.Err()
 }

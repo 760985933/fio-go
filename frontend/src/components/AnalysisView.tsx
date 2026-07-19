@@ -125,12 +125,21 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
                 )}
               </div>
             </div>
-            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-secondary)', display: 'flex', gap: 16 }}>
+            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-secondary)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
               <span>脚本: {(task.scripts || []).join(', ')}</span>
               <span>数据: {task.hasData ? '✓' : '✗'}</span>
               <span>报告: {task.hasReport ? '✓' : '未生成'}</span>
               <span>日志: {task.logAvailable ? '✓' : '✗'}</span>
             </div>
+            {(task.startedAt || task.finishedAt) && (
+              <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                {task.startedAt && <span>开始: {new Date(task.startedAt).toLocaleString()}</span>}
+                {task.finishedAt && <span>完成: {new Date(task.finishedAt).toLocaleString()}</span>}
+                {task.startedAt && task.finishedAt && (
+                  <span>耗时: {Math.round((new Date(task.finishedAt).getTime() - new Date(task.startedAt).getTime()) / 1000)}s</span>
+                )}
+              </div>
+            )}
           </div>
         ))
       )}

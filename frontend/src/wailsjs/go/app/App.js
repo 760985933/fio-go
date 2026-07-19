@@ -37,6 +37,14 @@ export function SaveExecutionTasks(tasks) {
     return window['go']['app']['App']['SaveExecutionTasks'](tasks);
 }
 
+export function SetTaskStarted(taskID) {
+    return window['go']['app']['App']['SetTaskStarted'](taskID);
+}
+
+export function SetTaskFinished(taskID) {
+    return window['go']['app']['App']['SetTaskFinished'](taskID);
+}
+
 export function CheckConnectivity(host) {
     return window['go']['app']['App']['CheckConnectivity'](host);
 }

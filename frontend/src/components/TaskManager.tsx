@@ -115,6 +115,8 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
     onAudit('开始部署', `任务: ${task.id}`)
 
     try {
+      await App.SetTaskStarted(task.id)
+
       const checks = await App.PreDeployCheck(task.id, task.hosts)
       if (checks.some((c: CheckResult) => c.running)) {
         await onShowResults('预检查发现FIO运行中',
@@ -136,6 +138,7 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
       }
 
       const pullResults = await App.PullData(task.id, task.hosts)
+      await App.SetTaskFinished(task.id)
       onAudit('数据拉取完成', `任务: ${task.id}`)
 
       await onShowResults('执行完成',

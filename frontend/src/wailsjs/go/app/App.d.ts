@@ -10,6 +10,8 @@ export function GetScriptConfig(scriptName: string): Promise<string>;
 export function DeleteScriptConfig(scriptName: string): Promise<void>;
 export function GetExecutionTasks(): Promise<ExecutionTaskConfig[]>;
 export function SaveExecutionTasks(tasks: ExecutionTaskConfig[]): Promise<void>;
+export function SetTaskStarted(taskID: string): Promise<void>;
+export function SetTaskFinished(taskID: string): Promise<void>;
 export function CheckConnectivity(host: HostConfig): Promise<{ok: boolean, msg: string}>;
 export function PreDeployCheck(taskID: string, hosts: HostConfig[]): Promise<CheckResult[]>;
 export function Deploy(taskID: string, scriptName: string, hosts: HostConfig[]): Promise<ActionResult[]>;
@@ -57,6 +59,8 @@ export interface ExecutionTaskConfig {
     name: string;
     scripts: string[];
     hosts: HostConfig[];
+    startedAt?: string;
+    finishedAt?: string;
 }
 
 export interface CheckResult {
@@ -84,6 +88,8 @@ export interface AnalysisSummary {
     reportDir: string;
     reportHtmlUrl: string;
     downloadUrl: string;
+    startedAt?: string;
+    finishedAt?: string;
 }
 
 export interface OrchestrationConfig {
