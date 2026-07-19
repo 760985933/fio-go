@@ -456,8 +456,11 @@ func (a *App) PreDeployCheck(taskID string, hosts []executor.HostConfig) ([]Chec
 // Deploy 部署并运行 FIO（单脚本版本，从DB读取配置）
 func (a *App) Deploy(taskID, scriptName string, hosts []executor.HostConfig) ([]ActionResult, error) {
 	configJSON, err := dbGetScriptConfig(a.db, scriptName)
-	if err != nil || configJSON == "" {
+	if err != nil {
 		return nil, fmt.Errorf("获取配置 %s 失败: %v", scriptName, err)
+	}
+	if configJSON == "" {
+		return nil, fmt.Errorf("配置 %s 内容为空", scriptName)
 	}
 	var cfg FioConfig
 	if err := json.Unmarshal([]byte(configJSON), &cfg); err != nil {
@@ -473,8 +476,12 @@ func (a *App) DeployMulti(taskID string, scripts []string, hosts []executor.Host
 	var allResults []ActionResult
 	for _, scriptName := range scripts {
 		configJSON, err := dbGetScriptConfig(a.db, scriptName)
-		if err != nil || configJSON == "" {
+		if err != nil {
 			allResults = append(allResults, ActionResult{Host: "all", Error: fmt.Sprintf("获取配置 %s 失败: %v", scriptName, err)})
+			continue
+		}
+		if configJSON == "" {
+			allResults = append(allResults, ActionResult{Host: "all", Error: fmt.Sprintf("配置 %s 内容为空", scriptName)})
 			continue
 		}
 		var cfg FioConfig

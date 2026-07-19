@@ -83,36 +83,28 @@ function App() {
           activeItem={sidebarItem}
           onSelect={setSidebarItem}
         >
-          {sidebarItem === 'script' && (
-            <ScriptManager
-              onAudit={handleAudit}
-            />
-          )}
-          {sidebarItem === 'host' && (
-            <HostManager
-              onAudit={handleAudit}
-              onShowResults={showResults}
-            />
-          )}
-          {sidebarItem === 'task' && (
-            <TaskManager
-              onAudit={handleAudit}
-              onShowResults={showResults}
-            />
-          )}
-          {sidebarItem === 'orchestration' && (
+          <div style={{ display: sidebarItem === 'script' ? 'block' : 'none' }}>
+            <ScriptManager onAudit={handleAudit} />
+          </div>
+          <div style={{ display: sidebarItem === 'host' ? 'block' : 'none' }}>
+            <HostManager onAudit={handleAudit} onShowResults={showResults} />
+          </div>
+          <div style={{ display: sidebarItem === 'task' ? 'block' : 'none' }}>
+            <TaskManager onAudit={handleAudit} onShowResults={showResults} />
+          </div>
+          <div style={{ display: sidebarItem === 'orchestration' ? 'block' : 'none' }}>
             <OrchestrationManager onShowResults={showResults} />
-          )}
+          </div>
         </Sidebar>
       )}
 
-      {activeTab === 'analysis' && (
+      <div style={{ display: activeTab === 'analysis' ? 'block' : 'none' }}>
         <AnalysisView onAudit={handleAudit} onShowResults={showResults} />
-      )}
+      </div>
 
-      {activeTab === 'settings' && (
+      <div style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
         <SystemSettings />
-      )}
+      </div>
 
       <Modal
         open={modal.open}
