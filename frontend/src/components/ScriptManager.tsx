@@ -225,27 +225,29 @@ export function ScriptManager({ onAudit }: Props) {
                 <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>在右侧编辑后点击「添加模型」</p>
               ) : (
                 cfg.jobs.map((job, idx) => (
-                  <div key={idx} className="card" style={{ marginBottom: 6, cursor: 'pointer', borderColor: editIdx === idx ? 'var(--primary)' : undefined }}
+                  <div key={idx} className="card" style={{ marginBottom: 6, cursor: 'pointer', borderColor: editIdx === idx ? 'var(--primary)' : undefined, padding: '10px 12px' }}
                     onClick={() => selectJob(idx)}>
-                    <div className="card-header" style={{ marginBottom: 0, flexWrap: 'wrap', gap: 4 }}>
-                      <span className="card-title">
-                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 11, fontWeight: 600, marginRight: 6 }}>{idx + 1}</span>
-                      </span>
-                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'inline-flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                        <span>rw: <b>{job.rw}</b></span>
-                        <span>bs: <b>{bsLabel(job.bs)}</b></span>
-                        <span>numjobs: <b>{job.numjobs}</b></span>
-                        <span>iodepth: <b>{job.iodepth}</b></span>
-                        {job.rwmixread != null && <span>rwmixread: <b>{job.rwmixread}%</b></span>}
-                      </span>
-                      <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
-                        <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); setShowJobJson(idx) }}>完整参数</button>
-                        <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); duplicateJob(idx) }}>复制</button>
-                        <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); deleteJob(idx) }}>删除</button>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 22, borderRadius: '50%', background: editIdx === idx ? 'var(--primary)' : 'var(--bg-secondary)', color: editIdx === idx ? '#fff' : 'var(--text-secondary)', fontSize: 12, fontWeight: 600, lineHeight: '22px', textAlign: 'center' }}>{idx + 1}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 4 }}>
+                          <span style={{ fontSize: 12, padding: '1px 8px', borderRadius: 4, background: 'var(--bg-secondary)', whiteSpace: 'nowrap' }}><span style={{ color: 'var(--text-muted)' }}>rw</span> <b style={{ color: 'var(--text)' }}>{job.rw}</b></span>
+                          <span style={{ fontSize: 12, padding: '1px 8px', borderRadius: 4, background: 'var(--bg-secondary)', whiteSpace: 'nowrap' }}><span style={{ color: 'var(--text-muted)' }}>bs</span> <b style={{ color: 'var(--text)' }}>{bsLabel(job.bs)}</b></span>
+                          <span style={{ fontSize: 12, padding: '1px 8px', borderRadius: 4, background: 'var(--bg-secondary)', whiteSpace: 'nowrap' }}><span style={{ color: 'var(--text-muted)' }}>numjobs</span> <b style={{ color: 'var(--text)' }}>{job.numjobs}</b></span>
+                          <span style={{ fontSize: 12, padding: '1px 8px', borderRadius: 4, background: 'var(--bg-secondary)', whiteSpace: 'nowrap' }}><span style={{ color: 'var(--text-muted)' }}>iodepth</span> <b style={{ color: 'var(--text)' }}>{job.iodepth}</b></span>
+                          {job.rwmixread != null && <span style={{ fontSize: 12, padding: '1px 8px', borderRadius: 4, background: 'var(--bg-secondary)', whiteSpace: 'nowrap' }}><span style={{ color: 'var(--text-muted)' }}>rwmixread</span> <b style={{ color: 'var(--text)' }}>{job.rwmixread}%</b></span>}
+                          {job.fsync != null && <span style={{ fontSize: 12, padding: '1px 8px', borderRadius: 4, background: 'var(--bg-secondary)', whiteSpace: 'nowrap' }}><span style={{ color: 'var(--text-muted)' }}>fsync</span> <b style={{ color: 'var(--text)' }}>{job.fsync}</b></span>}
+                          {job.rate_iops ? <span style={{ fontSize: 12, padding: '1px 8px', borderRadius: 4, background: 'var(--bg-secondary)', whiteSpace: 'nowrap' }}><span style={{ color: 'var(--text-muted)' }}>rate_iops</span> <b style={{ color: 'var(--text)' }}>{job.rate_iops}</b></span> : null}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                          {cfg.global.filename || '无文件'} · {cfg.global.runtime}s · ioengine: {cfg.global.ioengine}
+                        </div>
                       </div>
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                      {cfg.global.filename || '无文件'} · {cfg.global.runtime}s
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                        <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={(e) => { e.stopPropagation(); setShowJobJson(idx) }}>JSON</button>
+                        <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={(e) => { e.stopPropagation(); duplicateJob(idx) }}>复制</button>
+                        <button className="btn btn-danger btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={(e) => { e.stopPropagation(); deleteJob(idx) }}>删除</button>
+                      </div>
                     </div>
                   </div>
                 ))
@@ -403,7 +405,7 @@ export function ScriptManager({ onAudit }: Props) {
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               {isEditing ? (
                 <>
-                  <button className="btn btn-primary btn-sm" onClick={saveEditedJob}>                  更新参数</button>
+                  <button className="btn btn-primary btn-sm" onClick={saveEditedJob}>更新参数</button>
                   <button className="btn btn-outline btn-sm" onClick={resetForm}>取消编辑</button>
                 </>
               ) : (
@@ -462,7 +464,7 @@ export function ScriptManager({ onAudit }: Props) {
               <pre style={{ fontSize: 12, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-all', background: 'var(--bg-secondary)', padding: 12, borderRadius: 6, margin: 0 }}>{JSON.stringify(cfg.jobs[showJobJson], null, 2)}</pre>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-primary" onClick={() => { navigator.clipboard.writeText(JSON.stringify(cfg.jobs[showJobJson], null, 2)); setShowJobJson(null) }}>复制并关闭</button>
+              <button className="btn btn-primary" onClick={() => { navigator.clipboard.writeText(JSON.stringify(cfg.jobs[showJobJson], null, 2)).catch(() => alert('复制失败')); setShowJobJson(null) }}>复制并关闭</button>
             </div>
           </div>
         </div>
