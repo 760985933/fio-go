@@ -17,7 +17,14 @@ const DEFAULT_CONFIG: FioConfig = {
 }
 
 const DEFAULT_JOB: FioJob = { bs: 4, rw: 'read', iodepth: 32, numjobs: 1, direct: true, thread: true }
-const RW_OPTIONS = ['read', 'write', 'readwrite', 'randread', 'randwrite', 'randrw']
+const RW_OPTIONS: { value: string; label: string }[] = [
+  { value: 'read', label: 'read（顺序读）' },
+  { value: 'write', label: 'write（顺序写）' },
+  { value: 'readwrite', label: 'rw/readwrite（顺序读写混合）' },
+  { value: 'randread', label: 'randread（随机读）' },
+  { value: 'randwrite', label: 'randwrite（随机写）' },
+  { value: 'randrw', label: 'randrw（随机读写混合）' },
+]
 const BS_PRESETS = [4, 8, 16, 32, 64, 128, 256, 512, 1024]
 
 const SCENE_PRESETS: Record<string, Partial<FioJob>> = {
@@ -345,7 +352,7 @@ export function ScriptManager({ onAudit }: Props) {
                 <label>读写类型(rw)</label>
                 <select value={editJob.rw} onChange={(e) => updateEditJob({ rw: e.target.value })}
                   style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: '#fff', color: 'var(--text)', cursor: 'pointer', appearance: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M2 4l4 4 4-4'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center', paddingRight: 28 }}>
-                  {RW_OPTIONS.map(rw => <option key={rw} value={rw}>{rw}</option>)}
+                  {RW_OPTIONS.map(rw => <option key={rw.value} value={rw.value}>{rw.label}</option>)}
                 </select>
               </div>
             </div>
