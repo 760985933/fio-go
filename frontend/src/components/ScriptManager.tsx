@@ -55,7 +55,7 @@ export function ScriptManager({ onAudit }: Props) {
   const [showJobJson, setShowJobJson] = useState<number | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ name: string; type: 'model' | 'job'; idx?: number } | null>(null)
   const [previewModel, setPreviewModel] = useState<string | null>(null)
-  const [editModel, setEditModel] = useState<{ name: string; desc: string } | null>(null)
+  const [editModel, setEditModel] = useState<{ name: string; desc: string; originalName: string } | null>(null)
 
   const loadModels = useCallback(async () => {
     try {
@@ -140,16 +140,16 @@ export function ScriptManager({ onAudit }: Props) {
     if (!isValidModelName(newName)) { setCreateError('名称只能包含英文字母、数字、下划线和连字符'); return }
     setCreateError('')
     try {
-      const json = await App.GetScriptConfig(editModel.name)
+      const json = await App.GetScriptConfig(editModel.originalName)
       const config: FioConfig = json ? { ...JSON.parse(json), description: newDesc || undefined } : { ...DEFAULT_CONFIG, description: newDesc || undefined, jobs: [] }
-      if (newName !== editModel.name) {
-        await App.DeleteScriptConfig(editModel.name)
+      if (newName !== editModel.originalName) {
+        await App.DeleteScriptConfig(editModel.originalName)
         await App.SaveScriptConfig(newName, JSON.stringify(config))
       } else {
         await App.SaveScriptConfig(newName, JSON.stringify(config))
       }
       await loadModels()
-      if (selectedModel === editModel.name || selectedModel === newName) {
+      if (selectedModel === editModel.originalName || selectedModel === newName) {
         setSelectedModel(newName)
         setCfg(ensureConfig(config))
       }
@@ -260,7 +260,7 @@ export function ScriptManager({ onAudit }: Props) {
                     <span className="card-title">{name}</span>
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); setPreviewModel(name) }}>预览</button>
-                      <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); (async () => { try { const json = await App.GetScriptConfig(name); const parsed = json ? JSON.parse(json) as FioConfig : null; setEditModel({ name, desc: parsed?.description || '' }) } catch { setEditModel({ name, desc: '' }) } })() }}>编辑</button>
+                      <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); (async () => { try { const json = await App.GetScriptConfig(name); const parsed = json ? JSON.parse(json) as FioConfig : null; setEditModel({ name, desc: parsed?.description || '', originalName: name }) } catch { setEditModel({ name, desc: '', originalName: name }) } })() }}>编辑</button>
                       <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); setDeleteTarget({ name, type: 'model' }) }}>删除</button>
                     </div>
                   </div>

@@ -17,7 +17,7 @@ export function PreviewModal({ name, onClose }: Props) {
       if (json) {
         try { setConfig(ensureConfig(JSON.parse(json))) } catch { /* ignore */ }
       }
-    })
+    }).catch(() => { /* ignore */ })
   }, [name])
 
   if (!config) return null
