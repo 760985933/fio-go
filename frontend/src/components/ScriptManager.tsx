@@ -220,6 +220,8 @@ export function ScriptManager({ onAudit }: Props) {
   const addJob = async () => {
     if (!canAdd || !selectedModel) return
     if (!editJob.bs || editJob.bs < 1) { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000); return }
+    if (!editJob.iodepth || editJob.iodepth < 1) { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000); return }
+    if (!editJob.numjobs || editJob.numjobs < 1) { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000); return }
     const newJobs = [...cfg.jobs, { ...editJob }]
     const newCfg = { ...cfg, jobs: newJobs }
     setCfg(newCfg)
@@ -230,6 +232,8 @@ export function ScriptManager({ onAudit }: Props) {
   const saveEditedJob = async () => {
     if (editIdx === null || editIdx < 0 || editIdx >= cfg.jobs.length || !selectedModel) return
     if (!editJob.bs || editJob.bs < 1) { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000); return }
+    if (!editJob.iodepth || editJob.iodepth < 1) { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000); return }
+    if (!editJob.numjobs || editJob.numjobs < 1) { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000); return }
     const newJobs = [...cfg.jobs]
     newJobs[editIdx] = { ...editJob }
     const newCfg = { ...cfg, jobs: newJobs }
@@ -420,12 +424,12 @@ export function ScriptManager({ onAudit }: Props) {
               <div className="form-group">
                 <label>队列深度(iodepth)</label>
                 <input type="number" value={editJob.iodepth || ''}
-                  onChange={(e) => updateEditJob({ iodepth: numVal(e.target.value, 1) })} />
+                  onChange={(e) => updateEditJob({ iodepth: numVal(e.target.value, 0) })} />
               </div>
               <div className="form-group">
                 <label>并发数(numjobs)</label>
                 <input type="number" value={editJob.numjobs || ''}
-                  onChange={(e) => updateEditJob({ numjobs: numVal(e.target.value, 1) })} />
+                  onChange={(e) => updateEditJob({ numjobs: numVal(e.target.value, 0) })} />
               </div>
             </div>
 
