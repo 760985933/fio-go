@@ -453,14 +453,18 @@ func (a *App) PreDeployCheck(taskID string, hosts []executor.HostConfig) ([]Chec
 	return checkResults, nil
 }
 
-// Deploy 部署并运行 FIO
+// Deploy 部署并运行 FIO（单脚本版本，从DB读取配置）
 func (a *App) Deploy(taskID, scriptName string, hosts []executor.HostConfig) ([]ActionResult, error) {
-	content, err := os.ReadFile(filepath.Join("scripts", scriptName))
-	if err != nil {
-		return nil, fmt.Errorf("读取脚本失败: %v", err)
+	configJSON, err := dbGetScriptConfig(a.db, scriptName)
+	if err != nil || configJSON == "" {
+		return nil, fmt.Errorf("获取配置 %s 失败: %v", scriptName, err)
 	}
-
-	results := executor.DeployAndRun(taskID, hosts, scriptName, content)
+	var cfg FioConfig
+	if err := json.Unmarshal([]byte(configJSON), &cfg); err != nil {
+		return nil, fmt.Errorf("解析配置 %s 失败: %v", scriptName, err)
+	}
+	fioText := generateFioText(&cfg)
+	results := executor.DeployAndRun(taskID, hosts, scriptName+".fio", []byte(fioText))
 	return toActionResults(results), nil
 }
 
@@ -533,6 +537,25 @@ func toActionResults(results []executor.ExecutionResult) []ActionResult {
 		actionResults = append(actionResults, ar)
 	}
 	return actionResults
+}
+
+func hasAnyError(results []ActionResult) bool {
+	for _, r := range results {
+		if r.Error != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func resultsErrorSummary(results []ActionResult) string {
+	var errs []string
+	for _, r := range results {
+		if r.Error != "" {
+			errs = append(errs, fmt.Sprintf("%s: %s", r.Host, r.Error))
+		}
+	}
+	return strings.Join(errs, "; ")
 }
 
 // ========== 分析报告 ==========
@@ -867,15 +890,25 @@ func (a *App) ExecuteOrchestration(taskIDs []string, interval int) ([]Orchestrat
 			})
 			continue
 		}
+		deployStatus := "completed"
+		deployErr := ""
+		if hasAnyError(deployResults) {
+			deployStatus = "error"
+			deployErr = resultsErrorSummary(deployResults)
+		}
 		progress = append(progress, OrchestrationProgress{
 			TaskID:   safeID,
 			TaskName: task.Name,
 			Step:     "deploy",
-			Status:   "completed",
+			Status:   deployStatus,
+			Error:    deployErr,
 			Results:  deployResults,
 			Current:  i + 1,
 			Total:    total,
 		})
+		if deployStatus == "error" {
+			continue
+		}
 
 		// Step 2: Poll until all hosts finish
 		progress = append(progress, OrchestrationProgress{
@@ -899,6 +932,19 @@ func (a *App) ExecuteOrchestration(taskIDs []string, interval int) ([]Orchestrat
 					Step:     "running",
 					Status:   "error",
 					Error:    err.Error(),
+					Current:  i + 1,
+					Total:    total,
+				})
+				statusErr = true
+				break
+			}
+			if hasAnyError(statusResults) {
+				progress = append(progress, OrchestrationProgress{
+					TaskID:   safeID,
+					TaskName: task.Name,
+					Step:     "running",
+					Status:   "error",
+					Error:    resultsErrorSummary(statusResults),
 					Current:  i + 1,
 					Total:    total,
 				})
@@ -949,11 +995,18 @@ func (a *App) ExecuteOrchestration(taskIDs []string, interval int) ([]Orchestrat
 				Total:    total,
 			})
 		} else {
+			pullStatus := "completed"
+			pullErr := ""
+			if hasAnyError(pullResults) {
+				pullStatus = "error"
+				pullErr = resultsErrorSummary(pullResults)
+			}
 			progress = append(progress, OrchestrationProgress{
 				TaskID:   safeID,
 				TaskName: task.Name,
 				Step:     "pull",
-				Status:   "completed",
+				Status:   pullStatus,
+				Error:    pullErr,
 				Results:  pullResults,
 				Current:  i + 1,
 				Total:    total,

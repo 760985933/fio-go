@@ -62,6 +62,7 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
       await App.SaveExecutionTasks(newTasks)
     } catch {
       setExecutionTasks(executionTasks)
+      return
     }
     onAudit('添加执行任务', `任务: ${name}, 脚本: ${newTaskScripts.length}个, 主机: ${selectedHosts.length}台`)
     setShowCreate(false)
