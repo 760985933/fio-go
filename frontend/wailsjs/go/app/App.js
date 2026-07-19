@@ -30,6 +30,10 @@ export function CreateReportZIP(arg1) {
   return window['go']['app']['App']['CreateReportZIP'](arg1);
 }
 
+export function DeleteExecutionTask(arg1) {
+  return window['go']['app']['App']['DeleteExecutionTask'](arg1);
+}
+
 export function DeleteHost(arg1) {
   return window['go']['app']['App']['DeleteHost'](arg1);
 }

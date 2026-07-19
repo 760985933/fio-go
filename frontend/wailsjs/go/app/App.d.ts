@@ -18,6 +18,8 @@ export function CleanRemote(arg1:string,arg2:Array<executor.HostConfig>):Promise
 
 export function CreateReportZIP(arg1:string):Promise<string>;
 
+export function DeleteExecutionTask(arg1:string):Promise<void>;
+
 export function DeleteHost(arg1:number):Promise<void>;
 
 export function DeleteScript(arg1:string):Promise<void>;

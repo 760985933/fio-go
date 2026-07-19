@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { AnalysisSummary } from '../types'
+import { ConfirmDialog } from './ConfirmDialog'
 import * as App from '../wailsjs/go/app/App'
 
 interface Props {
@@ -13,6 +14,7 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
   const [selectedReport, setSelectedReport] = useState<string | null>(null)
   const [reportHtml, setReportHtml] = useState('')
   const [generating, setGenerating] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<AnalysisSummary | null>(null)
 
   useEffect(() => { loadTasks() }, [])
 
@@ -61,6 +63,20 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
     } catch (err) {
       await onShowResults('日志加载失败', `错误: ${err}`)
     }
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    const id = deleteTarget.id
+    const name = deleteTarget.name
+    try {
+      await App.DeleteExecutionTask(id)
+      onAudit('删除任务', `任务: ${name} (${id})`)
+      await loadTasks()
+    } catch (err) {
+      await onShowResults('删除失败', `错误: ${err}`)
+    }
+    setDeleteTarget(null)
   }
 
   if (loading) {
@@ -123,6 +139,7 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
                 {task.logAvailable && (
                   <button className="btn btn-outline btn-sm" onClick={() => viewLog(task.id)}>查看日志</button>
                 )}
+                <button className="btn btn-danger btn-sm" onClick={() => setDeleteTarget(task)}>删除</button>
               </div>
             </div>
             <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-secondary)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -143,6 +160,16 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
           </div>
         ))
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="删除任务"
+        message={deleteTarget ? `确认删除任务「${deleteTarget.name}」？此操作将清除任务配置、本地数据和时间戳，不可恢复。` : ''}
+        confirmText="删除"
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }

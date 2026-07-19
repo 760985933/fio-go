@@ -37,6 +37,10 @@ export function SaveExecutionTasks(tasks) {
     return window['go']['app']['App']['SaveExecutionTasks'](tasks);
 }
 
+export function DeleteExecutionTask(taskID) {
+    return window['go']['app']['App']['DeleteExecutionTask'](taskID);
+}
+
 export function SetTaskStarted(taskID) {
     return window['go']['app']['App']['SetTaskStarted'](taskID);
 }

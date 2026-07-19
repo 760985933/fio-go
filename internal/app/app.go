@@ -540,6 +540,26 @@ func (a *App) CleanLocal(taskID string) error {
 	return nil
 }
 
+// DeleteExecutionTask 删除执行任务（从DB移除任务配置、清理本地文件、清理时间戳）
+func (a *App) DeleteExecutionTask(taskID string) error {
+	tasks, err := a.GetExecutionTasks()
+	if err != nil {
+		return err
+	}
+	newTasks := make([]ExecutionTaskConfig, 0, len(tasks))
+	for _, t := range tasks {
+		if t.ID != taskID {
+			newTasks = append(newTasks, t)
+		}
+	}
+	if err := dbSaveExecutionTasks(a.db, newTasks); err != nil {
+		return err
+	}
+	dbDeleteTaskTimestamp(a.db, taskID)
+	a.CleanLocal(taskID)
+	return nil
+}
+
 // CleanRemote 清理远程数据
 func (a *App) CleanRemote(taskID string, hosts []executor.HostConfig) ([]ActionResult, error) {
 	results := executor.CleanRemote(taskID, hosts)

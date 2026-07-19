@@ -10,6 +10,7 @@ export function GetScriptConfig(scriptName: string): Promise<string>;
 export function DeleteScriptConfig(scriptName: string): Promise<void>;
 export function GetExecutionTasks(): Promise<ExecutionTaskConfig[]>;
 export function SaveExecutionTasks(tasks: ExecutionTaskConfig[]): Promise<void>;
+export function DeleteExecutionTask(taskID: string): Promise<void>;
 export function SetTaskStarted(taskID: string): Promise<void>;
 export function SetTaskFinished(taskID: string): Promise<void>;
 export function CheckConnectivity(host: HostConfig): Promise<{ok: boolean, msg: string}>;

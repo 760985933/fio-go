@@ -309,6 +309,10 @@ func dbUpdateTaskTimestamp(db *sql.DB, taskID, field, value string) error {
 	}
 }
 
+func dbDeleteTaskTimestamp(db *sql.DB, taskID string) {
+	db.Exec(`DELETE FROM task_timestamps WHERE task_id = ?`, taskID)
+}
+
 func dbAddAuditLog(db *sql.DB, action, details, timestamp string) error {
 	_, err := db.Exec(`INSERT INTO audit_log (action, details, timestamp) VALUES (?, ?, ?)`, action, details, timestamp)
 	return err
