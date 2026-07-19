@@ -27,11 +27,10 @@ import (
 var frontendFS embed.FS
 
 const (
-	orchestrationConfigFile = "scripts/orchestration_config.json"
-	auditLogFile            = "data/audit.log"
-	defaultTaskName         = "默认执行任务"
-	taskDataRoot            = "data/tasks"
-	taskReportRoot          = "output/tasks"
+	auditLogFile    = "data/audit.log"
+	defaultTaskName = "默认执行任务"
+	taskDataRoot    = "data/tasks"
+	taskReportRoot  = "output/tasks"
 )
 
 type executionTaskConfig struct {
@@ -931,21 +930,28 @@ func handleAnalysisDownload(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleOrchestrationConfig(w http.ResponseWriter, r *http.Request) {
-	os.MkdirAll("scripts", 0755)
+	db, err := openWebDB()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
 
 	switch r.Method {
 	case http.MethodGet:
-		content, err := os.ReadFile(orchestrationConfigFile)
+		var value string
+		err := db.QueryRow(`SELECT value FROM key_value WHERE key = ?`, "orchestration_config").Scan(&value)
+		if err == sql.ErrNoRows {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"sequence":[],"interval":30}`))
+			return
+		}
 		if err != nil {
-			if os.IsNotExist(err) {
-				http.Error(w, "Not found", http.StatusNotFound)
-				return
-			}
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(content)
+		w.Write([]byte(value))
 
 	case http.MethodPost:
 		var req map[string]interface{}
@@ -953,14 +959,13 @@ func handleOrchestrationConfig(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-
-		data, err := json.MarshalIndent(req, "", "  ")
+		data, err := json.Marshal(req)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		if err := os.WriteFile(orchestrationConfigFile, data, 0644); err != nil {
+		_, err = db.Exec(`INSERT OR REPLACE INTO key_value (key, value) VALUES (?, ?)`, "orchestration_config", string(data))
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

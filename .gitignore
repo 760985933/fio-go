@@ -22,10 +22,6 @@ frontend/node_modules/
 data/tasks/
 output/
 
-# FIO scripts (user-generated)
-scripts/execution_tasks.json
-scripts/orchestration_config.json
-
 # Audit log
 data/audit.log
 

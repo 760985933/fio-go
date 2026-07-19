@@ -79,7 +79,7 @@ function App() {
       {activeTab === 'configure' && (
         <Sidebar
           items={allSidebarItems}
-          dividerAfter="template"
+          dividerAfter="task"
           activeItem={sidebarItem}
           onSelect={setSidebarItem}
         >

@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import { FioConfig, FioConfigReady, FioLogging } from '../types'
 
 const DEFAULT_LOGGING: FioLogging = { enabled: true, log_avg_msec: 500, write_bw_log: true, write_lat_log: true, write_iops_log: true }

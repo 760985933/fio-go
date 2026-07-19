@@ -75,6 +75,15 @@ func initDB(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS key_value (
+			key   TEXT PRIMARY KEY,
+			value TEXT NOT NULL
+		)
+	`)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -201,4 +210,18 @@ func dbGetExecutionTasks(db *sql.DB) ([]ExecutionTaskConfig, error) {
 		return nil, err
 	}
 	return tasks, nil
+}
+
+func dbSetKV(db *sql.DB, key, value string) error {
+	_, err := db.Exec(`INSERT OR REPLACE INTO key_value (key, value) VALUES (?, ?)`, key, value)
+	return err
+}
+
+func dbGetKV(db *sql.DB, key string) (string, error) {
+	var value string
+	err := db.QueryRow(`SELECT value FROM key_value WHERE key = ?`, key).Scan(&value)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return value, err
 }

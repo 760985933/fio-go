@@ -654,34 +654,27 @@ type OrchestrationConfig struct {
 	Interval int      `json:"interval"`
 }
 
-func orchestrationConfigFile() string {
-	return filepath.Join("scripts", "orchestration_config.json")
-}
-
 // GetOrchestrationConfig 获取编排配置
 func (a *App) GetOrchestrationConfig() (OrchestrationConfig, error) {
-	data, err := os.ReadFile(orchestrationConfigFile())
+	data, err := dbGetKV(a.db, "orchestration_config")
 	if err != nil {
-		if os.IsNotExist(err) {
-			return OrchestrationConfig{Sequence: []string{}, Interval: 30}, nil
-		}
 		return OrchestrationConfig{}, err
 	}
+	if data == "" {
+		return OrchestrationConfig{Sequence: []string{}, Interval: 30}, nil
+	}
 	var config OrchestrationConfig
-	err = json.Unmarshal(data, &config)
+	err = json.Unmarshal([]byte(data), &config)
 	return config, err
 }
 
 // SaveOrchestrationConfig 保存编排配置
 func (a *App) SaveOrchestrationConfig(config OrchestrationConfig) error {
-	if err := os.MkdirAll("scripts", 0755); err != nil {
-		return err
-	}
-	data, err := json.MarshalIndent(config, "", "  ")
+	data, err := json.Marshal(config)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(orchestrationConfigFile(), data, 0644)
+	return dbSetKV(a.db, "orchestration_config", string(data))
 }
 
 // ========== 审计日志 ==========
