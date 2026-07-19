@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -246,5 +247,44 @@ func TestTaskPathConsistency(t *testing.T) {
 	}
 	if len(absReport) <= len(absBase) || absReport[:len(absBase)] != absBase {
 		t.Errorf("reportDir escapes base: %s", absReport)
+	}
+}
+
+func TestGenerateFioText(t *testing.T) {
+	cfg := &FioConfig{}
+	cfg.Global.Filename = "/dev/vdb"
+	cfg.Global.Runtime = 180
+	cfg.Global.RampTime = 30
+	cfg.Global.Ioengine = "libaio"
+	cfg.Jobs = []FioJob{
+		{Bs: 4, Rw: "randread", Iodepth: 32, Numjobs: 4, Direct: true},
+		{Bs: 8, Rw: "randwrite", Iodepth: 16, Numjobs: 2, Direct: true},
+	}
+
+	text := generateFioText(cfg)
+
+	if !strings.Contains(text, "[global]") {
+		t.Error("missing [global] section")
+	}
+	if !strings.Contains(text, "filename=/dev/vdb") {
+		t.Error("missing filename")
+	}
+	if !strings.Contains(text, "runtime=180") {
+		t.Error("missing runtime")
+	}
+	if !strings.Contains(text, "[sec0_4k_randread_iodepth32]") {
+		t.Error("missing job 0 section")
+	}
+	if !strings.Contains(text, "bs=4k") {
+		t.Error("missing bs for job 0")
+	}
+	if !strings.Contains(text, "numjobs=4") {
+		t.Error("missing numjobs for job 0")
+	}
+	if !strings.Contains(text, "[sec1_8k_randwrite_iodepth16]") {
+		t.Error("missing job 1 section")
+	}
+	if !strings.Contains(text, "direct=1") {
+		t.Error("missing direct=1")
 	}
 }

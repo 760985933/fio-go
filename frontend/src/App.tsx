@@ -8,6 +8,7 @@ import { HostManager } from './components/HostManager'
 import { TaskManager } from './components/TaskManager'
 import { AnalysisView } from './components/AnalysisView'
 import { SystemSettings } from './components/SystemSettings'
+import { ConfirmDialog } from './components/ConfirmDialog'
 import { Modal } from './components/Modal'
 import { useModal } from './hooks/useModal'
 import * as WailsApp from './wailsjs/go/app/App'
@@ -134,6 +135,7 @@ function OrchestrationManager({ onShowResults }: { onShowResults: (title: string
   const [progress, setProgress] = useState<OrchestrationProgress[]>([])
   const [currentStep, setCurrentStep] = useState('')
   const [loaded, setLoaded] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -153,7 +155,12 @@ function OrchestrationManager({ onShowResults }: { onShowResults: (title: string
 
   useEffect(() => {
     if (!loaded) return
-    WailsApp.SaveOrchestrationConfig({ sequence: taskIds, interval }).catch(() => {})
+    const timer = setTimeout(() => {
+      WailsApp.SaveOrchestrationConfig({ sequence: taskIds, interval }).catch((err) => {
+        console.error('编排配置自动保存失败:', err)
+      })
+    }, 300)
+    return () => clearTimeout(timer)
   }, [taskIds, interval, loaded])
 
   const executeOrchestration = async () => {
@@ -215,11 +222,22 @@ function OrchestrationManager({ onShowResults }: { onShowResults: (title: string
     <div>
       <div className="manager-header">
         <h2>执行编排</h2>
-        <button className="btn btn-primary btn-sm" onClick={executeOrchestration}
+        <button className="btn btn-primary btn-sm" onClick={() => setShowConfirm(true)}
           disabled={executing || taskIds.length === 0}>
           {executing ? `执行中... ${currentStep}` : '执行编排'}
         </button>
       </div>
+
+      {showConfirm && (
+        <ConfirmDialog
+          open={showConfirm}
+          title="确认执行编排"
+          message="编排执行期间请勿关闭应用，关闭会导致任务中断。确认开始执行？"
+          confirmText="开始执行"
+          onConfirm={() => { setShowConfirm(false); executeOrchestration() }}
+          onCancel={() => setShowConfirm(false)}
+        />
+      )}
 
       <div className="panel">
         <div className="form-group">

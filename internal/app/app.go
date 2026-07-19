@@ -143,6 +143,110 @@ func (a *App) DeleteScriptConfig(scriptName string) error {
 	return dbDeleteScriptConfig(a.db, scriptName)
 }
 
+// ========== FIO 配置类型 ==========
+
+type FioJob struct {
+	Bs           int    `json:"bs"`
+	Rw           string `json:"rw"`
+	Rwmixread    int    `json:"rwmixread"`
+	Iodepth      int    `json:"iodepth"`
+	Numjobs      int    `json:"numjobs"`
+	Direct       bool   `json:"direct"`
+	Thread       bool   `json:"thread"`
+	Fsync        int    `json:"fsync"`
+	IodepthBatch int    `json:"iodepth_batch"`
+	RateIops     int    `json:"rate_iops"`
+}
+
+type FioLogging struct {
+	Enabled       bool `json:"enabled"`
+	LogAvgMsec    int  `json:"log_avg_msec"`
+	WriteBwLog    bool `json:"write_bw_log"`
+	WriteLatLog   bool `json:"write_lat_log"`
+	WriteIopsLog  bool `json:"write_iops_log"`
+}
+
+type FioConfig struct {
+	Global struct {
+		Filename  string `json:"filename"`
+		Runtime   int    `json:"runtime"`
+		RampTime  int    `json:"ramp_time"`
+		Ioengine  string `json:"ioengine"`
+		Size      string `json:"size"`
+		Directory string `json:"directory"`
+	} `json:"global"`
+	Logging *FioLogging `json:"logging"`
+	Jobs    []FioJob    `json:"jobs"`
+}
+
+func buildJobName(idx int, job FioJob) string {
+	return fmt.Sprintf("sec%d_%dk_%s_iodepth%d", idx, job.Bs, job.Rw, job.Iodepth)
+}
+
+func generateFioText(cfg *FioConfig) string {
+	var lines []string
+
+	lines = append(lines, "[global]")
+	lines = append(lines, fmt.Sprintf("filename=%s", cfg.Global.Filename))
+	lines = append(lines, fmt.Sprintf("runtime=%d", cfg.Global.Runtime))
+	lines = append(lines, fmt.Sprintf("ramp_time=%d", cfg.Global.RampTime))
+	lines = append(lines, fmt.Sprintf("ioengine=%s", cfg.Global.Ioengine))
+	if cfg.Global.Size != "" {
+		lines = append(lines, fmt.Sprintf("size=%s", cfg.Global.Size))
+	}
+	if cfg.Global.Directory != "" {
+		lines = append(lines, fmt.Sprintf("directory=%s", cfg.Global.Directory))
+	}
+	lines = append(lines, "time_based=1")
+	lines = append(lines, "group_reporting=1")
+	lines = append(lines, "")
+
+	for idx, job := range cfg.Jobs {
+		jobName := buildJobName(idx, job)
+		lines = append(lines, fmt.Sprintf("[%s]", jobName))
+		lines = append(lines, fmt.Sprintf("bs=%dk", job.Bs))
+		lines = append(lines, fmt.Sprintf("rw=%s", job.Rw))
+		if (job.Rw == "readwrite" || job.Rw == "randrw") && job.Rwmixread > 0 {
+			lines = append(lines, fmt.Sprintf("rwmixread=%d", job.Rwmixread))
+		}
+		lines = append(lines, fmt.Sprintf("iodepth=%d", job.Iodepth))
+		lines = append(lines, fmt.Sprintf("numjobs=%d", job.Numjobs))
+		if job.Direct {
+			lines = append(lines, "direct=1")
+		}
+		if job.Thread {
+			lines = append(lines, "thread=1")
+		}
+		if job.Fsync > 0 {
+			lines = append(lines, fmt.Sprintf("fsync=%d", job.Fsync))
+		}
+		if job.IodepthBatch > 0 {
+			lines = append(lines, fmt.Sprintf("iodepth_batch=%d", job.IodepthBatch))
+		}
+		if job.RateIops > 0 {
+			lines = append(lines, fmt.Sprintf("rate_iops=%d", job.RateIops))
+		}
+		lines = append(lines, "overwrite=1")
+		lines = append(lines, "norandommap=1")
+		lines = append(lines, "randrepeat=0")
+		if cfg.Logging != nil && cfg.Logging.Enabled {
+			lines = append(lines, fmt.Sprintf("log_avg_msec=%d", cfg.Logging.LogAvgMsec))
+			if cfg.Logging.WriteBwLog {
+				lines = append(lines, fmt.Sprintf("write_bw_log=%s", jobName))
+			}
+			if cfg.Logging.WriteLatLog {
+				lines = append(lines, fmt.Sprintf("write_lat_log=%s", jobName))
+			}
+			if cfg.Logging.WriteIopsLog {
+				lines = append(lines, fmt.Sprintf("write_iops_log=%s", jobName))
+			}
+		}
+		lines = append(lines, "")
+	}
+
+	return strings.Join(lines, "\n")
+}
+
 // ========== 执行任务管理 ==========
 
 type ExecutionTaskConfig struct {
@@ -360,12 +464,18 @@ func (a *App) Deploy(taskID, scriptName string, hosts []executor.HostConfig) ([]
 func (a *App) DeployMulti(taskID string, scripts []string, hosts []executor.HostConfig) ([]ActionResult, error) {
 	var allResults []ActionResult
 	for _, scriptName := range scripts {
-		content, err := os.ReadFile(filepath.Join("scripts", scriptName))
-		if err != nil {
-			allResults = append(allResults, ActionResult{Host: "all", Error: fmt.Sprintf("读取脚本 %s 失败: %v", scriptName, err)})
+		configJSON, err := dbGetScriptConfig(a.db, scriptName)
+		if err != nil || configJSON == "" {
+			allResults = append(allResults, ActionResult{Host: "all", Error: fmt.Sprintf("获取配置 %s 失败: %v", scriptName, err)})
 			continue
 		}
-		results := executor.DeployAndRun(taskID, hosts, scriptName, content)
+		var cfg FioConfig
+		if err := json.Unmarshal([]byte(configJSON), &cfg); err != nil {
+			allResults = append(allResults, ActionResult{Host: "all", Error: fmt.Sprintf("解析配置 %s 失败: %v", scriptName, err)})
+			continue
+		}
+		fioText := generateFioText(&cfg)
+		results := executor.DeployAndRun(taskID, hosts, scriptName+".fio", []byte(fioText))
 		allResults = append(allResults, toActionResults(results)...)
 	}
 	return allResults, nil
