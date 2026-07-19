@@ -231,16 +231,20 @@ export function ScriptManager({ onAudit }: Props) {
                       <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 22, borderRadius: '50%', background: editIdx === idx ? 'var(--primary)' : 'var(--bg-secondary)', color: editIdx === idx ? '#fff' : 'var(--text-secondary)', fontSize: 12, fontWeight: 600, lineHeight: '22px', textAlign: 'center' }}>{idx + 1}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 4 }}>
-                          <span style={{ fontSize: 12, padding: '1px 8px', borderRadius: 4, background: 'var(--bg-secondary)', whiteSpace: 'nowrap' }}><span style={{ color: 'var(--text-muted)' }}>rw</span> <b style={{ color: 'var(--text)' }}>{job.rw}</b></span>
-                          <span style={{ fontSize: 12, padding: '1px 8px', borderRadius: 4, background: 'var(--bg-secondary)', whiteSpace: 'nowrap' }}><span style={{ color: 'var(--text-muted)' }}>bs</span> <b style={{ color: 'var(--text)' }}>{bsLabel(job.bs)}</b></span>
-                          <span style={{ fontSize: 12, padding: '1px 8px', borderRadius: 4, background: 'var(--bg-secondary)', whiteSpace: 'nowrap' }}><span style={{ color: 'var(--text-muted)' }}>numjobs</span> <b style={{ color: 'var(--text)' }}>{job.numjobs}</b></span>
-                          <span style={{ fontSize: 12, padding: '1px 8px', borderRadius: 4, background: 'var(--bg-secondary)', whiteSpace: 'nowrap' }}><span style={{ color: 'var(--text-muted)' }}>iodepth</span> <b style={{ color: 'var(--text)' }}>{job.iodepth}</b></span>
-                          {job.rwmixread != null && <span style={{ fontSize: 12, padding: '1px 8px', borderRadius: 4, background: 'var(--bg-secondary)', whiteSpace: 'nowrap' }}><span style={{ color: 'var(--text-muted)' }}>rwmixread</span> <b style={{ color: 'var(--text)' }}>{job.rwmixread}%</b></span>}
-                          {job.fsync != null && <span style={{ fontSize: 12, padding: '1px 8px', borderRadius: 4, background: 'var(--bg-secondary)', whiteSpace: 'nowrap' }}><span style={{ color: 'var(--text-muted)' }}>fsync</span> <b style={{ color: 'var(--text)' }}>{job.fsync}</b></span>}
-                          {job.rate_iops ? <span style={{ fontSize: 12, padding: '1px 8px', borderRadius: 4, background: 'var(--bg-secondary)', whiteSpace: 'nowrap' }}><span style={{ color: 'var(--text-muted)' }}>rate_iops</span> <b style={{ color: 'var(--text)' }}>{job.rate_iops}</b></span> : null}
+                          <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: '#E3F2FD', color: '#1565C0', whiteSpace: 'nowrap' }}>rw <b>{job.rw}</b></span>
+                          <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: '#E8F5E9', color: '#2E7D32', whiteSpace: 'nowrap' }}>bs <b>{bsLabel(job.bs)}</b></span>
+                          <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: '#F3E5F5', color: '#6A1B9A', whiteSpace: 'nowrap' }}>numjobs <b>{job.numjobs}</b></span>
+                          <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: '#FFF3E0', color: '#E65100', whiteSpace: 'nowrap' }}>iodepth <b>{job.iodepth}</b></span>
+                          {job.rwmixread != null && <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: '#E0F2F1', color: '#00695C', whiteSpace: 'nowrap' }}>rwmixread <b>{job.rwmixread}%</b></span>}
+                          {job.fsync != null && <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: '#FCE4EC', color: '#AD1457', whiteSpace: 'nowrap' }}>fsync <b>{job.fsync}</b></span>}
+                          {job.rate_iops != null && job.rate_iops > 0 && <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: '#FFF8E1', color: '#F57F17', whiteSpace: 'nowrap' }}>rate_iops <b>{job.rate_iops}</b></span>}
                         </div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                          {cfg.global.filename || '无文件'} · {cfg.global.runtime}s · ioengine: {cfg.global.ioengine}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                          <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4, background: '#ECEFF1', color: '#455A64', whiteSpace: 'nowrap' }}>{cfg.global.filename || '无文件'}</span>
+                          <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4, background: '#EFEBE9', color: '#5D4037', whiteSpace: 'nowrap' }}>{cfg.global.runtime}s</span>
+                          <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4, background: '#E8EAF6', color: '#283593', whiteSpace: 'nowrap' }}>{cfg.global.ioengine}</span>
+                          {cfg.global.size && <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4, background: '#F1F8E9', color: '#33691E', whiteSpace: 'nowrap' }}>size {cfg.global.size}</span>}
+                          {cfg.global.directory && <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4, background: '#FBE9E7', color: '#BF360C', whiteSpace: 'nowrap' }}>dir {cfg.global.directory}</span>}
                         </div>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
