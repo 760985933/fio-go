@@ -529,6 +529,20 @@ func (a *App) PullData(taskID string, hosts []executor.HostConfig) ([]ActionResu
 	return toActionResults(results), nil
 }
 
+// PullTaskData 根据任务ID自动查找主机并拉取数据
+func (a *App) PullTaskData(taskID string) ([]ActionResult, error) {
+	tasks, err := a.GetExecutionTasks()
+	if err != nil {
+		return nil, err
+	}
+	for _, t := range tasks {
+		if t.ID == taskID {
+			return a.PullData(taskID, t.Hosts)
+		}
+	}
+	return nil, fmt.Errorf("任务不存在: %s", taskID)
+}
+
 // CleanLocal 清理本地数据
 func (a *App) CleanLocal(taskID string) error {
 	baseDir := filepath.Join("data", "tasks", sanitizeTaskID(taskID))

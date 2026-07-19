@@ -77,6 +77,10 @@ export function PullData(taskID, hosts) {
     return window['go']['app']['App']['PullData'](taskID, hosts);
 }
 
+export function PullTaskData(taskID) {
+    return window['go']['app']['App']['PullTaskData'](taskID);
+}
+
 export function CleanLocal(taskID) {
     return window['go']['app']['App']['CleanLocal'](taskID);
 }

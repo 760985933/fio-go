@@ -20,6 +20,7 @@ export function DeployMulti(taskID: string, scripts: string[], hosts: HostConfig
 export function CheckStatus(taskID: string, hosts: HostConfig[]): Promise<ActionResult[]>;
 export function KillAll(taskID: string, hosts: HostConfig[]): Promise<ActionResult[]>;
 export function PullData(taskID: string, hosts: HostConfig[]): Promise<ActionResult[]>;
+export function PullTaskData(taskID: string): Promise<ActionResult[]>;
 export function CleanLocal(taskID: string): Promise<void>;
 export function CleanRemote(taskID: string, hosts: HostConfig[]): Promise<ActionResult[]>;
 export function GetAnalysisTasks(): Promise<AnalysisSummary[]>;

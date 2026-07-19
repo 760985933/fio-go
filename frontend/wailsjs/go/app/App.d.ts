@@ -64,6 +64,8 @@ export function PreDeployCheck(arg1:string,arg2:Array<executor.HostConfig>):Prom
 
 export function PullData(arg1:string,arg2:Array<executor.HostConfig>):Promise<Array<app.ActionResult>>;
 
+export function PullTaskData(arg1:string):Promise<Array<app.ActionResult>>;
+
 export function SaveExecutionTasks(arg1:Array<app.ExecutionTaskConfig>):Promise<void>;
 
 export function SaveOrchestrationConfig(arg1:app.OrchestrationConfig):Promise<void>;

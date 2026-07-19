@@ -122,6 +122,10 @@ export function PullData(arg1, arg2) {
   return window['go']['app']['App']['PullData'](arg1, arg2);
 }
 
+export function PullTaskData(arg1) {
+  return window['go']['app']['App']['PullTaskData'](arg1);
+}
+
 export function SaveExecutionTasks(arg1) {
   return window['go']['app']['App']['SaveExecutionTasks'](arg1);
 }
