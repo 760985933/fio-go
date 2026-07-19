@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { FioConfig, FioJob } from '../types'
 import { ensureConfig, bsLabel } from '../utils/config'
+import { ConfirmDialog } from './ConfirmDialog'
 import * as App from '../wailsjs/go/app/App'
 
 interface Props {
@@ -46,6 +47,7 @@ export function ScriptManager({ onAudit }: Props) {
   const [createDesc, setCreateDesc] = useState('')
   const [createError, setCreateError] = useState('')
   const [showJobJson, setShowJobJson] = useState<number | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{ name: string; type: 'model' | 'job'; idx?: number } | null>(null)
 
   const loadModels = useCallback(async () => {
     try {
@@ -109,17 +111,37 @@ export function ScriptManager({ onAudit }: Props) {
     }
   }
 
-  const deleteModel = async (name: string) => {
+  const confirmDelete = () => {
+    if (!deleteTarget) return
+    if (deleteTarget.type === 'model') {
+      doDeleteModel(deleteTarget.name)
+    } else if (deleteTarget.type === 'job' && deleteTarget.idx != null) {
+      doDeleteJob(deleteTarget.idx)
+    }
+    setDeleteTarget(null)
+  }
+
+  const doDeleteModel = async (name: string) => {
     try {
       await App.DeleteScriptConfig(name)
       if (selectedModel === name) {
         setSelectedModel(null)
-        setCfg({ ...DEFAULT_CONFIG, jobs: DEFAULT_CONFIG.jobs.map(j => ({ ...j })) })
+        setCfg({ ...DEFAULT_CONFIG, jobs: [] })
         setEditIdx(null)
         setEditJob({ ...DEFAULT_JOB })
       }
       await loadModels()
     } catch { /* ignore */ }
+  }
+
+  const doDeleteJob = (idx: number) => {
+    if (!selectedModel) return
+    const newJobs = cfg.jobs.filter((_, i) => i !== idx)
+    const newCfg = { ...cfg, jobs: newJobs }
+    setCfg(newCfg)
+    if (editIdx === idx) resetForm()
+    else if (editIdx !== null && editIdx > idx) setEditIdx(editIdx - 1)
+    saveConfig(selectedModel, newCfg).catch(() => { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000) })
   }
 
   const isEditing = editIdx !== null && editIdx >= 0 && editIdx < cfg.jobs.length
@@ -154,16 +176,6 @@ export function ScriptManager({ onAudit }: Props) {
     newJobs[editIdx] = { ...editJob }
     const newCfg = { ...cfg, jobs: newJobs }
     setCfg(newCfg)
-    try { await saveConfig(selectedModel, newCfg) } catch { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000) }
-  }
-
-  const deleteJob = async (idx: number) => {
-    if (!selectedModel) return
-    const newJobs = cfg.jobs.filter((_, i) => i !== idx)
-    const newCfg = { ...cfg, jobs: newJobs }
-    setCfg(newCfg)
-    if (editIdx === idx) resetForm()
-    else if (editIdx !== null && editIdx > idx) setEditIdx(editIdx - 1)
     try { await saveConfig(selectedModel, newCfg) } catch { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000) }
   }
 
@@ -209,7 +221,7 @@ export function ScriptManager({ onAudit }: Props) {
                   <div className="card-header" style={{ marginBottom: 0 }}>
                     <span className="card-title">{name}</span>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); deleteModel(name) }}>删除</button>
+                      <button className="btn btn-danger btn-sm" onClick={(e) => { e.stopPropagation(); setDeleteTarget({ name, type: 'model' }) }}>删除</button>
                     </div>
                   </div>
                 </div>
@@ -250,7 +262,7 @@ export function ScriptManager({ onAudit }: Props) {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
                         <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={(e) => { e.stopPropagation(); setShowJobJson(idx) }}>JSON</button>
                         <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={(e) => { e.stopPropagation(); duplicateJob(idx) }}>复制</button>
-                        <button className="btn btn-danger btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={(e) => { e.stopPropagation(); deleteJob(idx) }}>删除</button>
+                        <button className="btn btn-danger btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={(e) => { e.stopPropagation(); setDeleteTarget({ name: selectedModel!, type: 'job', idx }) }}>删除</button>
                       </div>
                     </div>
                   </div>
@@ -286,17 +298,17 @@ export function ScriptManager({ onAudit }: Props) {
 
             <div className="form-row">
               <div className="form-group">
-                <label>文件路径</label>
+                <label>文件路径(filename)</label>
                 <input value={cfg.global.filename} onChange={(e) => updateGlobal('filename', e.target.value)} />
               </div>
               <div className="form-group">
-                <label>运行时间 (秒)</label>
+                <label>运行时间(runtime)(秒)</label>
                 <input type="number" value={cfg.global.runtime} onChange={(e) => updateGlobal('runtime', parseInt(e.target.value) || 0)} />
               </div>
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>预热时间 (秒)</label>
+                <label>预热时间(ramp_time)(秒)</label>
                 <input type="number" value={cfg.global.ramp_time} onChange={(e) => updateGlobal('ramp_time', parseInt(e.target.value) || 0)} />
               </div>
             </div>
@@ -304,7 +316,7 @@ export function ScriptManager({ onAudit }: Props) {
             <hr style={{ margin: '12px 0', border: 'none', borderTop: '1px solid var(--border)' }} />
 
             <div style={{ marginBottom: 8 }}>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>块大小 (KB)</label>
+              <label style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>块大小(bs)(KB)</label>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <div className="preset-group">
                   {BS_PRESETS.map(bs => (
@@ -321,25 +333,25 @@ export function ScriptManager({ onAudit }: Props) {
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>读写类型</label>
+                <label>读写类型(rw)</label>
                 <select value={editJob.rw} onChange={(e) => updateEditJob({ rw: e.target.value })}>
                   {RW_OPTIONS.map(rw => <option key={rw} value={rw}>{rw}</option>)}
                 </select>
               </div>
               {(editJob.rw === 'readwrite' || editJob.rw === 'randrw') && (
                 <div className="form-group">
-                  <label>读占比 (%)</label>
+                  <label>读占比(rwmixread)(%)</label>
                   <input type="number" min={0} max={100} value={editJob.rwmixread ?? 70}
                     onChange={(e) => updateEditJob({ rwmixread: parseInt(e.target.value) || 70 })} />
                 </div>
               )}
               <div className="form-group">
-                <label>队列深度</label>
+                <label>队列深度(iodepth)</label>
                 <input type="number" value={editJob.iodepth}
                   onChange={(e) => updateEditJob({ iodepth: parseInt(e.target.value) || 1 })} />
               </div>
               <div className="form-group">
-                <label>并发数</label>
+                <label>并发数(numjobs)</label>
                 <input type="number" value={editJob.numjobs}
                   onChange={(e) => updateEditJob({ numjobs: parseInt(e.target.value) || 1 })} />
               </div>
@@ -354,7 +366,7 @@ export function ScriptManager({ onAudit }: Props) {
                 <div style={{ marginTop: 8 }}>
                   <div className="form-row">
                     <div className="form-group">
-                      <label>IO 引擎</label>
+                      <label>IO 引擎(ioengine)</label>
                       <select value={cfg.global.ioengine} onChange={(e) => updateGlobal('ioengine', e.target.value)}>
                         <option value="libaio">libaio</option>
                         <option value="io_uring">io_uring</option>
@@ -363,12 +375,12 @@ export function ScriptManager({ onAudit }: Props) {
                       </select>
                     </div>
                     <div className="form-group">
-                      <label>测试大小 (可选)</label>
+                      <label>测试大小(size)(可选)</label>
                       <input value={cfg.global.size || ''} placeholder="留空=自动"
                         onChange={(e) => updateGlobal('size', e.target.value || undefined)} />
                     </div>
                     <div className="form-group">
-                      <label>工作目录 (可选)</label>
+                      <label>工作目录(directory)(可选)</label>
                       <input value={cfg.global.directory || ''} placeholder="留空=默认"
                         onChange={(e) => updateGlobal('directory', e.target.value || undefined)} />
                     </div>
@@ -377,27 +389,27 @@ export function ScriptManager({ onAudit }: Props) {
                     <label className="toggle-label">
                       <input type="checkbox" checked={editJob.direct}
                         onChange={(e) => updateEditJob({ direct: e.target.checked })} />
-                      Direct I/O
+                      Direct I/O(direct)
                     </label>
                     <label className="toggle-label">
                       <input type="checkbox" checked={editJob.thread}
                         onChange={(e) => updateEditJob({ thread: e.target.checked })} />
-                      Thread 模式
+                      Thread 模式(thread)
                     </label>
                   </div>
                   <div className="form-row" style={{ marginTop: 8 }}>
                     <div className="form-group">
-                      <label>fsync</label>
+                      <label>同步频率(fsync)</label>
                       <input type="number" value={editJob.fsync ?? 0} placeholder="0=关闭"
                         onChange={(e) => updateEditJob({ fsync: parseInt(e.target.value) || 0 })} />
                     </div>
                     <div className="form-group">
-                      <label>batch</label>
+                      <label>批处理(iodepth_batch)</label>
                       <input type="number" value={editJob.iodepth_batch ?? 0} placeholder="0=自动"
                         onChange={(e) => updateEditJob({ iodepth_batch: parseInt(e.target.value) || 0 })} />
                     </div>
                     <div className="form-group">
-                      <label>限速 (IOPS)</label>
+                      <label>限速(rate_iops)(IOPS)</label>
                       <input type="number" value={editJob.rate_iops ?? 0} placeholder="0=不限"
                         onChange={(e) => updateEditJob({ rate_iops: parseInt(e.target.value) || 0 })} />
                     </div>
@@ -473,6 +485,16 @@ export function ScriptManager({ onAudit }: Props) {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={deleteTarget?.type === 'model' ? '删除配置模型' : '删除参数条目'}
+        message={deleteTarget?.type === 'model' ? `确定要删除配置模型「${deleteTarget?.name}」吗？此操作不可撤销。` : `确定要删除第 ${deleteTarget?.idx != null ? deleteTarget.idx + 1 : ''} 条参数吗？`}
+        danger
+        confirmText="删除"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }
