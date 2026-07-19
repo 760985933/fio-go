@@ -231,8 +231,8 @@ export function ScriptManager({ onAudit }: Props) {
                       <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 22, height: 22, borderRadius: '50%', background: editIdx === idx ? 'var(--primary)' : 'var(--bg-secondary)', color: editIdx === idx ? '#fff' : 'var(--text-secondary)', fontSize: 12, fontWeight: 600, lineHeight: '22px', textAlign: 'center' }}>{idx + 1}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 4 }}>
-                          <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: '#E3F2FD', color: '#1565C0', whiteSpace: 'nowrap' }}>rw <b>{job.rw}</b></span>
-                          <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: '#E8F5E9', color: '#2E7D32', whiteSpace: 'nowrap' }}>bs <b>{bsLabel(job.bs)}</b></span>
+                          <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: '#E3F2FD', color: '#1565C0', whiteSpace: 'nowrap' }}><b>{job.rw}</b></span>
+                          <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: '#E8F5E9', color: '#2E7D32', whiteSpace: 'nowrap' }}><b>{bsLabel(job.bs)}</b></span>
                           <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: '#F3E5F5', color: '#6A1B9A', whiteSpace: 'nowrap' }}>numjobs <b>{job.numjobs}</b></span>
                           <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: '#FFF3E0', color: '#E65100', whiteSpace: 'nowrap' }}>iodepth <b>{job.iodepth}</b></span>
                           {job.rwmixread != null && <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: '#E0F2F1', color: '#00695C', whiteSpace: 'nowrap' }}>rwmixread <b>{job.rwmixread}%</b></span>}
