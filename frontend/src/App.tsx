@@ -136,16 +136,18 @@ function App() {
   )
 
   return (
-    <Layout
-      tabs={MAIN_TABS}
-      activeTab={activeTab}
-      onTabChange={selectTab}
-      headerActions={null}
-      sidebar={activeTab === 'configure' ? configureSidebar : undefined}
-    >
-      <div style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
-        {mountedTabs.settings && <SystemSettings />}
-      </div>
+    <>
+      <Layout
+        tabs={MAIN_TABS}
+        activeTab={activeTab}
+        onTabChange={selectTab}
+        headerActions={null}
+        sidebar={activeTab === 'configure' ? configureSidebar : undefined}
+      >
+        <div style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
+          {mountedTabs.settings && <SystemSettings />}
+        </div>
+      </Layout>
 
       <Modal
         open={modal.open}
@@ -155,7 +157,7 @@ function App() {
         onClose={close}
         onConfirm={confirm}
       />
-    </Layout>
+    </>
   )
 }
 
