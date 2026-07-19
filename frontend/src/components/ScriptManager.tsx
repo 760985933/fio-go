@@ -300,9 +300,9 @@ export function ScriptManager({ onAudit }: Props) {
                         </div>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
-                        <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={(e) => { e.stopPropagation(); setShowJobJson(idx) }}>JSON</button>
-                        <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={(e) => { e.stopPropagation(); duplicateJob(idx) }}>复制</button>
-                        <button className="btn btn-danger btn-sm" style={{ fontSize: 11, padding: '2px 8px' }} onClick={(e) => { e.stopPropagation(); setDeleteTarget({ name: selectedModel!, type: 'job', idx }) }}>删除</button>
+                        <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '2px 8px', lineHeight: '16px' }} onClick={(e) => { e.stopPropagation(); setShowJobJson(idx) }}>JSON</button>
+                        <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '2px 8px', lineHeight: '16px' }} onClick={(e) => { e.stopPropagation(); duplicateJob(idx) }}>复制</button>
+                        <button className="btn btn-danger btn-sm" style={{ fontSize: 11, padding: '2px 8px', lineHeight: '16px' }} onClick={(e) => { e.stopPropagation(); setDeleteTarget({ name: selectedModel!, type: 'job', idx }) }}>删除</button>
                       </div>
                     </div>
                   </div>
