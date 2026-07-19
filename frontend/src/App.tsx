@@ -24,7 +24,6 @@ const IconRocket = <svg {...svgProps}><path d="M8 2C5 2 3 5 3 8c0 2 1 4 2.5 5.5L
 
 const MAIN_TABS = [
   { id: 'configure', label: '配置与执行', icon: IconSliders },
-  { id: 'analysis', label: '分析报告', icon: IconChart },
   { id: 'settings', label: '系统设置', icon: IconWrench },
 ]
 
@@ -32,6 +31,7 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
   { id: 'script', icon: IconDoc, label: '配置模型' },
   { id: 'host', icon: IconServer, label: '主机管理' },
   { id: 'task', icon: IconClipboard, label: '任务管理' },
+  { id: 'analysis', icon: IconChart, label: '分析报告' },
 ]
 
 const SIDEBAR_ITEMS_TOOL: SidebarItem[] = [
@@ -85,7 +85,7 @@ function App() {
     { label: '配置模型', count: stats.scripts, section: 'script' },
     { label: '主机管理', count: stats.hosts, section: 'host' },
     { label: '任务管理', count: stats.tasks, section: 'task' },
-    { label: '编排', count: 0, section: 'orchestration' },
+    { label: '分析报告', count: 0, section: 'analysis' },
   ]
 
   const currentStepIdx = stepItems.findIndex(s => s.section === sidebarItem)
@@ -100,7 +100,7 @@ function App() {
       {activeTab === 'configure' && (
         <Sidebar
           items={allSidebarItems}
-          dividerAfter="task"
+          dividerAfter="analysis"
           activeItem={sidebarItem}
           onSelect={selectSidebar}
         >
@@ -133,15 +133,14 @@ function App() {
           <div style={{ display: sidebarItem === 'task' ? 'block' : 'none' }}>
             {mountedSidebar.task && <TaskManager onAudit={handleAudit} onShowResults={showResults} />}
           </div>
+          <div style={{ display: sidebarItem === 'analysis' ? 'block' : 'none' }}>
+            {mountedSidebar.analysis && <AnalysisView onAudit={handleAudit} onShowResults={showResults} />}
+          </div>
           <div style={{ display: sidebarItem === 'orchestration' ? 'block' : 'none' }}>
             {mountedSidebar.orchestration && <OrchestrationManager onShowResults={showResults} />}
           </div>
         </Sidebar>
       )}
-
-      <div style={{ display: activeTab === 'analysis' ? 'block' : 'none' }}>
-        {mountedTabs.analysis && <AnalysisView onAudit={handleAudit} onShowResults={showResults} />}
-      </div>
 
       <div style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
         {mountedTabs.settings && <SystemSettings />}
