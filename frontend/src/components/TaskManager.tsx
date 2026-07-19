@@ -383,6 +383,11 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
                   })()}
                 </div>
               </div>
+              <div className="host-chips">
+                {(task.hosts || []).map((h, i) => (
+                  <span key={i} className="host-chip">{h.user}@{h.host}:{h.port}</span>
+                ))}
+              </div>
               {checkResults.length > 0 && currentTask === task.id && (
                 <div style={{ marginTop: 8 }}>
                   {checkResults.map((r, ri) => (

@@ -1,8 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
-import { FioConfig, OrchestrationProgress, ExecutionTaskConfig } from './types'
+import { OrchestrationProgress, ExecutionTaskConfig } from './types'
 import { Layout } from './components/Layout'
 import { Sidebar, SidebarItem } from './components/Sidebar'
-import { HomePage } from './components/HomePage'
 import { ScriptManager } from './components/ScriptManager'
 import { HostManager } from './components/HostManager'
 import { TaskManager } from './components/TaskManager'
@@ -13,15 +12,8 @@ import { Modal } from './components/Modal'
 import { useModal } from './hooks/useModal'
 import * as WailsApp from './wailsjs/go/app/App'
 
-const DEFAULT_CONFIG: FioConfig = {
-  global: { filename: '/dev/vdb', runtime: 180, ramp_time: 30, ioengine: 'libaio' },
-  logging: { enabled: true, log_avg_msec: 500, write_bw_log: true, write_lat_log: true, write_iops_log: true },
-  jobs: [{ bs: 4, rw: 'read', iodepth: 32, numjobs: 1, direct: true, thread: true }],
-}
-
 const svgProps = { width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
 
-const IconHome = <svg {...svgProps}><path d="M2 8.5L8 3l6 5.5V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8.5z"/><path d="M6 14V9h4v5"/></svg>
 const IconSliders = <svg {...svgProps}><line x1="4" y1="3" x2="4" y2="13"/><line x1="8" y1="3" x2="8" y2="13"/><line x1="12" y1="3" x2="12" y2="13"/><circle cx="4" cy="6" r="1.5" fill="currentColor"/><circle cx="8" cy="10" r="1.5" fill="currentColor"/><circle cx="12" cy="5" r="1.5" fill="currentColor"/></svg>
 const IconChart = <svg {...svgProps}><rect x="2" y="9" width="3" height="5" rx="0.5"/><rect x="6.5" y="5" width="3" height="9" rx="0.5"/><rect x="11" y="2" width="3" height="12" rx="0.5"/></svg>
 const IconWrench = <svg {...svgProps}><path d="M9.5 2.5a3.5 3.5 0 0 0-5 5L2 10l-0.5 0.5 4 4L6 14l2.5-2.5a3.5 3.5 0 0 0 5-5z"/><path d="M5.5 6.5l5 5"/></svg>
@@ -31,7 +23,6 @@ const IconClipboard = <svg {...svgProps}><rect x="4" y="1.5" width="8" height="1
 const IconRocket = <svg {...svgProps}><path d="M8 2C5 2 3 5 3 8c0 2 1 4 2.5 5.5L8 14l2.5-0.5C12 12 13 10 13 8c0-3-2-6-5-6z"/><circle cx="8" cy="7" r="1.5"/><path d="M3 8c-1 0-1.5 1-1.5 2L3 12"/><path d="M13 8c1 0 1.5 1 1.5 2L13 12"/></svg>
 
 const MAIN_TABS = [
-  { id: 'home', label: '首页', icon: IconHome },
   { id: 'configure', label: '配置与执行', icon: IconSliders },
   { id: 'analysis', label: '分析报告', icon: IconChart },
   { id: 'settings', label: '系统设置', icon: IconWrench },
@@ -48,62 +39,112 @@ const SIDEBAR_ITEMS_TOOL: SidebarItem[] = [
 ]
 
 function App() {
-  const [activeTab, setActiveTab] = useState('home')
+  const [activeTab, setActiveTab] = useState('configure')
   const [sidebarItem, setSidebarItem] = useState('script')
-  const [config, setConfig] = useState<FioConfig>(DEFAULT_CONFIG)
-  const [configName, setConfigName] = useState('fio_test')
   const { modal, close, confirm, showInfo, showConfirm, showResults } = useModal()
+  const [mountedSidebar, setMountedSidebar] = useState<Record<string, boolean>>({ script: true })
+  const [mountedTabs, setMountedTabs] = useState<Record<string, boolean>>({ configure: true })
 
   const handleAudit = useCallback(async (action: string, details: string) => {
     try { await WailsApp.AddAuditLog(action, details) } catch { /* ignore */ }
   }, [])
 
-  const handleNavigateTo = useCallback((section: string) => {
-    setActiveTab('configure')
-    setSidebarItem(section)
-  }, [])
+  const [stats, setStats] = useState({ hosts: 0, scripts: 0, tasks: 0 })
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [hosts, scripts, tasks] = await Promise.all([
+          WailsApp.GetHosts(),
+          WailsApp.GetScripts(),
+          WailsApp.GetExecutionTasks(),
+        ])
+        setStats({
+          hosts: (hosts || []).length,
+          scripts: (scripts || []).length,
+          tasks: (tasks || []).length,
+        })
+      } catch { /* ignore */ }
+    }
+    load()
+  }, [sidebarItem, activeTab])
 
   const allSidebarItems = [...SIDEBAR_ITEMS, ...SIDEBAR_ITEMS_TOOL]
+
+  const selectSidebar = (id: string) => {
+    setMountedSidebar(prev => ({ ...prev, [id]: true }))
+    setSidebarItem(id)
+  }
+
+  const selectTab = (id: string) => {
+    setMountedTabs(prev => ({ ...prev, [id]: true }))
+    setActiveTab(id)
+  }
+
+  const stepItems = [
+    { label: '配置模型', count: stats.scripts, section: 'script' },
+    { label: '主机管理', count: stats.hosts, section: 'host' },
+    { label: '任务管理', count: stats.tasks, section: 'task' },
+    { label: '编排', count: 0, section: 'orchestration' },
+  ]
+
+  const currentStepIdx = stepItems.findIndex(s => s.section === sidebarItem)
 
   return (
     <Layout
       tabs={MAIN_TABS}
       activeTab={activeTab}
-      onTabChange={setActiveTab}
+      onTabChange={selectTab}
       headerActions={null}
     >
-      {activeTab === 'home' && (
-        <HomePage onNavigateTo={handleNavigateTo} />
-      )}
-
       {activeTab === 'configure' && (
         <Sidebar
           items={allSidebarItems}
           dividerAfter="task"
           activeItem={sidebarItem}
-          onSelect={setSidebarItem}
+          onSelect={selectSidebar}
         >
+          <div className="step-bar">
+            {stepItems.map((step, idx) => {
+              const done = step.section === 'script' ? stats.scripts > 0
+                : step.section === 'host' ? stats.hosts > 0
+                : step.section === 'task' ? stats.tasks > 0
+                : false
+              const active = idx === currentStepIdx
+              return (
+                <div key={step.section} className={`step-bar-item ${active ? 'active' : ''} ${done ? 'done' : ''}`}
+                  onClick={() => selectSidebar(step.section)}>
+                  <div className={`step-bar-dot ${done ? 'done' : ''} ${active ? 'active' : ''}`}>
+                    {done ? '✓' : idx + 1}
+                  </div>
+                  <span className="step-bar-label">{step.label}</span>
+                  {idx < stepItems.length - 1 && <div className={`step-bar-line ${idx < currentStepIdx ? 'done' : ''}`} />}
+                </div>
+              )
+            })}
+          </div>
+
           <div style={{ display: sidebarItem === 'script' ? 'block' : 'none' }}>
-            <ScriptManager onAudit={handleAudit} />
+            {mountedSidebar.script && <ScriptManager onAudit={handleAudit} />}
           </div>
           <div style={{ display: sidebarItem === 'host' ? 'block' : 'none' }}>
-            <HostManager onAudit={handleAudit} onShowResults={showResults} />
+            {mountedSidebar.host && <HostManager onAudit={handleAudit} onShowResults={showResults} />}
           </div>
           <div style={{ display: sidebarItem === 'task' ? 'block' : 'none' }}>
-            <TaskManager onAudit={handleAudit} onShowResults={showResults} />
+            {mountedSidebar.task && <TaskManager onAudit={handleAudit} onShowResults={showResults} />}
           </div>
           <div style={{ display: sidebarItem === 'orchestration' ? 'block' : 'none' }}>
-            <OrchestrationManager onShowResults={showResults} />
+            {mountedSidebar.orchestration && <OrchestrationManager onShowResults={showResults} />}
           </div>
         </Sidebar>
       )}
 
       <div style={{ display: activeTab === 'analysis' ? 'block' : 'none' }}>
-        <AnalysisView onAudit={handleAudit} onShowResults={showResults} />
+        {mountedTabs.analysis && <AnalysisView onAudit={handleAudit} onShowResults={showResults} />}
       </div>
 
       <div style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
-        <SystemSettings />
+        {mountedTabs.settings && <SystemSettings />}
       </div>
 
       <Modal
