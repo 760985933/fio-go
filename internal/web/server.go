@@ -98,13 +98,52 @@ func openWebDB() (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	dbPath := filepath.Join(home, ".fio-gui", "hosts.db")
+	dbDir := filepath.Join(home, ".fio-gui")
+	if err := os.MkdirAll(dbDir, 0700); err != nil {
+		return nil, err
+	}
+	dbPath := filepath.Join(dbDir, "hosts.db")
 	db, err := sql.Open("sqlite", dbPath+"?_journal_mode=WAL&_busy_timeout=5000")
 	if err != nil {
 		return nil, err
 	}
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, err
+	}
 	db.SetMaxOpenConns(1)
+	if err := initWebDB(db); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return db, nil
+}
+
+func initWebDB(db *sql.DB) error {
+	for _, stmt := range []string{
+		`CREATE TABLE IF NOT EXISTS hosts (
+			id       INTEGER PRIMARY KEY AUTOINCREMENT,
+			host     TEXT NOT NULL,
+			port     INTEGER NOT NULL DEFAULT 22,
+			user     TEXT NOT NULL DEFAULT 'root',
+			password TEXT NOT NULL DEFAULT '',
+			UNIQUE(host, port, user)
+		)`,
+		`CREATE TABLE IF NOT EXISTS script_configs (
+			script_name TEXT PRIMARY KEY,
+			config      TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS execution_tasks (
+			id   INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			data TEXT NOT NULL
+		)`,
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 

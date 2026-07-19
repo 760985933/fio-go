@@ -72,7 +72,10 @@ func initDB(db *sql.DB) error {
 			data TEXT NOT NULL
 		)
 	`)
-	return err
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func dbAddHost(db *sql.DB, cfg executor.HostConfig) (int64, error) {
