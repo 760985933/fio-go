@@ -149,7 +149,8 @@ export function ScriptManager({ onAudit }: Props) {
     setCreateError('')
     try {
       const json = await App.GetScriptConfig(editModel.originalName)
-      const config: FioConfig = json ? { ...JSON.parse(json), description: newDesc || undefined } : { ...DEFAULT_CONFIG, description: newDesc || undefined, jobs: [] }
+      const parsed = json ? JSON.parse(json) : { ...DEFAULT_CONFIG, jobs: [] }
+      const config = ensureConfig({ ...parsed, description: newDesc || undefined })
       if (newName !== editModel.originalName) {
         await App.DeleteScriptConfig(editModel.originalName)
         await App.SaveScriptConfig(newName, JSON.stringify(config))
@@ -186,7 +187,10 @@ export function ScriptManager({ onAudit }: Props) {
     const newCfg = { ...cfg, jobs: newJobs }
     setCfg(newCfg)
     if (editIdx === idx) resetForm()
-    else if (editIdx !== null && editIdx > idx) setEditIdx(editIdx - 1)
+    else if (editIdx !== null && editIdx > idx) {
+      setEditIdx(editIdx - 1)
+      setEditJob({ ...cfg.jobs[editIdx] })
+    }
     saveConfig(selectedModel, newCfg).catch(() => { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000) })
   }
 
@@ -209,6 +213,7 @@ export function ScriptManager({ onAudit }: Props) {
 
   const addJob = async () => {
     if (!canAdd || !selectedModel) return
+    if (!editJob.bs || editJob.bs < 1) { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000); return }
     const newJobs = [...cfg.jobs, { ...editJob }]
     const newCfg = { ...cfg, jobs: newJobs }
     setCfg(newCfg)
@@ -218,6 +223,7 @@ export function ScriptManager({ onAudit }: Props) {
 
   const saveEditedJob = async () => {
     if (editIdx === null || editIdx < 0 || editIdx >= cfg.jobs.length || !selectedModel) return
+    if (!editJob.bs || editJob.bs < 1) { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000); return }
     const newJobs = [...cfg.jobs]
     newJobs[editIdx] = { ...editJob }
     const newCfg = { ...cfg, jobs: newJobs }

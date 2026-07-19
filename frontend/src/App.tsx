@@ -11,7 +11,6 @@ import { AnalysisView } from './components/AnalysisView'
 import { SystemSettings } from './components/SystemSettings'
 import { Modal } from './components/Modal'
 import { useModal } from './hooks/useModal'
-import { generateFioText } from './utils/fioGenerator'
 import * as WailsApp from './wailsjs/go/app/App'
 
 const DEFAULT_CONFIG: FioConfig = {

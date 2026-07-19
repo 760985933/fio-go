@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { FioConfig } from '../types'
 import { generateFioText } from '../utils/fioGenerator'
 import { ensureConfig } from '../utils/config'
@@ -12,6 +12,8 @@ interface Props {
 export function PreviewModal({ name, onClose }: Props) {
   const [config, setConfig] = useState<FioConfig | null>(null)
 
+  const taskKey = useMemo(() => `task_${Date.now()}`, [])
+
   useEffect(() => {
     App.GetScriptConfig(name).then(json => {
       if (json) {
@@ -22,7 +24,6 @@ export function PreviewModal({ name, onClose }: Props) {
 
   if (!config) return null
 
-  const taskKey = `task_${Date.now()}`
   const scriptName = `${name}.fio`
   const taskDir = `/tmp/fio/tasks/${taskKey}`
   const remoteScriptPath = `${taskDir}/${scriptName}`
