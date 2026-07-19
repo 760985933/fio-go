@@ -27,11 +27,18 @@ import (
 var frontendFS embed.FS
 
 const (
-	auditLogFile    = "data/audit.log"
 	defaultTaskName = "默认执行任务"
 	taskDataRoot    = "data/tasks"
 	taskReportRoot  = "output/tasks"
 )
+
+func auditLogFile() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join("data", "audit.log")
+	}
+	return filepath.Join(home, ".fio-gui", "audit.log")
+}
 
 type executionTaskConfig struct {
 	ID      string                `json:"id"`
@@ -977,11 +984,11 @@ func handleOrchestrationConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleAuditLog(w http.ResponseWriter, r *http.Request) {
-	os.MkdirAll("data", 0755)
+	os.MkdirAll(filepath.Dir(auditLogFile()), 0755)
 
 	switch r.Method {
 	case http.MethodGet:
-		content, err := os.ReadFile(auditLogFile)
+		content, err := os.ReadFile(auditLogFile())
 		if err != nil {
 			if os.IsNotExist(err) {
 				// Return empty array if file doesn't exist
@@ -1027,7 +1034,7 @@ func handleAuditLog(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		f, err := os.OpenFile(auditLogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		f, err := os.OpenFile(auditLogFile(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

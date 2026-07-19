@@ -720,7 +720,11 @@ type AuditEntry struct {
 }
 
 func auditLogFile() string {
-	return filepath.Join("data", "audit.log")
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join("data", "audit.log")
+	}
+	return filepath.Join(home, ".fio-gui", "audit.log")
 }
 
 // GetAuditLog 获取审计日志
@@ -750,7 +754,7 @@ func (a *App) GetAuditLog() ([]AuditEntry, error) {
 
 // AddAuditLog 添加审计日志条目
 func (a *App) AddAuditLog(action, details string) error {
-	if err := os.MkdirAll("data", 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(auditLogFile()), 0755); err != nil {
 		return err
 	}
 
