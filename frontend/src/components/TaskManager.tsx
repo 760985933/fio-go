@@ -103,7 +103,9 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
   }
 
   const executeDeploy = async (task: ExecutionTaskConfig) => {
+    const key = `deploy:${task.id}`
     setExecuting(true)
+    setLoadingAction(key)
     setCurrentTask(task.id)
     onAudit('开始部署', `任务: ${task.id}`)
 
@@ -138,6 +140,7 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
       await onShowResults('执行异常', `错误: ${err}`)
     } finally {
       setExecuting(false)
+      setLoadingAction('')
       setCurrentTask('')
     }
   }
@@ -349,7 +352,7 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
                           {loadingAction === pfx('preCheck') ? '检查中...' : '预检查'}
                         </button>
                         <button className="btn btn-primary btn-sm" onClick={() => executeDeploy(task)} disabled={busy}>
-                          {currentTask === task.id ? '执行中...' : '执行'}
+                          {loadingAction === pfx('deploy') ? '执行中...' : '执行'}
                         </button>
                         <button className="btn btn-outline btn-sm" onClick={() => checkStatus(task)} disabled={busy}>
                           {loadingAction === pfx('status') ? '查询中...' : '状态'}
