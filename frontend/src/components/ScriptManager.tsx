@@ -63,6 +63,7 @@ export function ScriptManager({ onAudit }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<{ name: string; type: 'model' | 'job'; idx?: number } | null>(null)
   const [previewModel, setPreviewModel] = useState<string | null>(null)
   const [editModel, setEditModel] = useState<{ name: string; desc: string; originalName: string } | null>(null)
+  const [bsCustom, setBsCustom] = useState(false)
 
   const loadModels = useCallback(async () => {
     try {
@@ -370,18 +371,30 @@ export function ScriptManager({ onAudit }: Props) {
             <hr style={{ margin: '12px 0', border: 'none', borderTop: '1px solid var(--border)' }} />
 
             <div style={{ marginBottom: 8 }}>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4, display: 'block' }}>块大小(bs)(KB)</label>
-              <div className="preset-group" style={{ marginBottom: 6 }}>
-                {BS_PRESETS.map(bs => (
-                  <button key={bs} className={`btn btn-sm ${editJob.bs === bs ? 'btn-primary' : 'btn-outline'}`}
-                    onClick={() => updateEditJob({ bs })}>
-                    {bsLabel(bs)}
-                  </button>
-                ))}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                <label style={{ fontSize: 12, color: 'var(--text-secondary)' }}>块大小(bs)(KB)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+                  <span style={{ opacity: bsCustom ? 0.4 : 1 }}>预设</span>
+                  <div onClick={() => setBsCustom(!bsCustom)} style={{ width: 32, height: 18, borderRadius: 9, background: bsCustom ? 'var(--primary)' : 'var(--border)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
+                    <div style={{ width: 14, height: 14, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: bsCustom ? 16 : 2, transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.15)' }} />
+                  </div>
+                  <span style={{ opacity: bsCustom ? 1 : 0.4 }}>自定义</span>
+                </div>
               </div>
-              <input type="number" value={editJob.bs || ''} min={1} placeholder="4"
-                onChange={(e) => { const v = e.target.value; updateEditJob({ bs: v === '' ? 4 : (parseInt(v) || 4) }) }}
-                style={{ width: 100, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'var(--panel)', color: 'var(--text)', textAlign: 'center' }} />
+              {!bsCustom ? (
+                <div className="preset-group">
+                  {BS_PRESETS.map(bs => (
+                    <button key={bs} className={`btn btn-sm ${editJob.bs === bs ? 'btn-primary' : 'btn-outline'}`}
+                      onClick={() => updateEditJob({ bs })}>
+                      {bsLabel(bs)}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <input type="number" value={editJob.bs || ''} min={1} placeholder="输入 KB 数值"
+                  onChange={(e) => { const v = e.target.value; if (v === '') { setEditJob(prev => ({ ...prev, bs: 0 })) } else { const n = parseInt(v); if (!isNaN(n) && n > 0) setEditJob(prev => ({ ...prev, bs: n })) } }}
+                  style={{ width: 160, padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'var(--panel)', color: 'var(--text)' }} />
+              )}
             </div>
 
             <div className="form-row">
