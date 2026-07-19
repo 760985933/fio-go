@@ -14,6 +14,7 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
   const [executing, setExecuting] = useState(false)
   const [currentTask, setCurrentTask] = useState<string>('')
   const [checkResults, setCheckResults] = useState<CheckResult[]>([])
+  const [loadingAction, setLoadingAction] = useState<string>('')
 
   const [showCreate, setShowCreate] = useState(false)
   const [newTaskName, setNewTaskName] = useState('')
@@ -70,24 +71,34 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
     setNewTaskHostIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
   }
 
-  const removeTask = (idx: number) => {
-    const newTasks = executionTasks.filter((_, i) => i !== idx)
-    setExecutionTasks(newTasks)
-    App.SaveExecutionTasks(newTasks).catch(() => {})
+  const removeTask = async (idx: number) => {
+    const task = executionTasks[idx]
+    const key = `remove:${task.id}`
+    try {
+      setLoadingAction(key)
+      const newTasks = executionTasks.filter((_, i) => i !== idx)
+      setExecutionTasks(newTasks)
+      await App.SaveExecutionTasks(newTasks)
+    } finally {
+      setLoadingAction('')
+    }
   }
 
   const preCheck = async (task: ExecutionTaskConfig) => {
+    const key = `preCheck:${task.id}`
     try {
+      setLoadingAction(key)
       setCurrentTask(task.id)
       const results = await App.PreDeployCheck(task.id, task.hosts)
       setCheckResults(results)
       await onShowResults('预检查结果',
         results.map((r: CheckResult) => `${r.host}: ${r.running ? '⚠ 有运行中的FIO' : r.msg.startsWith('连接失败') ? '✗ 连接失败' : '✓ 空闲'}${r.residual ? ' | 有残留数据' : ''}${r.msg ? '\n  ' + r.msg : ''}`).join('\n\n')
       )
-      setCurrentTask('')
     } catch (err) {
       await onShowResults('预检查失败', `错误: ${err}`)
+    } finally {
       setCurrentTask('')
+      setLoadingAction('')
     }
   }
 
@@ -132,7 +143,9 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
   }
 
   const killTask = async (task: ExecutionTaskConfig) => {
+    const key = `kill:${task.id}`
     try {
+      setLoadingAction(key)
       const results = await App.KillAll(task.id, task.hosts)
       onAudit('停止任务', `任务: ${task.id}`)
       await onShowResults('停止结果',
@@ -142,20 +155,27 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
       await onShowResults('停止失败', `错误: ${err}`)
     } finally {
       setCheckResults([])
+      setLoadingAction('')
     }
   }
 
   const viewLogs = async (task: ExecutionTaskConfig) => {
+    const key = `logs:${task.id}`
     try {
+      setLoadingAction(key)
       const log = await App.GetExecutionLog(task.id)
       await onShowResults(`执行日志 - ${task.id}`, log || '暂无日志')
     } catch (err) {
       await onShowResults('日志加载失败', `错误: ${err}`)
+    } finally {
+      setLoadingAction('')
     }
   }
 
   const viewHostLogs = async (task: ExecutionTaskConfig) => {
+    const key = `hostLogs:${task.id}`
     try {
+      setLoadingAction(key)
       const results: string[] = []
       for (const host of task.hosts) {
         const log = await App.GetHostLog(task.id, `${host.user}@${host.host}:${host.port}`)
@@ -164,32 +184,44 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
       await onShowResults(`单机日志 - ${task.id}`, results.join('\n\n'))
     } catch (err) {
       await onShowResults('日志加载失败', `错误: ${err}`)
+    } finally {
+      setLoadingAction('')
     }
   }
 
   const checkStatus = async (task: ExecutionTaskConfig) => {
+    const key = `status:${task.id}`
     try {
+      setLoadingAction(key)
       const results = await App.CheckStatus(task.id, task.hosts)
       await onShowResults('运行状态',
         results.map((r: ActionResult) => `${r.host}: ${r.msg || (r.error ? '错误: ' + r.error : '未知')}`).join('\n')
       )
     } catch (err) {
       await onShowResults('状态查询失败', `错误: ${err}`)
+    } finally {
+      setLoadingAction('')
     }
   }
 
   const cleanLocal = async (task: ExecutionTaskConfig) => {
+    const key = `cleanLocal:${task.id}`
     try {
+      setLoadingAction(key)
       await App.CleanLocal(task.id)
       onAudit('清理本地数据', `任务: ${task.id}`)
       await onShowResults('清理完成', `已清理本地任务数据: ${task.id}`)
     } catch (err) {
       await onShowResults('清理失败', `错误: ${err}`)
+    } finally {
+      setLoadingAction('')
     }
   }
 
   const cleanRemote = async (task: ExecutionTaskConfig) => {
+    const key = `cleanRemote:${task.id}`
     try {
+      setLoadingAction(key)
       const results = await App.CleanRemote(task.id, task.hosts)
       onAudit('清理远程数据', `任务: ${task.id}`)
       await onShowResults('清理远程结果',
@@ -197,6 +229,8 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
       )
     } catch (err) {
       await onShowResults('清理失败', `错误: ${err}`)
+    } finally {
+      setLoadingAction('')
     }
   }
 
@@ -306,17 +340,39 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
               <div className="card-header">
                 <span className="card-title">{task.name} ({(task.scripts || []).length} 脚本, {(task.hosts || []).length} 主机)</span>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  <button className="btn btn-outline btn-sm" onClick={() => preCheck(task)} disabled={executing}>预检查</button>
-                  <button className="btn btn-primary btn-sm" onClick={() => executeDeploy(task)} disabled={executing}>
-                    {currentTask === task.id ? '执行中...' : '执行'}
-                  </button>
-                  <button className="btn btn-outline btn-sm" onClick={() => checkStatus(task)} disabled={executing}>状态</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => killTask(task)}>停止</button>
-                  <button className="btn btn-outline btn-sm" onClick={() => viewLogs(task)}>日志</button>
-                  <button className="btn btn-outline btn-sm" onClick={() => viewHostLogs(task)}>单机日志</button>
-                  <button className="btn btn-outline btn-sm" onClick={() => cleanLocal(task)}>清理本地</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => cleanRemote(task)}>清理远程</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => removeTask(idx)}>删除</button>
+                  {(() => {
+                    const busy = executing || !!loadingAction
+                    const pfx = (action: string) => `${action}:${task.id}`
+                    return (
+                      <>
+                        <button className="btn btn-outline btn-sm" onClick={() => preCheck(task)} disabled={busy}>
+                          {loadingAction === pfx('preCheck') ? '检查中...' : '预检查'}
+                        </button>
+                        <button className="btn btn-primary btn-sm" onClick={() => executeDeploy(task)} disabled={busy}>
+                          {currentTask === task.id ? '执行中...' : '执行'}
+                        </button>
+                        <button className="btn btn-outline btn-sm" onClick={() => checkStatus(task)} disabled={busy}>
+                          {loadingAction === pfx('status') ? '查询中...' : '状态'}
+                        </button>
+                        <button className="btn btn-danger btn-sm" onClick={() => killTask(task)} disabled={busy}>
+                          {loadingAction === pfx('kill') ? '停止中...' : '停止'}
+                        </button>
+                        <button className="btn btn-outline btn-sm" onClick={() => viewLogs(task)} disabled={busy}>
+                          {loadingAction === pfx('logs') ? '加载中...' : '日志'}
+                        </button>
+                        <button className="btn btn-outline btn-sm" onClick={() => viewHostLogs(task)} disabled={busy}>
+                          {loadingAction === pfx('hostLogs') ? '加载中...' : '单机日志'}
+                        </button>
+                        <button className="btn btn-outline btn-sm" onClick={() => cleanLocal(task)} disabled={busy}>
+                          {loadingAction === pfx('cleanLocal') ? '清理中...' : '清理本地'}
+                        </button>
+                        <button className="btn btn-danger btn-sm" onClick={() => cleanRemote(task)} disabled={busy}>
+                          {loadingAction === pfx('cleanRemote') ? '清理中...' : '清理远程'}
+                        </button>
+                        <button className="btn btn-danger btn-sm" onClick={() => removeTask(idx)} disabled={busy}>删除</button>
+                      </>
+                    )
+                  })()}
                 </div>
               </div>
               {checkResults.length > 0 && currentTask === task.id && (
