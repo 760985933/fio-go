@@ -34,10 +34,14 @@ func NewApp() *App {
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 	db, err := openDB()
-	if err == nil {
-		initDB(db)
-		a.db = db
+	if err != nil {
+		return
 	}
+	if err := initDB(db); err != nil {
+		db.Close()
+		return
+	}
+	a.db = db
 }
 
 // Shutdown 在应用关闭时调用

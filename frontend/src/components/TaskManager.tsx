@@ -44,7 +44,7 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
     setShowCreate(true)
   }
 
-  const confirmCreate = () => {
+  const confirmCreate = async () => {
     if (newTaskScripts.length === 0) return
     const selectedHosts = hosts.filter(h => newTaskHostIds.includes(h.id))
     if (selectedHosts.length === 0) return
@@ -58,7 +58,11 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
     }
     const newTasks = [...executionTasks, task]
     setExecutionTasks(newTasks)
-    App.SaveExecutionTasks(newTasks).catch(() => {})
+    try {
+      await App.SaveExecutionTasks(newTasks)
+    } catch {
+      setExecutionTasks(executionTasks)
+    }
     onAudit('添加执行任务', `任务: ${name}, 脚本: ${newTaskScripts.length}个, 主机: ${selectedHosts.length}台`)
     setShowCreate(false)
   }

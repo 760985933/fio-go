@@ -188,12 +188,18 @@ func dbSaveExecutionTasks(db *sql.DB, tasks []ExecutionTaskConfig) error {
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec(`DELETE FROM execution_tasks`)
+	tx, err := db.Begin()
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec(`INSERT INTO execution_tasks (name, data) VALUES (?, ?)`, "_all_", string(data))
-	return err
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM execution_tasks`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`INSERT INTO execution_tasks (name, data) VALUES (?, ?)`, "_all_", string(data)); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func dbGetExecutionTasks(db *sql.DB) ([]ExecutionTaskConfig, error) {
