@@ -2,6 +2,7 @@ package app
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -59,6 +60,16 @@ func initDB(db *sql.DB) error {
 		CREATE TABLE IF NOT EXISTS script_configs (
 			script_name TEXT PRIMARY KEY,
 			config      TEXT NOT NULL
+		)
+	`)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS execution_tasks (
+			id   INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			data TEXT NOT NULL
 		)
 	`)
 	return err
@@ -158,4 +169,33 @@ func dbGetAllScriptNames(db *sql.DB) ([]string, error) {
 		names = append(names, n)
 	}
 	return names, rows.Err()
+}
+
+func dbSaveExecutionTasks(db *sql.DB, tasks []ExecutionTaskConfig) error {
+	data, err := json.Marshal(tasks)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`DELETE FROM execution_tasks`)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`INSERT INTO execution_tasks (name, data) VALUES (?, ?)`, "_all_", string(data))
+	return err
+}
+
+func dbGetExecutionTasks(db *sql.DB) ([]ExecutionTaskConfig, error) {
+	var data string
+	err := db.QueryRow(`SELECT data FROM execution_tasks WHERE name = ?`, "_all_").Scan(&data)
+	if err == sql.ErrNoRows {
+		return []ExecutionTaskConfig{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var tasks []ExecutionTaskConfig
+	if err := json.Unmarshal([]byte(data), &tasks); err != nil {
+		return nil, err
+	}
+	return tasks, nil
 }

@@ -2,6 +2,7 @@ package web
 
 import (
 	"archive/zip"
+	"database/sql"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -18,13 +19,14 @@ import (
 	"fio-go/internal/executor"
 	"fio-go/internal/parser"
 	"fio-go/internal/report"
+
+	_ "modernc.org/sqlite"
 )
 
 //go:embed frontend/*
 var frontendFS embed.FS
 
 const (
-	executionTasksFile      = "scripts/execution_tasks.json"
 	orchestrationConfigFile = "scripts/orchestration_config.json"
 	auditLogFile            = "data/audit.log"
 	defaultTaskName         = "默认执行任务"
@@ -89,6 +91,20 @@ func StartServer(port int) error {
 	addr := fmt.Sprintf(":%d", port)
 	log.Printf("[INFO] Starting GUI server at http://localhost%s\n", addr)
 	return http.ListenAndServe(addr, mux)
+}
+
+func openWebDB() (*sql.DB, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+	dbPath := filepath.Join(home, ".fio-gui", "hosts.db")
+	db, err := sql.Open("sqlite", dbPath+"?_journal_mode=WAL&_busy_timeout=5000")
+	if err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(1)
+	return db, nil
 }
 
 
@@ -343,44 +359,51 @@ func downloadEcharts(destPath string) error {
 }
 
 func readExecutionTasks() ([]executionTaskConfig, error) {
-	content, err := os.ReadFile(executionTasksFile)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-		return []executionTaskConfig{}, nil
-	}
-
-	var payload executionTasksPayload
-	err = json.Unmarshal(content, &payload)
+	db, err := openWebDB()
 	if err != nil {
 		return nil, err
 	}
+	defer db.Close()
 
-	tasks := make([]executionTaskConfig, 0, len(payload.Tasks))
-	for idx, task := range payload.Tasks {
-		normalized := normalizeExecutionTask(task, idx)
-		tasks = append(tasks, normalized)
+	var data string
+	err = db.QueryRow(`SELECT data FROM execution_tasks WHERE name = ?`, "_all_").Scan(&data)
+	if err == sql.ErrNoRows {
+		return []executionTaskConfig{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var tasks []executionTaskConfig
+	if err := json.Unmarshal([]byte(data), &tasks); err != nil {
+		return nil, err
+	}
+	for idx := range tasks {
+		tasks[idx] = normalizeExecutionTask(tasks[idx], idx)
 	}
 	return tasks, nil
 }
 
 func writeExecutionTasks(tasks []executionTaskConfig) error {
-	if err := os.MkdirAll("scripts", 0755); err != nil {
-		return err
-	}
-
-	normalizedTasks := make([]executionTaskConfig, 0, len(tasks))
-	for idx, task := range tasks {
-		normalized := normalizeExecutionTask(task, idx)
-		normalizedTasks = append(normalizedTasks, normalized)
-	}
-
-	data, err := json.MarshalIndent(executionTasksPayload{Tasks: normalizedTasks}, "", "  ")
+	db, err := openWebDB()
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(executionTasksFile, data, 0600)
+	defer db.Close()
+
+	normalizedTasks := make([]executionTaskConfig, 0, len(tasks))
+	for idx, task := range tasks {
+		normalizedTasks = append(normalizedTasks, normalizeExecutionTask(task, idx))
+	}
+	data, err := json.Marshal(normalizedTasks)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`DELETE FROM execution_tasks`)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`INSERT INTO execution_tasks (name, data) VALUES (?, ?)`, "_all_", string(data))
+	return err
 }
 
 func handleExecutionTasks(w http.ResponseWriter, r *http.Request) {

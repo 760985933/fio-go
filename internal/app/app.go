@@ -156,10 +156,6 @@ type ExecutionTasksPayload struct {
 	Tasks []ExecutionTaskConfig `json:"tasks"`
 }
 
-func executionTasksFile() string {
-	return filepath.Join("scripts", "execution_tasks.json")
-}
-
 var taskNameSanitizer = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 
 func sanitizeTaskID(taskID string) string {
@@ -209,42 +205,23 @@ func normalizeExecutionTask(task ExecutionTaskConfig, idx int) ExecutionTaskConf
 
 // GetExecutionTasks 获取所有执行任务
 func (a *App) GetExecutionTasks() ([]ExecutionTaskConfig, error) {
-	data, err := os.ReadFile(executionTasksFile())
+	tasks, err := dbGetExecutionTasks(a.db)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return []ExecutionTaskConfig{}, nil
-		}
 		return nil, err
 	}
-
-	var payload ExecutionTasksPayload
-	if err := json.Unmarshal(data, &payload); err != nil {
-		return nil, err
-	}
-
-	tasks := make([]ExecutionTaskConfig, 0, len(payload.Tasks))
-	for idx, task := range payload.Tasks {
-		tasks = append(tasks, normalizeExecutionTask(task, idx))
+	for idx := range tasks {
+		tasks[idx] = normalizeExecutionTask(tasks[idx], idx)
 	}
 	return tasks, nil
 }
 
 // SaveExecutionTasks 保存执行任务配置
 func (a *App) SaveExecutionTasks(tasks []ExecutionTaskConfig) error {
-	if err := os.MkdirAll("scripts", 0755); err != nil {
-		return err
-	}
-
 	normalizedTasks := make([]ExecutionTaskConfig, 0, len(tasks))
 	for idx, task := range tasks {
 		normalizedTasks = append(normalizedTasks, normalizeExecutionTask(task, idx))
 	}
-
-	data, err := json.MarshalIndent(ExecutionTasksPayload{Tasks: normalizedTasks}, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(executionTasksFile(), data, 0600)
+	return dbSaveExecutionTasks(a.db, normalizedTasks)
 }
 
 // ========== 执行操作 ==========
