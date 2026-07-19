@@ -47,6 +47,12 @@ function isValidModelName(name: string): boolean {
   return /^[a-zA-Z0-9_-]+$/.test(name)
 }
 
+function numVal(v: string, fallback: number): number {
+  if (v === '') return fallback
+  const n = parseInt(v)
+  return isNaN(n) ? fallback : n
+}
+
 export function ScriptManager({ onAudit }: Props) {
   const [models, setModels] = useState<string[]>([])
   const [selectedModel, setSelectedModel] = useState<string | null>(null)
@@ -366,11 +372,11 @@ export function ScriptManager({ onAudit }: Props) {
             <div className="form-row">
               <div className="form-group" style={{ flex: '0 0 100px' }}>
                 <label>运行时间(runtime)(秒)</label>
-                <input type="number" value={cfg.global.runtime} onChange={(e) => updateGlobal('runtime', parseInt(e.target.value) || 0)} />
+                <input type="number" value={cfg.global.runtime || ''} onChange={(e) => updateGlobal('runtime', numVal(e.target.value, 0))} />
               </div>
               <div className="form-group" style={{ flex: '0 0 100px' }}>
                 <label>预热时间(ramp_time)(秒)</label>
-                <input type="number" value={cfg.global.ramp_time} onChange={(e) => updateGlobal('ramp_time', parseInt(e.target.value) || 0)} />
+                <input type="number" value={cfg.global.ramp_time || ''} onChange={(e) => updateGlobal('ramp_time', numVal(e.target.value, 0))} />
               </div>
             </div>
 
@@ -408,18 +414,18 @@ export function ScriptManager({ onAudit }: Props) {
                 <div className="form-group">
                   <label>读占比(rwmixread)(%)</label>
                   <input type="number" min={0} max={100} value={editJob.rwmixread ?? 70}
-                    onChange={(e) => updateEditJob({ rwmixread: parseInt(e.target.value) || 70 })} />
+                    onChange={(e) => updateEditJob({ rwmixread: numVal(e.target.value, 70) })} />
                 </div>
               )}
               <div className="form-group">
                 <label>队列深度(iodepth)</label>
-                <input type="number" value={editJob.iodepth}
-                  onChange={(e) => updateEditJob({ iodepth: parseInt(e.target.value) || 1 })} />
+                <input type="number" value={editJob.iodepth || ''}
+                  onChange={(e) => updateEditJob({ iodepth: numVal(e.target.value, 1) })} />
               </div>
               <div className="form-group">
                 <label>并发数(numjobs)</label>
-                <input type="number" value={editJob.numjobs}
-                  onChange={(e) => updateEditJob({ numjobs: parseInt(e.target.value) || 1 })} />
+                <input type="number" value={editJob.numjobs || ''}
+                  onChange={(e) => updateEditJob({ numjobs: numVal(e.target.value, 1) })} />
               </div>
             </div>
 
@@ -466,18 +472,18 @@ export function ScriptManager({ onAudit }: Props) {
                   <div className="form-row" style={{ marginTop: 8 }}>
                     <div className="form-group">
                       <label>同步频率(fsync)</label>
-                      <input type="number" value={editJob.fsync ?? 0} placeholder="0=关闭"
-                        onChange={(e) => updateEditJob({ fsync: parseInt(e.target.value) || 0 })} />
+                      <input type="number" value={editJob.fsync || ''} placeholder="0=关闭"
+                        onChange={(e) => updateEditJob({ fsync: numVal(e.target.value, 0) })} />
                     </div>
                     <div className="form-group">
                       <label>批处理(iodepth_batch)</label>
-                      <input type="number" value={editJob.iodepth_batch ?? 0} placeholder="0=自动"
-                        onChange={(e) => updateEditJob({ iodepth_batch: parseInt(e.target.value) || 0 })} />
+                      <input type="number" value={editJob.iodepth_batch || ''} placeholder="0=自动"
+                        onChange={(e) => updateEditJob({ iodepth_batch: numVal(e.target.value, 0) })} />
                     </div>
                     <div className="form-group">
                       <label>限速(rate_iops)(IOPS)</label>
-                      <input type="number" value={editJob.rate_iops ?? 0} placeholder="0=不限"
-                        onChange={(e) => updateEditJob({ rate_iops: parseInt(e.target.value) || 0 })} />
+                      <input type="number" value={editJob.rate_iops || ''} placeholder="0=不限"
+                        onChange={(e) => updateEditJob({ rate_iops: numVal(e.target.value, 0) })} />
                     </div>
                   </div>
                 </div>
