@@ -52,6 +52,9 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Clean go build cache
+        run: go clean -cache
+
       - name: Build macOS universal
         run: |
           wails build -platform darwin/universal -trimpath -ldflags="-s -w" -o fio-gui
