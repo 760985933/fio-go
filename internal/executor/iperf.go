@@ -98,12 +98,12 @@ func StartIperfServer(hostCfg HostConfig, port int, bindIP string) ExecutionResu
 
 	client, err := NewSSHClient(normalized)
 	if err != nil {
-		res.Error = err
+		res.Error = err.Error()
 		return res
 	}
 	defer client.Close()
 
-	stopCmd := fmt.Sprintf("pkill -f 'iperf3 -s -p %d' 2>/dev/null; sleep 0.5", port)
+	stopCmd := fmt.Sprintf("pkill -f '[i]perf3 -s -p %d' 2>/dev/null; sleep 0.5", port)
 	client.RunCommand(stopCmd)
 
 	bindFlag := ""
@@ -113,12 +113,12 @@ func StartIperfServer(hostCfg HostConfig, port int, bindIP string) ExecutionResu
 	cmd := fmt.Sprintf("nohup iperf3 -s -p %d%s > /tmp/iperf_server_%d.log 2>&1 & echo $!", port, bindFlag, port)
 	out, err := client.RunCommand(cmd)
 	if err != nil {
-		res.Error = fmt.Errorf("failed to start iperf3 server: %v", err)
+		res.Error = fmt.Sprintf("failed to start iperf3 server: %v", err)
 		return res
 	}
 	pid := strings.TrimSpace(out)
 	if pid == "" {
-		res.Error = fmt.Errorf("iperf3 server may not have started")
+		res.Error = fmt.Sprintf("iperf3 server may not have started")
 		return res
 	}
 
@@ -126,7 +126,7 @@ func StartIperfServer(hostCfg HostConfig, port int, bindIP string) ExecutionResu
 	checkCmd := fmt.Sprintf("ps -p %s >/dev/null 2>&1 && echo Running || echo NotRunning", pid)
 	checkOut, _ := client.RunCommand(checkCmd)
 	if strings.TrimSpace(checkOut) != "Running" {
-		res.Error = fmt.Errorf("iperf3 server process not running after start")
+		res.Error = fmt.Sprintf("iperf3 server process not running after start")
 		return res
 	}
 
@@ -140,15 +140,15 @@ func StopIperfServer(hostCfg HostConfig, port int) ExecutionResult {
 
 	client, err := NewSSHClient(normalized)
 	if err != nil {
-		res.Error = err
+		res.Error = err.Error()
 		return res
 	}
 	defer client.Close()
 
-	cmd := fmt.Sprintf("pkill -f 'iperf3 -s -p %d' 2>/dev/null && echo Stopped || echo NotRunning", port)
+	cmd := fmt.Sprintf("pkill -f '[i]perf3 -s -p %d' 2>/dev/null && echo Stopped || echo NotRunning", port)
 	out, err := client.RunCommand(cmd)
 	if err != nil {
-		res.Error = err
+		res.Error = err.Error()
 		return res
 	}
 	res.Msg = strings.TrimSpace(out)
@@ -217,7 +217,7 @@ func CheckIperfInstalled(hosts []HostConfig) []ExecutionResult {
 
 			client, err := NewSSHClient(hostCfg)
 			if err != nil {
-				res.Error = err
+				res.Error = err.Error()
 				results[idx] = res
 				return
 			}
@@ -225,11 +225,15 @@ func CheckIperfInstalled(hosts []HostConfig) []ExecutionResult {
 
 			out, err := client.RunCommand("iperf3 --version 2>/dev/null || echo MISSING")
 			if err != nil {
-				res.Error = err
+				res.Error = err.Error()
 				results[idx] = res
 				return
 			}
 			res.Msg = strings.TrimSpace(out)
+			// `|| echo MISSING` 会保证命令退出码为 0，因此必须通过输出判断是否真正安装
+			if strings.Contains(strings.ToLower(res.Msg), "missing") {
+				res.Error = "iperf3 未安装（命令不存在）"
+			}
 			results[idx] = res
 		}(i, host)
 	}
@@ -244,12 +248,12 @@ func CheckIperfServerRunning(hostCfg HostConfig, port int) ExecutionResult {
 
 	client, err := NewSSHClient(normalized)
 	if err != nil {
-		res.Error = err
+		res.Error = err.Error()
 		return res
 	}
 	defer client.Close()
 
-	cmd := fmt.Sprintf("pgrep -f 'iperf3 -s -p %d' >/dev/null 2>&1 && echo Running || echo NotRunning", port)
+	cmd := fmt.Sprintf("pgrep -f '[i]perf3 -s -p %d' >/dev/null 2>&1 && echo Running || echo NotRunning", port)
 	out, _ := client.RunCommand(cmd)
 	res.Msg = strings.TrimSpace(out)
 	res.Running = res.Msg == "Running"
@@ -268,7 +272,7 @@ func KillIperfClient(taskKey string, hosts []HostConfig) []ExecutionResult {
 
 			client, err := NewSSHClient(hostCfg)
 			if err != nil {
-				res.Error = err
+				res.Error = err.Error()
 				results[idx] = res
 				return
 			}
@@ -298,7 +302,7 @@ func PullIperfData(taskKey string, hosts []HostConfig, localBaseDir string) []Ex
 
 			client, err := NewSSHClient(hostCfg)
 			if err != nil {
-				res.Error = err
+				res.Error = err.Error()
 				results[idx] = res
 				return
 			}
@@ -308,14 +312,14 @@ func PullIperfData(taskKey string, hosts []HostConfig, localBaseDir string) []Ex
 			hostDir := filepath.Join(localBaseDir, sanitizeLocalName(res.Host))
 			dataLocal := filepath.Join(hostDir, "data")
 			if mkErr := os.MkdirAll(dataLocal, 0755); mkErr != nil {
-				res.Error = fmt.Errorf("failed to create local dir: %v", mkErr)
+				res.Error = fmt.Sprintf("failed to create local dir: %v", mkErr)
 				results[idx] = res
 				return
 			}
 
 			dataCount, dataErr := downloadRemoteDir(client, dataDir, dataLocal)
 			if dataErr != nil {
-				res.Error = fmt.Errorf("failed to read remote data dir: %v", dataErr)
+				res.Error = fmt.Sprintf("failed to read remote data dir: %v", dataErr)
 				results[idx] = res
 				return
 			}
@@ -341,7 +345,7 @@ func CheckIperfStatus(taskKey string, hosts []HostConfig) []ExecutionResult {
 
 			client, err := NewSSHClient(hostCfg)
 			if err != nil {
-				res.Error = err
+				res.Error = err.Error()
 				results[idx] = res
 				return
 			}
@@ -375,7 +379,7 @@ func CleanIperfRemote(taskKey string, hosts []HostConfig) []ExecutionResult {
 
 			client, err := NewSSHClient(hostCfg)
 			if err != nil {
-				res.Error = err
+				res.Error = err.Error()
 				results[idx] = res
 				return
 			}

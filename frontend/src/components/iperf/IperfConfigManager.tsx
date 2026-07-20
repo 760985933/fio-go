@@ -206,11 +206,11 @@ export function IperfConfigManager({ onAudit }: Props) {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
               <div className="form-group">
-                <label>服务器测试 IP (-c)</label>
+                <label>服务端测试 IP (-c)</label>
                 <input value={editing.serverTestIP} placeholder="留空则使用主机登录 IP" onChange={e => updateField('serverTestIP', e.target.value)} />
               </div>
               <div className="form-group">
-                <label>服务器监听 IP (-B)</label>
+                <label>服务端监听 IP (-B)</label>
                 <input value={editing.serverBindIP} placeholder="留空则监听所有网卡" onChange={e => updateField('serverBindIP', e.target.value)} />
               </div>
             </div>

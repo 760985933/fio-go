@@ -14,10 +14,10 @@ import (
 const baseFioDir = "/tmp/fio"
 
 type ExecutionResult struct {
-	Host    string
-	Error   error
-	Msg     string
-	Running bool
+	Host    string `json:"host"`
+	Error   string `json:"error,omitempty"`
+	Msg     string `json:"msg"`
+	Running bool   `json:"running"`
 }
 
 var taskKeySanitizer = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
@@ -118,7 +118,7 @@ func DeployAndRun(taskKey string, hosts []HostConfig, scriptName string, scriptC
 
 			client, err := NewSSHClient(hostCfg)
 			if err != nil {
-				res.Error = err
+				res.Error = err.Error()
 				results[idx] = res
 				return
 			}
@@ -129,7 +129,7 @@ func DeployAndRun(taskKey string, hosts []HostConfig, scriptName string, scriptC
 			// 1. Create directories
 			_, err = client.RunCommand(fmt.Sprintf("mkdir -p %s %s %s", taskDir, dataDir, logsDir))
 			if err != nil {
-				res.Error = fmt.Errorf("failed to create dirs: %v", err)
+				res.Error = fmt.Sprintf("failed to create dirs: %v", err)
 				results[idx] = res
 				return
 			}
@@ -138,14 +138,14 @@ func DeployAndRun(taskKey string, hosts []HostConfig, scriptName string, scriptC
 			remoteScriptPath := filepath.Join(taskDir, scriptName)
 			f, err := client.SFTP.Create(remoteScriptPath)
 			if err != nil {
-				res.Error = fmt.Errorf("failed to create remote script file: %v", err)
+				res.Error = fmt.Sprintf("failed to create remote script file: %v", err)
 				results[idx] = res
 				return
 			}
 			_, err = f.Write(scriptContent)
 			f.Close()
 			if err != nil {
-				res.Error = fmt.Errorf("failed to write script content: %v", err)
+				res.Error = fmt.Sprintf("failed to write script content: %v", err)
 				results[idx] = res
 				return
 			}
@@ -166,7 +166,7 @@ func DeployAndRun(taskKey string, hosts []HostConfig, scriptName string, scriptC
 			)
 			err = client.RunCommandNoWait(fioCmd)
 			if err != nil {
-				res.Error = fmt.Errorf("failed to start fio: %v", err)
+				res.Error = fmt.Sprintf("failed to start fio: %v", err)
 				results[idx] = res
 				return
 			}
@@ -174,7 +174,7 @@ func DeployAndRun(taskKey string, hosts []HostConfig, scriptName string, scriptC
 			// Brief pause then verify PID file exists
 			time.Sleep(500 * time.Millisecond)
 			if _, pidErr := client.RunCommand(fmt.Sprintf("test -f %s && cat %s || echo MISSING", pidFile, pidFile)); pidErr != nil {
-				res.Error = fmt.Errorf("fio may not have started: %v", pidErr)
+				res.Error = fmt.Sprintf("fio may not have started: %v", pidErr)
 				results[idx] = res
 				return
 			}
@@ -201,7 +201,7 @@ func CheckStatus(taskKey string, hosts []HostConfig) []ExecutionResult {
 
 			client, err := NewSSHClient(hostCfg)
 			if err != nil {
-				res.Error = err
+				res.Error = err.Error()
 				results[idx] = res
 				return
 			}
@@ -236,7 +236,7 @@ func KillAll(taskKey string, hosts []HostConfig) []ExecutionResult {
 
 			client, err := NewSSHClient(hostCfg)
 			if err != nil {
-				res.Error = err
+				res.Error = err.Error()
 				results[idx] = res
 				return
 			}
@@ -270,7 +270,7 @@ func CheckResidualData(taskKey string, hosts []HostConfig) []ExecutionResult {
 
 			client, err := NewSSHClient(hostCfg)
 			if err != nil {
-				res.Error = err
+				res.Error = err.Error()
 				results[idx] = res
 				return
 			}
@@ -301,7 +301,7 @@ func CheckFioInstalled(hosts []HostConfig) []ExecutionResult {
 
 			client, err := NewSSHClient(hostCfg)
 			if err != nil {
-				res.Error = err
+				res.Error = err.Error()
 				results[idx] = res
 				return
 			}
@@ -309,7 +309,7 @@ func CheckFioInstalled(hosts []HostConfig) []ExecutionResult {
 
 			out, err := client.RunCommand("fio --version 2>/dev/null || echo MISSING")
 			if err != nil {
-				res.Error = err
+				res.Error = err.Error()
 				results[idx] = res
 				return
 			}
@@ -335,7 +335,7 @@ func CleanRemote(taskKey string, hosts []HostConfig) []ExecutionResult {
 
 			client, err := NewSSHClient(hostCfg)
 			if err != nil {
-				res.Error = err
+				res.Error = err.Error()
 				results[idx] = res
 				return
 			}
@@ -366,7 +366,7 @@ func PullData(taskKey string, hosts []HostConfig, localBaseDir string) []Executi
 
 			client, err := NewSSHClient(hostCfg)
 			if err != nil {
-				res.Error = err
+				res.Error = err.Error()
 				results[idx] = res
 				return
 			}
@@ -378,14 +378,14 @@ func PullData(taskKey string, hosts []HostConfig, localBaseDir string) []Executi
 			dataLocal := filepath.Join(hostDir, "data")
 			logsLocal := filepath.Join(hostDir, "logs")
 			if mkErr := os.MkdirAll(dataLocal, 0755); mkErr != nil {
-				res.Error = fmt.Errorf("failed to create local dir: %v", mkErr)
+				res.Error = fmt.Sprintf("failed to create local dir: %v", mkErr)
 				results[idx] = res
 				return
 			}
 
 			dataCount, dataErr := downloadRemoteDir(client, dataDir, dataLocal)
 			if dataErr != nil {
-				res.Error = fmt.Errorf("failed to read remote data dir: %v", dataErr)
+				res.Error = fmt.Sprintf("failed to read remote data dir: %v", dataErr)
 				results[idx] = res
 				return
 			}
@@ -394,14 +394,14 @@ func PullData(taskKey string, hosts []HostConfig, localBaseDir string) []Executi
 			if tmpErr == nil {
 				defer os.RemoveAll(tmpDir)
 				if _, dlErr := downloadRemoteDir(client, taskDir, tmpDir); dlErr != nil {
-					res.Error = fmt.Errorf("failed to download task dir: %v", dlErr)
+					res.Error = fmt.Sprintf("failed to download task dir: %v", dlErr)
 					results[idx] = res
 					return
 				}
 				logCount := 0
 				entries, rdErr := os.ReadDir(tmpDir)
 				if rdErr != nil {
-					res.Error = fmt.Errorf("failed to read temp dir: %v", rdErr)
+					res.Error = fmt.Sprintf("failed to read temp dir: %v", rdErr)
 					results[idx] = res
 					return
 				}

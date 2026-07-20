@@ -438,8 +438,8 @@ func (a *App) PreDeployCheck(taskID string, hosts []executor.HostConfig) ([]Chec
 		running := false
 		msg := ""
 		if i < len(statusResults) {
-			if statusResults[i].Error != nil {
-				msg = "连接失败: " + statusResults[i].Error.Error()
+		if statusResults[i].Error != "" {
+			msg = "连接失败: " + statusResults[i].Error
 			} else {
 				msg = statusResults[i].Msg
 				running = statusResults[i].Running
@@ -447,9 +447,9 @@ func (a *App) PreDeployCheck(taskID string, hosts []executor.HostConfig) ([]Chec
 		}
 		residual := false
 		if i < len(residualResults) {
-			if residualResults[i].Error != nil {
-				if msg == "" {
-					msg = "连接失败: " + residualResults[i].Error.Error()
+		if residualResults[i].Error != "" {
+			if msg == "" {
+				msg = "连接失败: " + residualResults[i].Error
 				}
 			} else if strings.Contains(residualResults[i].Msg, "Exists") {
 				residual = true
@@ -457,12 +457,12 @@ func (a *App) PreDeployCheck(taskID string, hosts []executor.HostConfig) ([]Chec
 		}
 		// fio installed check
 		if i < len(fioResults) {
-			if fioResults[i].Error != nil {
-				if msg == "" || strings.HasPrefix(msg, "空闲") {
-					msg = "FIO检查失败: " + fioResults[i].Error.Error()
-				} else {
-					msg += " | FIO检查失败: " + fioResults[i].Error.Error()
-				}
+		if fioResults[i].Error != "" {
+			if msg == "" || strings.HasPrefix(msg, "空闲") {
+				msg = "FIO检查失败: " + fioResults[i].Error
+			} else {
+				msg += " | FIO检查失败: " + fioResults[i].Error
+			}
 			} else if fioResults[i].Msg == "MISSING" {
 				if msg == "" || strings.HasPrefix(msg, "空闲") {
 					msg = "未安装FIO"
@@ -625,8 +625,8 @@ func toActionResults(results []executor.ExecutionResult) []ActionResult {
 	actionResults := make([]ActionResult, 0, len(results))
 	for _, r := range results {
 		ar := ActionResult{Host: r.Host, Msg: r.Msg, Running: r.Running}
-		if r.Error != nil {
-			ar.Error = r.Error.Error()
+	if r.Error != "" {
+		ar.Error = r.Error
 		}
 		actionResults = append(actionResults, ar)
 	}

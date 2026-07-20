@@ -734,7 +734,7 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				results = append(results, executor.ExecutionResult{
 					Host:  "all",
-					Error: fmt.Errorf("读取脚本 %s 失败: %v", scriptName, err),
+					Error: fmt.Sprintf("读取脚本 %s 失败: %v", scriptName, err),
 				})
 				continue
 			}
@@ -786,8 +786,8 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 	var output strings.Builder
 	output.WriteString(fmt.Sprintf("任务[%s] 脚本[%v]\n", task.Name, task.Scripts))
 	for _, res := range results {
-		if res.Error != nil {
-			output.WriteString(fmt.Sprintf("[%s] Error: %v\n", res.Host, res.Error))
+		if res.Error != "" {
+			output.WriteString(fmt.Sprintf("[%s] Error: %s\n", res.Host, res.Error))
 		} else {
 			output.WriteString(fmt.Sprintf("[%s] %s\n", res.Host, res.Msg))
 		}
@@ -807,9 +807,9 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 		var resultsList []resultJSON
 		for _, res := range results {
 			r := resultJSON{Host: res.Host, Msg: res.Msg}
-			if res.Error != nil {
-				r.Error = res.Error.Error()
-			}
+		if res.Error != "" {
+			r.Error = res.Error
+		}
 			resultsList = append(resultsList, r)
 		}
 

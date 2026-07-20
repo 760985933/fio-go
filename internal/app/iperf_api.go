@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"fio-go/internal/executor"
@@ -132,11 +133,11 @@ func (a *App) DeleteIperfTask(id string) error {
 	return dbDeleteIperfTask(a.db, id)
 }
 
-func (a *App) StartIperfServer(host executor.HostConfig, port int, bindIP string) executor.ExecutionResult {
+func (a *App) StartIperfServer(host executor.HostConfig, port int) executor.ExecutionResult {
 	if port <= 0 {
 		port = 5201
 	}
-	return executor.StartIperfServer(host, port, bindIP)
+	return executor.StartIperfServer(host, port, "")
 }
 
 func (a *App) StopIperfServer(host executor.HostConfig, port int) executor.ExecutionResult {
@@ -174,6 +175,26 @@ func (a *App) RunIperfTest(taskID string) error {
 	}
 	if len(task.ClientHosts) == 0 {
 		return fmt.Errorf("任务 %s 无可用客户端主机", taskID)
+	}
+
+	// iperf3 默认端口：客户端参数未显式指定 -p，统一使用 5201
+	const iperfPort = 5201
+
+	// 1) 确保 server 端 iperf3 已启动并真正在监听
+	serverRunning := executor.CheckIperfServerRunning(task.ServerHost, iperfPort)
+	if serverRunning.Error != "" || !serverRunning.Running {
+		startRes := a.StartIperfServer(task.ServerHost, iperfPort)
+		if startRes.Error != "" {
+			dbUpdateIperfTaskStatus(a.db, taskID, "error")
+			return fmt.Errorf("启动 iperf3 server 失败（%s）：%s", startRes.Host, startRes.Error)
+		}
+		// 启动后稍等，确认进程已绑定端口在监听
+		time.Sleep(800 * time.Millisecond)
+		serverRunning = executor.CheckIperfServerRunning(task.ServerHost, iperfPort)
+		if !serverRunning.Running {
+			dbUpdateIperfTaskStatus(a.db, taskID, "error")
+			return fmt.Errorf("iperf3 server 已启动但端口 %d 未在监听（%s），请检查防火墙或端口是否被占用", iperfPort, startRes.Host)
+		}
 	}
 
 	args := []string{"iperf3", "-c", task.Config.ServerTestIP}
@@ -232,6 +253,22 @@ func (a *App) RunIperfTest(taskID string) error {
 		return startErr
 	}
 
+	// 2) 短暂等待后校验每个 client 是否真的连上了 server
+	time.Sleep(2 * time.Second)
+	var connFailed []string
+	for _, host := range task.ClientHosts {
+		if !clientConnected(taskID, host) {
+			connFailed = append(connFailed, host.Host)
+		}
+	}
+	if len(connFailed) > 0 {
+		iperfRealtime.StopStream(taskID)
+		executor.KillIperfClient(taskID, task.ClientHosts)
+		dbUpdateIperfTaskStatus(a.db, taskID, "error")
+		return fmt.Errorf("以下客户端未能连接到 server（%s:%d）：%s；请确认 server 已监听、网络可达且端口未被占用",
+			task.ServerHost.Host, iperfPort, strings.Join(connFailed, ", "))
+	}
+
 	go func() {
 		time.Sleep(time.Duration(task.Config.Duration+5) * time.Second)
 		iperfRealtime.StopStream(taskID)
@@ -239,6 +276,31 @@ func (a *App) RunIperfTest(taskID string) error {
 	}()
 
 	return nil
+}
+
+// clientConnected 通过客户端落盘的 iperf_stdout.log 检查该 client 是否成功连上 server。
+// 连接被拒绝/超时等错误会在启动后约 1s 内写入日志，因此 run 启动 2s 后检查即可判定。
+func clientConnected(taskID string, host executor.HostConfig) bool {
+	_, dataDir, _ := executor.BuildIperfPaths(taskID)
+	logFile := filepath.Join(dataDir, "iperf_stdout.log")
+	client, err := executor.NewSSHClient(host)
+	if err != nil {
+		return true // 诊断命令自身失败，不因此误判整个任务失败
+	}
+	defer client.Close()
+	out, err := client.RunCommand(fmt.Sprintf(
+		`if [ -s %[1]s ]; then grep -iqE 'connection refused|connect failed|unable to connect|no route|timed out|network is unreachable|command not found|no such file' %[1]s && echo FAIL || echo OK; else echo EMPTY; fi`,
+		logFile,
+	))
+	if err != nil {
+		return true
+	}
+	switch strings.TrimSpace(out) {
+	case "FAIL", "EMPTY":
+		return false
+	default:
+		return true
+	}
 }
 
 func (a *App) StopIperfTest(taskID string) error {
@@ -300,8 +362,8 @@ func (a *App) PullIperfData(taskID string) error {
 
 	results := executor.PullIperfData(taskID, task.ClientHosts, rawDir)
 	for _, r := range results {
-		if r.Error != nil {
-			return r.Error
+		if r.Error != "" {
+			return fmt.Errorf("%s", r.Error)
 		}
 	}
 	return nil
@@ -391,8 +453,8 @@ func (a *App) CleanIperfRemote(taskID string) error {
 		if t.ID == taskID {
 			results := executor.CleanIperfRemote(taskID, t.ClientHosts)
 			for _, r := range results {
-				if r.Error != nil {
-					return r.Error
+				if r.Error != "" {
+					return fmt.Errorf("%s", r.Error)
 				}
 			}
 			return nil

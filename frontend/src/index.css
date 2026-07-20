@@ -336,6 +336,27 @@ body {
   color: var(--text-muted);
 }
 
+/* 自定义下拉箭头，覆盖原生 select 外观，与项目其他下拉保持一致 */
+.form-group select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2386868b' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+}
+
+.form-group select:hover:not(:disabled) {
+  border-color: var(--text-muted);
+}
+
+.form-group select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));

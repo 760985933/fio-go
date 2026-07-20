@@ -129,7 +129,7 @@ export function SetTaskStarted(arg1:string):Promise<void>;
 
 export function Shutdown(arg1:context.Context):Promise<void>;
 
-export function StartIperfServer(arg1:executor.HostConfig,arg2:number,arg3:string):Promise<executor.ExecutionResult>;
+export function StartIperfServer(arg1:executor.HostConfig,arg2:number):Promise<executor.ExecutionResult>;
 
 export function StopIperfServer(arg1:executor.HostConfig,arg2:number):Promise<executor.ExecutionResult>;
 

@@ -224,10 +224,10 @@ export namespace app {
 export namespace executor {
 	
 	export class ExecutionResult {
-	    Host: string;
-	    Error: any;
-	    Msg: string;
-	    Running: boolean;
+	    host: string;
+	    error?: string;
+	    msg: string;
+	    running: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ExecutionResult(source);
@@ -235,10 +235,10 @@ export namespace executor {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.Host = source["Host"];
-	        this.Error = source["Error"];
-	        this.Msg = source["Msg"];
-	        this.Running = source["Running"];
+	        this.host = source["host"];
+	        this.error = source["error"];
+	        this.msg = source["msg"];
+	        this.running = source["running"];
 	    }
 	}
 	export class HostConfig {

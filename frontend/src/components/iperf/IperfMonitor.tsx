@@ -58,29 +58,6 @@ export function IperfMonitor({ onShowResults }: Props) {
     setIsMonitoring(false)
   }, [])
 
-  const simulateData = () => {
-    const now = intervals.length * 1
-    const newIntervals: IperfInterval[] = []
-    for (let i = 0; i < 5; i++) {
-      const t = now + i
-      newIntervals.push({
-        timestamp: t,
-        streamID: 0,
-        duration: 1,
-        bytes: (800 + Math.random() * 200) * 1e6,
-        bitsPerSecond: (800 + Math.random() * 200) * 1e6,
-        jitterMs: Math.random() * 2,
-        lostPackets: Math.random() > 0.95 ? Math.floor(Math.random() * 10) : 0,
-        totalPackets: 1000 + Math.floor(Math.random() * 100),
-        retransmits: Math.random() > 0.9 ? Math.floor(Math.random() * 5) : 0,
-        cpuUser: 10 + Math.random() * 30,
-        cpuSys: 5 + Math.random() * 15,
-      })
-    }
-    setIntervals(prev => [...prev, ...newIntervals])
-    setCurrentTime(t => t + 5)
-  }
-
   const selectedTask = tasks.find(t => t.id === selectedTaskId)
 
   return (
@@ -114,9 +91,6 @@ export function IperfMonitor({ onShowResults }: Props) {
           {tasks.filter(t => t.status === 'running' || t.status === 'completed').length === 0 && (
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>暂无运行中或已完成的任务</span>
           )}
-          <button className="btn btn-outline btn-sm" onClick={simulateData} style={{ marginLeft: 'auto' }}>
-            模拟数据 (Demo)
-          </button>
         </div>
       </div>
 

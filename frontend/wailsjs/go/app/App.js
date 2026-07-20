@@ -250,8 +250,8 @@ export function Shutdown(arg1) {
   return window['go']['app']['App']['Shutdown'](arg1);
 }
 
-export function StartIperfServer(arg1, arg2, arg3) {
-  return window['go']['app']['App']['StartIperfServer'](arg1, arg2, arg3);
+export function StartIperfServer(arg1, arg2) {
+  return window['go']['app']['App']['StartIperfServer'](arg1, arg2);
 }
 
 export function StopIperfServer(arg1, arg2) {
