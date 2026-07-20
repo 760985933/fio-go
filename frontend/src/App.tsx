@@ -173,6 +173,9 @@ function OrchestrationManager({ onShowResults }: { onShowResults: (title: string
   const [loaded, setLoaded] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
+  const validTasks = tasks.filter(t => taskIds.includes(t.id))
+  const invalidIds = taskIds.filter(id => !tasks.some(t => t.id === id))
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -180,9 +183,14 @@ function OrchestrationManager({ onShowResults }: { onShowResults: (title: string
           WailsApp.GetOrchestrationConfig(),
           WailsApp.GetExecutionTasks(),
         ])
-        setTaskIds(config.sequence || [])
+        const rawIds = config.sequence || []
         setInterval_(config.interval || 10)
         setTasks(executionTasks)
+        const valid = rawIds.filter((id: string) => executionTasks.some(t => t.id === id))
+        setTaskIds(valid)
+        if (valid.length !== rawIds.length) {
+          WailsApp.SaveOrchestrationConfig({ sequence: valid, interval: config.interval || 10 }).catch(() => {})
+        }
       } catch { /* ignore */ }
       setLoaded(true)
     }
@@ -370,10 +378,22 @@ function OrchestrationManager({ onShowResults }: { onShowResults: (title: string
       <div className="manager-header">
         <h2>执行编排</h2>
         <button className="btn btn-primary btn-sm" onClick={() => setShowConfirm(true)}
-          disabled={executing || taskIds.length === 0}>
+          disabled={executing || taskIds.length === 0 || invalidIds.length > 0}>
           {executing ? `执行中... ${currentStep}` : '执行编排'}
         </button>
       </div>
+
+      {invalidIds.length > 0 && (
+        <div style={{ background: '#fef3cd', border: '1px solid #ffc107', borderRadius: 8, padding: '8px 12px', marginBottom: 12, fontSize: 13, color: '#856404' }}>
+          以下任务已被删除，请移除后才能执行编排：
+          {invalidIds.map(id => (
+            <div key={id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+              <span style={{ textDecoration: 'line-through', color: '#dc3545' }}>{id}</span>
+              <button className="btn btn-danger btn-sm" onClick={() => removeTask(id)} disabled={executing}>移除</button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {showConfirm && (
         <ConfirmDialog
@@ -413,24 +433,28 @@ function OrchestrationManager({ onShowResults }: { onShowResults: (title: string
         {taskIds.length === 0 ? (
           <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>从下方添加任务到执行队列</p>
         ) : (
-          taskIds.map((id, idx) => (
-            <div key={id} draggable={!executing}
+          taskIds.map((id, idx) => {
+            const isValid = tasks.some(t => t.id === id)
+            return (
+            <div key={id} draggable={!executing && isValid}
               onDragStart={() => handleDragStart(idx)}
               onDragOver={(e) => handleDragOver(e, idx)}
               onDragEnd={handleDragEnd}
               className="host-item"
               style={{
-                cursor: executing ? 'not-allowed' : 'grab',
-                background: dragIdx === idx ? '#f0f0ff' : undefined,
-                border: dragIdx === idx ? '2px solid var(--primary)' : undefined,
+                cursor: executing || !isValid ? 'not-allowed' : 'grab',
+                background: dragIdx === idx ? '#f0f0ff' : isValid ? undefined : '#fff5f5',
+                border: dragIdx === idx ? '2px solid var(--primary)' : isValid ? undefined : '1px solid #f5c6cb',
                 opacity: executing ? 0.6 : 1,
               }}>
               <span style={{ fontSize: 14, marginRight: 8, color: 'var(--text-muted)' }}>⠿</span>
-              <span style={{ fontSize: 14, marginRight: 8, color: 'var(--primary)', fontWeight: 600 }}>{idx + 1}</span>
-              <span style={{ flex: 1, fontSize: 13 }}>{getTaskName(id)}</span>
+              <span style={{ fontSize: 14, marginRight: 8, color: isValid ? 'var(--primary)' : '#dc3545', fontWeight: 600 }}>{idx + 1}</span>
+              <span style={{ flex: 1, fontSize: 13, textDecoration: isValid ? undefined : 'line-through', color: isValid ? undefined : '#dc3545' }}>{getTaskName(id)}</span>
+              {!isValid && <span style={{ fontSize: 11, color: '#dc3545', marginRight: 8 }}>已删除</span>}
               <button className="btn btn-danger btn-sm" onClick={() => removeTask(id)} disabled={executing}>移除</button>
             </div>
-          ))
+            )
+          })
         )}
       </div>
 

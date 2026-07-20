@@ -130,6 +130,10 @@ export function OpenDataDir() {
   return window['go']['app']['App']['OpenDataDir']();
 }
 
+export function OpenFile(arg1) {
+  return window['go']['app']['App']['OpenFile'](arg1);
+}
+
 export function PreDeployCheck(arg1, arg2) {
   return window['go']['app']['App']['PreDeployCheck'](arg1, arg2);
 }

@@ -68,6 +68,8 @@ export function KillAll(arg1:string,arg2:Array<executor.HostConfig>):Promise<Arr
 
 export function OpenDataDir():Promise<void>;
 
+export function OpenFile(arg1:string):Promise<void>;
+
 export function PreDeployCheck(arg1:string,arg2:Array<executor.HostConfig>):Promise<Array<app.CheckResult>>;
 
 export function PullData(arg1:string,arg2:Array<executor.HostConfig>):Promise<Array<app.ActionResult>>;
