@@ -295,7 +295,7 @@ func dbUpdateTaskTimestamp(db *sql.DB, taskID, field, value string) error {
 	case "startedAt":
 		_, err := db.Exec(`
 			INSERT INTO task_timestamps (task_id, started_at, finished_at) VALUES (?, ?, '')
-			ON CONFLICT(task_id) DO UPDATE SET started_at = excluded.started_at
+			ON CONFLICT(task_id) DO UPDATE SET started_at = excluded.started_at, finished_at = ''
 		`, taskID, value)
 		return err
 	case "finishedAt":
