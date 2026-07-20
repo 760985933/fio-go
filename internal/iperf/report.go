@@ -61,9 +61,7 @@ func GenerateIperfHTML(results []*IperfResult, outPath string) error {
 		for _, s := range r.Streams {
 			var points []string
 			for _, iv := range s.Intervals {
-				if iv.JitterMs > 0 {
-					points = append(points, fmt.Sprintf("[%.2f,%.3f]", iv.Timestamp, iv.JitterMs))
-				}
+				points = append(points, fmt.Sprintf("[%.2f,%.3f]", iv.Timestamp, iv.JitterMs))
 			}
 			if len(points) > 0 {
 				jitterDataStrings = append(jitterDataStrings, fmt.Sprintf(
@@ -182,7 +180,7 @@ tooltip:{trigger:'axis'},
 legend:{type:'scroll',top:8},
 grid:{left:60,right:30,top:50,bottom:50},
 xAxis:{type:'value',name:'时间(s)',nameLocation:'middle',nameGap:30},
-yAxis:{type:'value',name:'ms'},
+yAxis:{type:'value',name:'ms',min:0},
 series:[%s]
 });
 var retChart = echarts.init(document.getElementById('retransmitChart'));
