@@ -38,7 +38,7 @@ export function SystemSettings() {
                   <div style={{ fontSize: 13, fontWeight: 500 }}>{log.action}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{log.details}</div>
                 </div>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{new Date(log.timestamp).toLocaleString('sv-SE', { hour12: false }).replace('T', ' ')}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{log.timestamp ? new Date(log.timestamp).toLocaleString('sv-SE', { hour12: false }).replace('T', ' ') : '-'}</span>
               </div>
             ))}
           </div>
