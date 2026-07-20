@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"fio-go/internal/models"
 	"fio-go/internal/parser"
 	"fio-go/internal/report"
 	"fio-go/internal/web"
@@ -16,7 +17,7 @@ import (
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Version: 1.0.3\n")
+		fmt.Fprintf(os.Stderr, "Version: %s\n", models.Version)
 		fmt.Fprintf(os.Stderr, "Usage: %s [data_dir] [report_dir]\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "       %s -data <dir> -output-dir <dir>\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "       %s -web -port 8080 (Default when no arguments are provided)\n\n", os.Args[0])

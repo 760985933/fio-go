@@ -145,6 +145,10 @@ export function OpenDataDir() {
     return window['go']['app']['App']['OpenDataDir']();
 }
 
+export function OpenFile(path) {
+    return window['go']['app']['App']['OpenFile'](path);
+}
+
 export function AddHost(host) {
     return window['go']['app']['App']['AddHost'](host);
 }

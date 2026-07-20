@@ -5,7 +5,7 @@ import * as App from '../wailsjs/go/app/App'
 
 interface Props {
   onAudit: (action: string, details: string) => void
-  onShowResults: (title: string, content: string) => Promise<void>
+  onShowResults: (title: string, content: string, wide?: boolean) => Promise<void>
 }
 
 export function AnalysisView({ onAudit, onShowResults }: Props) {
@@ -79,8 +79,8 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
   const downloadReport = async (taskId: string) => {
     try {
       const zipPath = await App.CreateReportZIP(taskId)
-      onAudit('下载报告', `任务: ${taskId}, 路径: ${zipPath}`)
-      await onShowResults('下载完成', `报告已打包到:\n${zipPath}`)
+      await App.OpenFile(zipPath)
+      onAudit('下载报告', `任务: ${taskId}`)
     } catch (err) {
       await onShowResults('下载失败', `错误: ${err}`)
     }
@@ -89,7 +89,7 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
   const viewLog = async (taskId: string) => {
     try {
       const log = await App.GetExecutionLog(taskId)
-      await onShowResults(`执行日志 - ${taskId}`, log || '暂无日志')
+      await onShowResults(`执行日志 - ${taskId}`, log || '暂无日志', true)
     } catch (err) {
       await onShowResults('日志加载失败', `错误: ${err}`)
     }

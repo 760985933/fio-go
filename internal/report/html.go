@@ -11,8 +11,24 @@ import (
 	"fio-go/internal/models"
 )
 
-func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, groupedRows []models.GroupedMetric, outPath string) error {
+func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, groupedRows []models.GroupedMetric, outPath string, startedAt ...string) error {
 	ts := time.Now().Format("2006-01-02 15:04:05")
+
+	var testStart, testEnd string
+	if len(startedAt) > 0 {
+		testStart = startedAt[0]
+	}
+	if len(startedAt) > 1 {
+		testEnd = startedAt[1]
+	}
+
+	metaLine := "<p>生成时间: " + ts + "</p>"
+	if testStart != "" {
+		metaLine += "<p>测试开始时间: " + html.EscapeString(testStart) + "</p>"
+	}
+	if testEnd != "" {
+		metaLine += "<p>测试结束时间: " + html.EscapeString(testEnd) + "</p>"
+	}
 
 	if groups == nil {
 		groups = []models.ChartGroup{}
@@ -49,17 +65,24 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
   <script>if (!window.echarts) document.write('<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"><\/script>')</script>
   <style>
     body { font-family: Arial; max-width: 1100px; margin: 24px auto; }
+    .header-row { display: flex; justify-content: space-between; align-items: baseline; }
+    .version { color: #999; font-size: 13px; }
     table { border-collapse: collapse; width: 100%; }
     th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
     th { background: #f3f3f3; }
     h3 { color: #409EFF; }
     .chart { width: 100%; height: 320px; margin: 16px 0; }
     .bw-toggle { margin: 8px 0; }
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
   </style>
 </head>
 <body>
-  <h1 style="text-align:center">FIO性能报告</h1>
-  <p>生成时间: ` + ts + `</p>
+  <div class="header-row">
+    <h1>FIO性能报告</h1>
+    <span class="version">` + html.EscapeString(models.Version) + `</span>
+  </div>
+  ` + metaLine + `
 
   <h2>性能汇总</h2>
   <div class="bw-toggle">带宽单位：

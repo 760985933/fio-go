@@ -38,6 +38,7 @@ export function GetReportHTMLWithEcharts(taskID: string): Promise<string>;
 
 export function GetDataDir(): Promise<string>;
 export function OpenDataDir(): Promise<void>;
+export function OpenFile(path: string): Promise<void>;
 
 export function AddHost(host: HostConfig): Promise<number>;
 export function AppendExecutionLog(taskID: string, message: string): Promise<void>;

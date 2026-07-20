@@ -154,6 +154,7 @@ function App() {
         title={modal.title}
         content={modal.content}
         type={modal.type}
+        wide={modal.wide}
         onClose={close}
         onConfirm={confirm}
       />
@@ -161,7 +162,7 @@ function App() {
   )
 }
 
-function OrchestrationManager({ onShowResults }: { onShowResults: (title: string, content: string) => Promise<void> }) {
+function OrchestrationManager({ onShowResults }: { onShowResults: (title: string, content: string, wide?: boolean) => Promise<void> }) {
   const [taskIds, setTaskIds] = useState<string[]>([])
   const [interval, setInterval_] = useState(10)
   const [tasks, setTasks] = useState<ExecutionTaskConfig[]>([])

@@ -4,7 +4,7 @@ import * as App from '../wailsjs/go/app/App'
 
 interface Props {
   onAudit: (action: string, details: string) => void
-  onShowResults: (title: string, content: string) => Promise<void>
+  onShowResults: (title: string, content: string, wide?: boolean) => Promise<void>
 }
 
 export function TaskManager({ onAudit, onShowResults }: Props) {
@@ -149,25 +149,7 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
       log(`部署完成: ${deploySummary}`)
       onAudit('部署完成', `任务: ${task.id}`)
 
-      log('FIO开始运行，等待执行完成...')
-      let finished = false
-      let pollCount = 0
-      while (!finished && pollCount < 300) {
-        await new Promise(resolve => setTimeout(resolve, 10000))
-        pollCount++
-        const statusResults = await App.CheckStatus(task.id, task.hosts)
-        finished = statusResults.every((r: ActionResult) => !r.running)
-        log(`轮询 #${pollCount}: ${statusResults.map((r: ActionResult) => `${r.host} ${r.running ? '运行中' : '完成'}`).join(', ')}`)
-      }
-      log(`FIO执行完成，共轮询${pollCount}次`)
-
-      const pullResults = await App.PullData(task.id, task.hosts)
-      const pullSummary = pullResults.map((r: ActionResult) => `${r.host}: ${r.error || '成功'}`).join(', ')
-      log(`数据拉取完成: ${pullSummary}`)
-      await App.SetTaskFinished(task.id)
-      log('任务执行完成')
-      onAudit('数据拉取完成', `任务: ${task.id}`)
-
+      log('脚本已部署，FIO已在远端启动')
       setProgressDone(true)
     } catch (err) {
       log(`执行异常: ${err}`)
@@ -201,7 +183,7 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
     try {
       setLoadingAction(key)
       const log = await App.GetExecutionLog(task.id)
-      await onShowResults(`执行日志 - ${task.id}`, log || '暂无日志')
+      await onShowResults(`执行日志 - ${task.id}`, log || '暂无日志', true)
     } catch (err) {
       await onShowResults('日志加载失败', `错误: ${err}`)
     } finally {

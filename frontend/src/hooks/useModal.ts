@@ -5,6 +5,7 @@ interface ModalState {
   title: string
   content: string
   type: 'info' | 'confirm' | 'prompt' | 'results'
+  wide?: boolean
   resolve?: (value: any) => void
 }
 
@@ -44,9 +45,9 @@ export function useModal() {
     })
   }, [])
 
-  const showResults = useCallback((title: string, content: string): Promise<void> => {
+  const showResults = useCallback((title: string, content: string, wide?: boolean): Promise<void> => {
     return new Promise<void>((resolve) => {
-      setModal({ open: true, title, content, type: 'results', resolve: () => resolve() })
+      setModal({ open: true, title, content, type: 'results', wide, resolve: () => resolve() })
     })
   }, [])
 

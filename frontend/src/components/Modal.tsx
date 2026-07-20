@@ -5,11 +5,12 @@ interface Props {
   title: string
   content: string
   type: 'info' | 'confirm' | 'prompt' | 'results'
+  wide?: boolean
   onClose: () => void
   onConfirm: (value: any) => void
 }
 
-export function Modal({ open, title, content, type, onClose, onConfirm }: Props) {
+export function Modal({ open, title, content, type, wide, onClose, onConfirm }: Props) {
   const [inputValue, setInputValue] = useState(content)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -33,7 +34,7 @@ export function Modal({ open, title, content, type, onClose, onConfirm }: Props)
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className={`modal${wide ? ' wide' : ''}`} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>{title}</h3>
           <button className="modal-close" onClick={onClose}>&times;</button>

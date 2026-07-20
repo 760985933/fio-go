@@ -4,7 +4,7 @@ import * as App from '../wailsjs/go/app/App'
 
 interface Props {
   onAudit: (action: string, details: string) => void
-  onShowResults: (title: string, content: string) => Promise<void>
+  onShowResults: (title: string, content: string, wide?: boolean) => Promise<void>
 }
 
 export function HostManager({ onAudit, onShowResults }: Props) {

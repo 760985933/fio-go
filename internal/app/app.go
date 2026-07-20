@@ -736,6 +736,18 @@ func (a *App) GenerateReport(taskID string) (string, error) {
 		return "", err
 	}
 
+	// Look up task timestamps
+	var startedAt, finishedAt string
+	if tasks, err := a.GetExecutionTasks(); err == nil {
+		for _, t := range tasks {
+			if t.ID == taskID {
+				startedAt = t.StartedAt
+				finishedAt = t.FinishedAt
+				break
+			}
+		}
+	}
+
 	analysisResult, err := parser.AnalyzeJSONFiles(dataDir)
 	if err != nil {
 		return "", err
@@ -747,7 +759,7 @@ func (a *App) GenerateReport(taskID string) (string, error) {
 	}
 
 	chartGroups := parser.BuildChartGroups(dataDir)
-	err = report.GenerateHTML(chartGroups, analysisResult.SystemTexts, groupedRows, taskReportHTMLPath(taskID))
+	err = report.GenerateHTML(chartGroups, analysisResult.SystemTexts, groupedRows, taskReportHTMLPath(taskID), startedAt, finishedAt)
 	if err != nil {
 		return "", err
 	}
@@ -822,6 +834,22 @@ func (a *App) OpenDataDir() error {
 	dir := dataBaseDir()
 	os.MkdirAll(dir, 0755)
 	return openFolder(dir)
+}
+
+// OpenFile 用系统默认方式打开文件
+func (a *App) OpenFile(path string) error {
+	return openFile(path)
+}
+
+func openFile(path string) error {
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", path).Start()
+	case "windows":
+		return exec.Command("rundll32", "url.dll,FileProtocolHandler", path).Start()
+	default:
+		return exec.Command("xdg-open", path).Start()
+	}
 }
 
 // ========== 执行日志 ==========
