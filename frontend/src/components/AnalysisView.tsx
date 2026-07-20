@@ -191,8 +191,8 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
             </div>
             {(task.startedAt || task.finishedAt) && (
               <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                {task.startedAt && <span>开始: {new Date(task.startedAt).toLocaleString()}</span>}
-                {task.finishedAt && <span>完成: {new Date(task.finishedAt).toLocaleString()}</span>}
+                {task.startedAt && <span>开始: {new Date(task.startedAt).toLocaleString('sv-SE', { hour12: false })}</span>}
+                {task.finishedAt && <span>完成: {new Date(task.finishedAt).toLocaleString('sv-SE', { hour12: false })}</span>}
                 {task.startedAt && task.finishedAt && (
                   <span>耗时: {Math.round((new Date(task.finishedAt).getTime() - new Date(task.startedAt).getTime()) / 1000)}s</span>
                 )}

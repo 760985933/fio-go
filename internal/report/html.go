@@ -23,11 +23,17 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
 	}
 
 	metaLines := []string{"<span>生成时间: " + ts + "</span>"}
+	formatTimestamp := func(s string) string {
+		if t, err := time.Parse(time.RFC3339, s); err == nil {
+			return t.Format("2006-01-02 15:04:05")
+		}
+		return s
+	}
 	if testStart != "" {
-		metaLines = append(metaLines, "<span>测试开始: "+html.EscapeString(testStart)+"</span>")
+		metaLines = append(metaLines, "<span>测试开始: "+html.EscapeString(formatTimestamp(testStart))+"</span>")
 	}
 	if testEnd != "" {
-		metaLines = append(metaLines, "<span>测试结束: "+html.EscapeString(testEnd)+"</span>")
+		metaLines = append(metaLines, "<span>测试结束: "+html.EscapeString(formatTimestamp(testEnd))+"</span>")
 	}
 	metaLine := strings.Join(metaLines, "")
 
