@@ -329,23 +329,42 @@ func PullData(taskKey string, hosts []HostConfig, localBaseDir string) []Executi
 			}
 			defer client.Close()
 
-			_, dataDir, _, _ := BuildTaskPaths(taskKey)
+			taskDir, dataDir, _, _ := BuildTaskPaths(taskKey)
 
 			hostDir := filepath.Join(localBaseDir, sanitizeLocalName(res.Host))
-			if mkErr := os.MkdirAll(hostDir, 0755); mkErr != nil {
+			dataLocal := filepath.Join(hostDir, "data")
+			logsLocal := filepath.Join(hostDir, "logs")
+			if mkErr := os.MkdirAll(dataLocal, 0755); mkErr != nil {
 				res.Error = fmt.Errorf("failed to create local dir: %v", mkErr)
 				results[idx] = res
 				return
 			}
 
-			downloadCount, err := downloadRemoteDir(client, dataDir, hostDir)
-			if err != nil {
-				res.Error = fmt.Errorf("failed to read remote data dir: %v", err)
+			dataCount, dataErr := downloadRemoteDir(client, dataDir, dataLocal)
+			if dataErr != nil {
+				res.Error = fmt.Errorf("failed to read remote data dir: %v", dataErr)
 				results[idx] = res
 				return
 			}
 
-			res.Msg = fmt.Sprintf("Downloaded %d files", downloadCount)
+			tmpDir, tmpErr := os.MkdirTemp("", "fio-pull-*")
+			if tmpErr == nil {
+				defer os.RemoveAll(tmpDir)
+				downloadRemoteDir(client, taskDir, tmpDir)
+				logCount := 0
+				entries, _ := os.ReadDir(tmpDir)
+				for _, e := range entries {
+					if !e.IsDir() && strings.HasSuffix(strings.ToLower(e.Name()), ".log") {
+						os.MkdirAll(logsLocal, 0755)
+						if err := os.Rename(filepath.Join(tmpDir, e.Name()), filepath.Join(logsLocal, e.Name())); err == nil {
+							logCount++
+						}
+					}
+				}
+				dataCount += logCount
+			}
+
+			res.Msg = fmt.Sprintf("Downloaded %d files", dataCount)
 			results[idx] = res
 		}(i, host)
 	}
