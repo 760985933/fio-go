@@ -7,7 +7,7 @@ export function SystemSettings() {
   const [loading, setLoading] = useState(true)
   const [dataDir, setDataDir] = useState('')
 
-  useEffect(() => { loadLogs(); App.GetDataDir().then(setDataDir).catch(() => {}) }, [])
+  useEffect(() => { loadLogs(); App.GetDataDir().then(setDataDir).catch(() => setDataDir('获取失败')) }, [])
 
   const loadLogs = async () => {
     setLoading(true)

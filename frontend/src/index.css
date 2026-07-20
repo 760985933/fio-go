@@ -853,6 +853,35 @@ body {
   margin-top: 4px;
 }
 
+/* ---- Progress Log ---- */
+.progress-log {
+  font-family: 'SF Mono', 'Fira Code', 'Monaco', 'Menlo', monospace;
+  font-size: 12px;
+  line-height: 1.8;
+  background: #1d1d1f;
+  color: #f5f5f7;
+  border-radius: 8px;
+  padding: 14px;
+  max-height: 360px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.progress-line {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.progress-waiting {
+  color: #86868b;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 /* ---- Responsive ---- */
 @media (max-width: 900px) {
   .two-col {

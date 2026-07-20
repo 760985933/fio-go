@@ -30,6 +30,10 @@ export function CleanRemote(arg1, arg2) {
   return window['go']['app']['App']['CleanRemote'](arg1, arg2);
 }
 
+export function ClearExecutionLog(arg1) {
+  return window['go']['app']['App']['ClearExecutionLog'](arg1);
+}
+
 export function CreateReportZIP(arg1) {
   return window['go']['app']['App']['CreateReportZIP'](arg1);
 }
@@ -74,16 +78,16 @@ export function GetAuditLog() {
   return window['go']['app']['App']['GetAuditLog']();
 }
 
+export function GetDataDir() {
+  return window['go']['app']['App']['GetDataDir']();
+}
+
 export function GetExecutionLog(arg1) {
   return window['go']['app']['App']['GetExecutionLog'](arg1);
 }
 
 export function GetExecutionTasks() {
   return window['go']['app']['App']['GetExecutionTasks']();
-}
-
-export function GetDataDir() {
-  return window['go']['app']['App']['GetDataDir']();
 }
 
 export function GetHostLog(arg1, arg2) {

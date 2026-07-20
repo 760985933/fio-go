@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { HostRecord, ExecutionTaskConfig, CheckResult, ActionResult } from '../types'
 import * as App from '../wailsjs/go/app/App'
 
@@ -20,6 +20,12 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
   const [newTaskName, setNewTaskName] = useState('')
   const [newTaskScripts, setNewTaskScripts] = useState<string[]>([])
   const [newTaskHostIds, setNewTaskHostIds] = useState<number[]>([])
+
+  const [progressOpen, setProgressOpen] = useState(false)
+  const [progressTitle, setProgressTitle] = useState('')
+  const [progressLines, setProgressLines] = useState<string[]>([])
+  const [progressDone, setProgressDone] = useState(false)
+  const progressRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { loadData() }, [])
 
@@ -112,32 +118,38 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
     setExecuting(true)
     setLoadingAction(key)
     setCurrentTask(task.id)
+    setProgressOpen(true)
+    setProgressTitle(`执行任务: ${task.name}`)
+    setProgressLines([])
+    setProgressDone(false)
     onAudit('开始部署', `任务: ${task.id}`)
 
-    const log = (msg: string) => App.AppendExecutionLog(task.id, msg)
+    const log = (msg: string) => {
+      App.AppendExecutionLog(task.id, msg)
+      setProgressLines(prev => [...prev, `[${new Date().toLocaleTimeString('zh-CN')}] ${msg}`])
+    }
 
     try {
       await App.SetTaskStarted(task.id)
-      await log(`任务开始执行，脚本: ${(task.scripts || []).length}个，主机: ${(task.hosts || []).length}台`)
+      log(`任务开始执行，脚本: ${(task.scripts || []).length}个，主机: ${(task.hosts || []).length}台`)
 
       const checks = await App.PreDeployCheck(task.id, task.hosts)
       const checkSummary = checks.map((c: CheckResult) => `${c.host}: ${c.running ? 'FIO运行中' : c.msg.startsWith('连接失败') ? '连接失败' : '空闲'}`).join(', ')
-      await log(`预检查完成: ${checkSummary}`)
+      log(`预检查完成: ${checkSummary}`)
 
       if (checks.some((c: CheckResult) => c.running)) {
-        await log('预检查发现FIO运行中，任务中止')
-        await onShowResults('预检查发现FIO运行中',
-          checks.filter((c: CheckResult) => c.running).map((c: CheckResult) => `${c.host}: ${c.msg}`).join('\n') +
-          '\n\n请先停止运行中的FIO或清理残留数据')
+        log('预检查发现FIO运行中，任务中止')
+        setProgressDone(true)
+        onAudit('预检查失败', `任务: ${task.id}，FIO运行中`)
         return
       }
 
       const deployResults = await App.DeployMulti(task.id, task.scripts, task.hosts)
       const deploySummary = deployResults.map((r: ActionResult) => `${r.host}: ${r.error || '成功'}`).join(', ')
-      await log(`部署完成: ${deploySummary}`)
+      log(`部署完成: ${deploySummary}`)
       onAudit('部署完成', `任务: ${task.id}`)
 
-      await log('FIO开始运行，等待执行完成...')
+      log('FIO开始运行，等待执行完成...')
       let finished = false
       let pollCount = 0
       while (!finished && pollCount < 300) {
@@ -145,22 +157,21 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
         pollCount++
         const statusResults = await App.CheckStatus(task.id, task.hosts)
         finished = statusResults.every((r: ActionResult) => !r.running)
+        log(`轮询 #${pollCount}: ${statusResults.map((r: ActionResult) => `${r.host} ${r.running ? '运行中' : '完成'}`).join(', ')}`)
       }
-      await log(`FIO执行完成，共轮询${pollCount}次`)
+      log(`FIO执行完成，共轮询${pollCount}次`)
 
       const pullResults = await App.PullData(task.id, task.hosts)
       const pullSummary = pullResults.map((r: ActionResult) => `${r.host}: ${r.error || '成功'}`).join(', ')
-      await log(`数据拉取完成: ${pullSummary}`)
+      log(`数据拉取完成: ${pullSummary}`)
       await App.SetTaskFinished(task.id)
-      await log('任务执行完成')
+      log('任务执行完成')
       onAudit('数据拉取完成', `任务: ${task.id}`)
 
-      await onShowResults('执行完成',
-        `拉取结果:\n${pullResults.map((r: ActionResult) => `${r.host}: ${r.error ? '失败: ' + r.error : '成功'}`).join('\n')}`
-      )
+      setProgressDone(true)
     } catch (err) {
-      await log(`执行异常: ${err}`)
-      await onShowResults('执行异常', `错误: ${err}`)
+      log(`执行异常: ${err}`)
+      setProgressDone(true)
     } finally {
       setExecuting(false)
       setLoadingAction('')
@@ -352,7 +363,13 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
                   {(() => {
                     const busy = executing || !!loadingAction
                     const pfx = (action: string) => `${action}:${task.id}`
-                    return (
+  useEffect(() => {
+    if (progressRef.current) {
+      progressRef.current.scrollTop = progressRef.current.scrollHeight
+    }
+  }, [progressLines])
+
+  return (
                       <>
                         <button className="btn btn-outline btn-sm" onClick={() => preCheck(task)} disabled={busy}>
                           {loadingAction === pfx('preCheck') ? '检查中...' : '预检查'}
@@ -397,6 +414,33 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* 执行进度弹窗 */}
+      {progressOpen && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 640 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{progressTitle}</h3>
+              {!progressDone && <span className="spinner" />}
+            </div>
+            <div className="modal-body">
+              <div ref={progressRef} className="progress-log">
+                {progressLines.map((line, i) => (
+                  <div key={i} className="progress-line">{line}</div>
+                ))}
+                {!progressDone && <div className="progress-line progress-waiting">等待中...</div>}
+              </div>
+            </div>
+            <div className="modal-footer">
+              {progressDone ? (
+                <button className="btn btn-primary" onClick={() => setProgressOpen(false)}>关闭</button>
+              ) : (
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>请勿关闭窗口，任务正在执行...</span>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

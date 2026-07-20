@@ -18,6 +18,8 @@ export function CleanLocal(arg1:string):Promise<void>;
 
 export function CleanRemote(arg1:string,arg2:Array<executor.HostConfig>):Promise<Array<app.ActionResult>>;
 
+export function ClearExecutionLog(arg1:string):Promise<void>;
+
 export function CreateReportZIP(arg1:string):Promise<string>;
 
 export function DeleteExecutionTask(arg1:string):Promise<void>;
@@ -40,11 +42,11 @@ export function GetAnalysisTasks():Promise<Array<app.AnalysisSummary>>;
 
 export function GetAuditLog():Promise<Array<app.AuditEntry>>;
 
+export function GetDataDir():Promise<string>;
+
 export function GetExecutionLog(arg1:string):Promise<string>;
 
 export function GetExecutionTasks():Promise<Array<app.ExecutionTaskConfig>>;
-
-export function GetDataDir():Promise<string>;
 
 export function GetHostLog(arg1:string,arg2:string):Promise<string>;
 
