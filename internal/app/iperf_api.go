@@ -172,6 +172,9 @@ func (a *App) RunIperfTest(taskID string) error {
 	if task == nil {
 		return fmt.Errorf("任务 %s 不存在", taskID)
 	}
+	if len(task.ClientHosts) == 0 {
+		return fmt.Errorf("任务 %s 无可用客户端主机", taskID)
+	}
 
 	args := []string{"iperf3", "-c", task.ServerHost.Host}
 	if task.Config.Protocol == "udp" {
@@ -208,14 +211,23 @@ func (a *App) RunIperfTest(taskID string) error {
 		}
 	}
 
-	session, err := executor.RunIperfClient(task.ClientHosts[0], taskID, args)
-	if err != nil {
-		dbUpdateIperfTaskStatus(a.db, taskID, "error")
-		return err
+	dbUpdateIperfTaskStatus(a.db, taskID, "running")
+
+	var startErr error
+	for i, host := range task.ClientHosts {
+		session, err := executor.RunIperfClient(host, taskID, args)
+		if err != nil {
+			startErr = fmt.Errorf("客户端 %s 启动失败: %v", host.Host, err)
+			continue
+		}
+		iperfRealtime.StartStreamAt(taskID, i, session)
 	}
 
-	dbUpdateIperfTaskStatus(a.db, taskID, "running")
-	iperfRealtime.StartStream(taskID, session)
+	if startErr != nil {
+		iperfRealtime.StopStream(taskID)
+		dbUpdateIperfTaskStatus(a.db, taskID, "error")
+		return startErr
+	}
 
 	go func() {
 		time.Sleep(time.Duration(task.Config.Duration+5) * time.Second)

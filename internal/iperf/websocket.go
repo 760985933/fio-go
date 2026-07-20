@@ -1,7 +1,9 @@
 package iperf
 
 import (
+	"fmt"
 	"log"
+	"strings"
 	"sync"
 )
 
@@ -25,6 +27,10 @@ func NewRealtimeManager() *RealtimeManager {
 		clients:  make(map[string][]chan IperfInterval),
 		running:  make(map[string]bool),
 	}
+}
+
+func SessionKey(taskId string, idx int) string {
+	return fmt.Sprintf("%s:%d", taskId, idx)
 }
 
 func (m *RealtimeManager) Subscribe(taskId string) chan IperfInterval {
@@ -51,15 +57,33 @@ func (m *RealtimeManager) Unsubscribe(taskId string, ch chan IperfInterval) {
 }
 
 func (m *RealtimeManager) StartStream(taskId string, session StreamSession) {
+	m.StartStreamAt(taskId, 0, session)
+}
+
+func (m *RealtimeManager) StartStreamAt(taskId string, idx int, session StreamSession) {
+	m.startStreamWithKey(SessionKey(taskId, idx), taskId, session)
+}
+
+func (m *RealtimeManager) startStreamWithKey(key, taskId string, session StreamSession) {
 	m.mu.Lock()
-	m.sessions[taskId] = session
+	m.sessions[key] = session
 	m.running[taskId] = true
 	m.mu.Unlock()
 
 	go func() {
 		defer func() {
 			m.mu.Lock()
-			delete(m.running, taskId)
+			delete(m.sessions, key)
+			running := false
+			for k, v := range m.running {
+				if strings.HasPrefix(k, taskId) && v {
+					running = true
+					break
+				}
+			}
+			if !running {
+				m.running[taskId] = false
+			}
 			m.mu.Unlock()
 		}()
 
@@ -74,9 +98,9 @@ func (m *RealtimeManager) StartStream(taskId string, session StreamSession) {
 			line, err := session.ReadLine()
 			if err != nil {
 				if err.Error() == "EOF" {
-					log.Printf("iperf stream %s: EOF reached", taskId)
+					log.Printf("iperf stream %s (%s): EOF reached", taskId, session.Host())
 				} else {
-					log.Printf("iperf stream %s read error: %v", taskId, err)
+					log.Printf("iperf stream %s (%s) read error: %v", taskId, session.Host(), err)
 				}
 				break
 			}
@@ -105,10 +129,6 @@ func (m *RealtimeManager) StartStream(taskId string, session StreamSession) {
 				}
 			}
 		}
-
-		m.mu.Lock()
-		delete(m.sessions, taskId)
-		m.mu.Unlock()
 	}()
 }
 
@@ -116,9 +136,11 @@ func (m *RealtimeManager) StopStream(taskId string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if session, ok := m.sessions[taskId]; ok {
-		session.Stop()
-		delete(m.sessions, taskId)
+	for key, session := range m.sessions {
+		if key == taskId || strings.HasPrefix(key, taskId+":") {
+			session.Stop()
+			delete(m.sessions, key)
+		}
 	}
 	m.running[taskId] = false
 }

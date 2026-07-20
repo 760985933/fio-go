@@ -349,9 +349,11 @@ body {
   gap: 8px;
   padding: 8px 10px;
   background: var(--bg);
+  border: 1px solid var(--border);
   border-radius: 8px;
   margin-bottom: 6px;
   font-size: 13px;
+  transition: border-color 0.15s;
 }
 
 .host-item:hover {
@@ -359,8 +361,8 @@ body {
 }
 
 .host-item.active {
+  border-color: var(--primary);
   background: var(--primary-bg);
-  border-left: 3px solid var(--primary);
   font-weight: 500;
 }
 
