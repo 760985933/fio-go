@@ -110,3 +110,13 @@ func (s *SSHClient) RunCommand(cmd string) (string, error) {
 	output, err := session.CombinedOutput(cmd)
 	return string(output), err
 }
+
+func (s *SSHClient) RunCommandNoWait(cmd string) error {
+	session, err := s.Client.NewSession()
+	if err != nil {
+		return fmt.Errorf("failed to create session: %v", err)
+	}
+	defer session.Close()
+
+	return session.Start(cmd)
+}

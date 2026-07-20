@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 )
 
 const baseFioDir = "/tmp/fio"
@@ -163,9 +164,17 @@ func DeployAndRun(taskKey string, hosts []HostConfig, scriptName string, scriptC
 				logsDir,
 				pidFile,
 			)
-			_, err = client.RunCommand(fioCmd)
+			err = client.RunCommandNoWait(fioCmd)
 			if err != nil {
 				res.Error = fmt.Errorf("failed to start fio: %v", err)
+				results[idx] = res
+				return
+			}
+
+			// Brief pause then verify PID file exists
+			time.Sleep(500 * time.Millisecond)
+			if _, pidErr := client.RunCommand(fmt.Sprintf("test -f %s && cat %s || echo MISSING", pidFile, pidFile)); pidErr != nil {
+				res.Error = fmt.Errorf("fio may not have started: %v", pidErr)
 				results[idx] = res
 				return
 			}
