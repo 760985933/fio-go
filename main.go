@@ -17,7 +17,7 @@ func main() {
 	application := app.NewApp()
 
 	err := wails.Run(&options.App{
-		Title:  "FIO 性能测试工具",
+		Title:  "NetTopo 性能测试工具",
 		Width:  1200,
 		Height: 800,
 		AssetServer: &assetserver.Options{
