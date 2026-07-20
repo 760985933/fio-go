@@ -48,21 +48,26 @@ type IperfSession struct {
 	client  *SSHClient
 	session *ssh.Session
 	stdout  io.Reader
+	reader  *bufio.Reader
 	pid     string
 	taskDir string
 	host    string
 }
 
+// ReadLine 复用同一个带缓冲的 reader 逐行读取 SSH 实时输出。
+// 注意：不能用每次调用都新建 bufio.Scanner 的实现——Scanner 会从其底层 reader
+// 预读并缓冲一大块数据、只返回第一行，其余行被丢弃；下一次新建 Scanner 又从已
+// 错位的位置继续读，会造成实时区间数据大面积丢失，表现为实时监控空白。
 func (s *IperfSession) ReadLine() (string, error) {
-	scanner := bufio.NewScanner(s.stdout)
-	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
-	if scanner.Scan() {
-		return scanner.Text(), nil
+	if s.reader == nil {
+		s.reader = bufio.NewReaderSize(s.stdout, 1024*1024)
 	}
-	if err := scanner.Err(); err != nil {
+	line, err := s.reader.ReadString('\n')
+	line = strings.TrimRight(line, "\r\n")
+	if line == "" && err != nil {
 		return "", err
 	}
-	return "", io.EOF
+	return line, nil
 }
 
 func (s *IperfSession) Stop() error {
@@ -202,6 +207,7 @@ func RunIperfClient(hostCfg HostConfig, taskKey string, args []string) (*IperfSe
 		client:  client,
 		session: session,
 		stdout:  stdout,
+		reader:  bufio.NewReaderSize(stdout, 1024*1024),
 		pid:     "",
 		taskDir: taskDir,
 		host:    displayIperfHost(hostCfg),

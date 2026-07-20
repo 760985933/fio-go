@@ -573,8 +573,8 @@ func (a *App) PullTaskData(taskID string) ([]ActionResult, error) {
 
 // CleanLocal 清理本地数据
 func (a *App) CleanLocal(taskID string) error {
-	baseDir := filepath.Join(dataBaseDir(), "data", "tasks", sanitizeTaskID(taskID))
-	reportDir := filepath.Join(dataBaseDir(), "output", "tasks", sanitizeTaskID(taskID))
+	baseDir := filepath.Join(dataBaseDir(), "data", "fio-tasks", sanitizeTaskID(taskID))
+	reportDir := filepath.Join(dataBaseDir(), "output", "fio-tasks", sanitizeTaskID(taskID))
 
 	var errs []string
 	if err := os.RemoveAll(baseDir); err != nil {
@@ -686,11 +686,11 @@ func openFolder(path string) error {
 }
 
 func taskRawDataDir(taskID string) string {
-	return filepath.Join(dataBaseDir(), "data", "tasks", sanitizeTaskID(taskID), "raw")
+	return filepath.Join(dataBaseDir(), "data", "fio-tasks", sanitizeTaskID(taskID), "raw")
 }
 
 func taskReportDir(taskID string) string {
-	return filepath.Join(dataBaseDir(), "output", "tasks", sanitizeTaskID(taskID))
+	return filepath.Join(dataBaseDir(), "output", "fio-tasks", sanitizeTaskID(taskID))
 }
 
 func taskReportHTMLPath(taskID string) string {
@@ -891,7 +891,7 @@ func openFile(path string) error {
 // ========== 执行日志 ==========
 
 func taskExecutionLogPath(taskID string) string {
-	return filepath.Join(dataBaseDir(), "data", "tasks", sanitizeTaskID(taskID), "execution.log")
+	return filepath.Join(dataBaseDir(), "data", "fio-tasks", sanitizeTaskID(taskID), "execution.log")
 }
 
 // GetExecutionLog 获取任务执行日志

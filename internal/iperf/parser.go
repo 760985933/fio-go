@@ -255,7 +255,7 @@ func CollectResults(taskDir string, hosts []string) ([]*IperfResult, error) {
 	var results []*IperfResult
 
 	for _, hostDir := range hosts {
-		dataDir := filepath.Join(taskDir, "data")
+		dataDir := filepath.Join(taskDir, hostDir, "data")
 		entries, err := os.ReadDir(dataDir)
 		if err != nil {
 			continue

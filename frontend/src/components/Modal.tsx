@@ -12,6 +12,7 @@ interface Props {
 
 export function Modal({ open, title, content, type, wide, onClose, onConfirm }: Props) {
   const [inputValue, setInputValue] = useState(content)
+  const [copied, setCopied] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -20,6 +21,32 @@ export function Modal({ open, title, content, type, wide, onClose, onConfirm }: 
       setTimeout(() => inputRef.current?.focus(), 100)
     }
   }, [content, type])
+
+  // 复制弹窗内容到剪贴板（日志查看等 results 类型弹窗使用），失败则回退到 textarea 方式
+  const handleCopy = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(content)
+      } else {
+        throw new Error('clipboard unavailable')
+      }
+    } catch {
+      try {
+        const ta = document.createElement('textarea')
+        ta.value = content
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+      } catch {
+        return
+      }
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   useEffect(() => {
     if (!open) return
@@ -70,7 +97,14 @@ export function Modal({ open, title, content, type, wide, onClose, onConfirm }: 
             </>
           )}
           {(type === 'info' || type === 'results') && (
-            <button className="btn btn-primary" onClick={onClose}>关闭</button>
+            <>
+              {type === 'results' && (
+                <button className="btn btn-outline" onClick={handleCopy}>
+                  {copied ? '已复制' : '复制'}
+                </button>
+              )}
+              <button className="btn btn-primary" onClick={onClose}>关闭</button>
+            </>
           )}
         </div>
       </div>

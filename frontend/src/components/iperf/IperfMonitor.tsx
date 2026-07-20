@@ -49,10 +49,14 @@ export function IperfMonitor({ onShowResults }: Props) {
     // 订阅该任务的实时区间数据事件（iperf3 一边跑一边推送）
     const eventName = `iperf:interval:${taskId}`
     const handler = (payload: any) => {
-      const raw = Array.isArray(payload) ? payload[0] : payload
-      const iv: IperfInterval = typeof raw === 'string' ? JSON.parse(raw) : raw
-      if (iv && typeof iv.bitsPerSecond === 'number') {
-        setIntervals(prev => [...prev, iv].slice(-600))
+      try {
+        const raw = Array.isArray(payload) ? payload[0] : payload
+        const iv: IperfInterval = typeof raw === 'string' ? JSON.parse(raw) : raw
+        if (iv && typeof iv.bitsPerSecond === 'number') {
+          setIntervals(prev => [...prev, iv].slice(-600))
+        }
+      } catch {
+        // 忽略非法格式的 payload，避免 JSON.parse 抛出未捕获异常导致组件崩溃
       }
     }
     EventsOn(eventName, handler)

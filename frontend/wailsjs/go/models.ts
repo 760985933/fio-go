@@ -330,6 +330,38 @@ export namespace iperf {
 	        this.serverBindIP = source["serverBindIP"];
 	    }
 	}
+	export class IperfInterval {
+	    timestamp: number;
+	    streamID: number;
+	    duration: number;
+	    bytes: number;
+	    bitsPerSecond: number;
+	    jitterMs: number;
+	    lostPackets: number;
+	    totalPackets: number;
+	    retransmits: number;
+	    cpuUser: number;
+	    cpuSys: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new IperfInterval(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.timestamp = source["timestamp"];
+	        this.streamID = source["streamID"];
+	        this.duration = source["duration"];
+	        this.bytes = source["bytes"];
+	        this.bitsPerSecond = source["bitsPerSecond"];
+	        this.jitterMs = source["jitterMs"];
+	        this.lostPackets = source["lostPackets"];
+	        this.totalPackets = source["totalPackets"];
+	        this.retransmits = source["retransmits"];
+	        this.cpuUser = source["cpuUser"];
+	        this.cpuSys = source["cpuSys"];
+	    }
+	}
 	export class IperfTask {
 	    id: string;
 	    name: string;

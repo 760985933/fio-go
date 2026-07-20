@@ -77,7 +77,11 @@ export function GetIperfConfig(arg1:string):Promise<iperf.IperfConfig>;
 
 export function GetIperfConfigs():Promise<Array<iperf.IperfConfig>>;
 
+export function GetIperfIntervals(arg1:string):Promise<Array<iperf.IperfInterval>>;
+
 export function GetIperfReportHTML(arg1:string):Promise<string>;
+
+export function GetIperfTaskLog(arg1:string):Promise<string>;
 
 export function GetIperfTasks():Promise<Array<iperf.IperfTask>>;
 

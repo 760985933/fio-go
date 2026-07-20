@@ -146,6 +146,7 @@ export function GetIperfAnalysisTasks(): Promise<IperfAnalysisSummary[]>;
 export function CleanIperfLocal(taskID: string): Promise<void>;
 export function CleanIperfRemote(taskID: string): Promise<void>;
 export function GetIperfIntervals(taskID: string): Promise<IperfInterval[]>;
+export function GetIperfTaskLog(taskID: string): Promise<string>;
 
 export interface IperfConfig {
     id: string;

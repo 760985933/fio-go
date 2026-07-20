@@ -204,7 +204,9 @@ func (m *RealtimeManager) emitAndPersist(taskId string, intervals []IperfInterva
 		if f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err == nil {
 			for _, iv := range intervals {
 				if data, err := json.Marshal(iv); err == nil {
-					f.Write(append(data, '\n'))
+					if _, err := f.Write(append(data, '\n')); err != nil {
+						log.Printf("写入区间数据失败: %v", err)
+					}
 				}
 			}
 			f.Close()

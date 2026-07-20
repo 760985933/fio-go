@@ -30,3 +30,6 @@ data/audit.log
 .vscode/
 *.swp
 *.swo
+
+# WorkBuddy project data (memory, preferences, etc.)
+.workbuddy/

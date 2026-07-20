@@ -347,7 +347,7 @@ func (a *App) GetIperfIntervals(taskID string) ([]iperf.IperfInterval, error) {
 	file := iperf.IntervalDataFile(taskID)
 	data, err := os.ReadFile(file)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 	var intervals []iperf.IperfInterval
 	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
@@ -360,6 +360,73 @@ func (a *App) GetIperfIntervals(taskID string) ([]iperf.IperfInterval, error) {
 		}
 	}
 	return intervals, nil
+}
+
+// GetIperfTaskLog 收集某任务在各客户端/服务端的执行日志，用于任务执行后诊断
+// （如中途中断、连接失败、iperf3 崩溃等）。日志经 SSH 读取远端文件并合并为单个字符串返回。
+// 文件不存在/为空/读取失败时返回说明文本，不会整体报错，保证总能打开日志面板。
+func (a *App) GetIperfTaskLog(taskID string) (string, error) {
+	tasks, err := a.GetIperfTasks()
+	if err != nil {
+		return "", err
+	}
+	var task *iperf.IperfTask
+	for i := range tasks {
+		if tasks[i].ID == taskID {
+			task = &tasks[i]
+			break
+		}
+	}
+	if task == nil {
+		return "", fmt.Errorf("任务 %s 不存在", taskID)
+	}
+
+	// iperf3 默认端口，server 日志路径使用同一端口（与 RunIperfTest / StartIperfServer 一致）
+	const iperfPort = 5201
+	_, dataDir, _ := executor.BuildIperfPaths(taskID)
+	clientLog := filepath.Join(dataDir, "iperf_stdout.log")
+	serverLog := fmt.Sprintf("/tmp/iperf_server_%d.log", iperfPort)
+
+	var sb strings.Builder
+
+	// 服务端日志
+	sb.WriteString("===== Server 日志 (")
+	sb.WriteString(task.ServerHost.Host)
+	sb.WriteString(fmt.Sprintf(", 端口 %d) =====\n", iperfPort))
+	sb.WriteString(readRemoteIperfLog(task.ServerHost, serverLog))
+	sb.WriteString("\n\n")
+
+	// 各客户端日志
+	if len(task.ClientHosts) == 0 {
+		sb.WriteString("[该任务无客户端主机]\n")
+	}
+	for _, host := range task.ClientHosts {
+		sb.WriteString("===== Client 日志 (")
+		sb.WriteString(host.Host)
+		sb.WriteString(") =====\n")
+		sb.WriteString(readRemoteIperfLog(host, clientLog))
+		sb.WriteString("\n\n")
+	}
+
+	return sb.String(), nil
+}
+
+// readRemoteIperfLog 经 SSH 读取远端日志文件尾部（最多 2000 行）。文件不存在/为空/读取失败时
+// 返回说明文本而非报错，使单台主机异常不影响其它主机日志的收集。
+func readRemoteIperfLog(host executor.HostConfig, path string) string {
+	client, err := executor.NewSSHClient(host)
+	if err != nil {
+		return fmt.Sprintf("[无法连接 %s: %v]", host.Host, err)
+	}
+	defer client.Close()
+	out, err := client.RunCommand(fmt.Sprintf(
+		`if [ -s %[1]s ]; then tail -n 2000 %[1]s; elif [ -f %[1]s ]; then echo '[日志文件为空]'; else echo '[日志文件不存在]'; fi`,
+		path,
+	))
+	if err != nil {
+		return fmt.Sprintf("[读取日志失败: %v]", err)
+	}
+	return out
 }
 
 func (a *App) PullIperfData(taskID string) error {

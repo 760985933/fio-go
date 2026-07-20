@@ -163,7 +163,6 @@ func initWebDB(db *sql.DB) error {
 	return nil
 }
 
-
 func normalizeHostConfig(host executor.HostConfig) executor.HostConfig {
 	host.Host = strings.TrimSpace(host.Host)
 	if host.Port <= 0 {
@@ -212,7 +211,7 @@ func sanitizeTaskID(taskID string) string {
 }
 
 func taskBaseDir(taskID string) string {
-	return filepath.Join(models.DataBaseDir(), "data", "tasks", sanitizeTaskID(taskID))
+	return filepath.Join(models.DataBaseDir(), "data", "fio-tasks", sanitizeTaskID(taskID))
 }
 
 func taskRawDataDir(taskID string) string {
@@ -224,7 +223,7 @@ func taskExecutionLogPath(taskID string) string {
 }
 
 func taskReportDir(taskID string) string {
-	return filepath.Join(models.DataBaseDir(), "output", "tasks", sanitizeTaskID(taskID))
+	return filepath.Join(models.DataBaseDir(), "output", "fio-tasks", sanitizeTaskID(taskID))
 }
 
 func taskReportHTMLPath(taskID string) string {
@@ -807,9 +806,9 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 		var resultsList []resultJSON
 		for _, res := range results {
 			r := resultJSON{Host: res.Host, Msg: res.Msg}
-		if res.Error != "" {
-			r.Error = res.Error
-		}
+			if res.Error != "" {
+				r.Error = res.Error
+			}
 			resultsList = append(resultsList, r)
 		}
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import type { CSSProperties } from 'react'
 import { IperfConfig, IperfTask, HostConfig } from '../../types'
 import * as App from '../../wailsjs/go/app/App'
 import { ConfirmDialog } from '../ConfirmDialog'
@@ -192,6 +193,16 @@ export function IperfTaskManager({ onAudit, onShowResults }: Props) {
     }
   }
 
+  const viewLog = async (task: IperfTask) => {
+    try {
+      const log = await App.GetIperfTaskLog(task.id)
+      await onShowResults(`执行日志 - ${task.name}`, log && log.trim() ? log : '[无日志内容]', true)
+      onAudit('查看iperf3执行日志', task.name)
+    } catch (err) {
+      await onShowResults('查看日志失败', String(err), true)
+    }
+  }
+
   const askDelete = (task: IperfTask) => {
     setConfirmTask(task)
     setConfirmType('delete')
@@ -241,6 +252,23 @@ export function IperfTaskManager({ onAudit, onShowResults }: Props) {
       case 'error': return '#ef4444'
       case 'stopped': return '#f59e0b'
       default: return '#9ca3af'
+    }
+  }
+
+  // 状态标签（pill）样式：浅色底 + 同色文字/边框，按状态着色
+  const statusTagStyle = (status: string): CSSProperties => {
+    const color = statusColor(status)
+    return {
+      display: 'inline-block',
+      padding: '2px 10px',
+      borderRadius: 999,
+      fontSize: 12,
+      fontWeight: 600,
+      lineHeight: 1.5,
+      whiteSpace: 'nowrap',
+      color,
+      background: color + '1a',   // 约 10% 透明度底色
+      border: `1px solid ${color}55`, // 约 33% 透明度边框
     }
   }
 
@@ -332,15 +360,8 @@ export function IperfTaskManager({ onAudit, onShowResults }: Props) {
         ) : tasks.map(task => (
           <div key={task.id} className="host-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{
-                display: 'inline-block',
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: statusColor(task.status),
-              }} />
               <span style={{ fontWeight: 600, fontSize: 14, flex: 1 }}>{task.name}</span>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{task.status}</span>
+              <span style={statusTagStyle(task.status)}>{task.status}</span>
               <div style={{ display: 'flex', gap: 4 }}>
                 {task.status !== 'running' && (
                   <button className="btn btn-primary btn-sm" onClick={() => runTask(task)} disabled={executing[task.id]}>
@@ -349,6 +370,9 @@ export function IperfTaskManager({ onAudit, onShowResults }: Props) {
                 )}
                 {task.status === 'running' && (
                   <button className="btn btn-danger btn-sm" onClick={() => stopTask(task)}>停止</button>
+                )}
+                {task.status !== 'pending' && (
+                  <button className="btn btn-outline btn-sm" onClick={() => viewLog(task)}>日志查看</button>
                 )}
                 {task.status !== 'running' && task.status !== 'pending' && (
                   <button className="btn btn-outline btn-sm" onClick={() => pullData(task)}>拉取数据</button>

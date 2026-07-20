@@ -146,8 +146,16 @@ export function GetIperfConfigs() {
   return window['go']['app']['App']['GetIperfConfigs']();
 }
 
+export function GetIperfIntervals(arg1) {
+  return window['go']['app']['App']['GetIperfIntervals'](arg1);
+}
+
 export function GetIperfReportHTML(arg1) {
   return window['go']['app']['App']['GetIperfReportHTML'](arg1);
+}
+
+export function GetIperfTaskLog(arg1) {
+  return window['go']['app']['App']['GetIperfTaskLog'](arg1);
 }
 
 export function GetIperfTasks() {
