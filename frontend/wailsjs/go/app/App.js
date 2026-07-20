@@ -82,6 +82,10 @@ export function GetExecutionTasks() {
   return window['go']['app']['App']['GetExecutionTasks']();
 }
 
+export function GetDataDir() {
+  return window['go']['app']['App']['GetDataDir']();
+}
+
 export function GetHostLog(arg1, arg2) {
   return window['go']['app']['App']['GetHostLog'](arg1, arg2);
 }
@@ -116,6 +120,10 @@ export function GetScripts() {
 
 export function KillAll(arg1, arg2) {
   return window['go']['app']['App']['KillAll'](arg1, arg2);
+}
+
+export function OpenDataDir() {
+  return window['go']['app']['App']['OpenDataDir']();
 }
 
 export function PreDeployCheck(arg1, arg2) {

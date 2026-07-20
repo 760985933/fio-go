@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -649,6 +651,17 @@ func dataBaseDir() string {
 	return models.DataBaseDir()
 }
 
+func openFolder(path string) error {
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", path).Start()
+	case "windows":
+		return exec.Command("explorer", path).Start()
+	default:
+		return exec.Command("xdg-open", path).Start()
+	}
+}
+
 func taskRawDataDir(taskID string) string {
 	return filepath.Join(dataBaseDir(), "data", "tasks", sanitizeTaskID(taskID), "raw")
 }
@@ -798,6 +811,18 @@ func (a *App) GetAuditLog() ([]AuditEntry, error) {
 // AddAuditLog 添加审计日志条目
 func (a *App) AddAuditLog(action, details string) error {
 	return dbAddAuditLog(a.db, action, details, time.Now().Format(time.RFC3339))
+}
+
+// GetDataDir 返回应用数据存储目录
+func (a *App) GetDataDir() string {
+	return dataBaseDir()
+}
+
+// OpenDataDir 在文件管理器中打开数据目录
+func (a *App) OpenDataDir() error {
+	dir := dataBaseDir()
+	os.MkdirAll(dir, 0755)
+	return openFolder(dir)
 }
 
 // ========== 执行日志 ==========

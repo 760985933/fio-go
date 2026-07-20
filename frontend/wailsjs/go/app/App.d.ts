@@ -44,6 +44,8 @@ export function GetExecutionLog(arg1:string):Promise<string>;
 
 export function GetExecutionTasks():Promise<Array<app.ExecutionTaskConfig>>;
 
+export function GetDataDir():Promise<string>;
+
 export function GetHostLog(arg1:string,arg2:string):Promise<string>;
 
 export function GetHosts():Promise<Array<app.HostRecord>>;
@@ -61,6 +63,8 @@ export function GetScriptContent(arg1:string):Promise<string>;
 export function GetScripts():Promise<Array<string>>;
 
 export function KillAll(arg1:string,arg2:Array<executor.HostConfig>):Promise<Array<app.ActionResult>>;
+
+export function OpenDataDir():Promise<void>;
 
 export function PreDeployCheck(arg1:string,arg2:Array<executor.HostConfig>):Promise<Array<app.CheckResult>>;
 

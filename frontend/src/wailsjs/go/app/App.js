@@ -137,6 +137,14 @@ export function GetReportHTMLWithEcharts(taskID) {
     return window['go']['app']['App']['GetReportHTMLWithEcharts'](taskID);
 }
 
+export function GetDataDir() {
+    return window['go']['app']['App']['GetDataDir']();
+}
+
+export function OpenDataDir() {
+    return window['go']['app']['App']['OpenDataDir']();
+}
+
 export function AddHost(host) {
     return window['go']['app']['App']['AddHost'](host);
 }

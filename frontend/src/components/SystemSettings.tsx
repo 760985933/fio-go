@@ -5,8 +5,9 @@ import * as App from '../wailsjs/go/app/App'
 export function SystemSettings() {
   const [logs, setLogs] = useState<AuditEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [dataDir, setDataDir] = useState('')
 
-  useEffect(() => { loadLogs() }, [])
+  useEffect(() => { loadLogs(); App.GetDataDir().then(setDataDir).catch(() => {}) }, [])
 
   const loadLogs = async () => {
     setLoading(true)
@@ -18,6 +19,19 @@ export function SystemSettings() {
     <div>
       <div className="manager-header">
         <h2>系统设置</h2>
+      </div>
+
+      <div className="panel">
+        <h3 className="section-title">存储路径</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+          <code style={{ flex: 1, fontSize: 12, padding: '6px 10px', background: 'var(--bg)', borderRadius: 6, wordBreak: 'break-all' }}>
+            {dataDir || '加载中...'}
+          </code>
+          <button className="btn btn-outline btn-sm" onClick={() => App.OpenDataDir()}>打开文件夹</button>
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+          数据库、执行数据、分析报告均存储在此目录下
+        </p>
       </div>
 
       <div className="panel">

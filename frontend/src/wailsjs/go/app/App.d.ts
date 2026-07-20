@@ -36,6 +36,9 @@ export function ExecuteOrchestration(taskIDs: string[], interval: number): Promi
 export function CreateReportZIP(taskID: string): Promise<string>;
 export function GetReportHTMLWithEcharts(taskID: string): Promise<string>;
 
+export function GetDataDir(): Promise<string>;
+export function OpenDataDir(): Promise<void>;
+
 export function AddHost(host: HostConfig): Promise<number>;
 export function AppendExecutionLog(taskID: string, message: string): Promise<void>;
 export function GetHosts(): Promise<HostRecord[]>;
