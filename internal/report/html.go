@@ -22,13 +22,14 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
 		testEnd = startedAt[1]
 	}
 
-	metaLine := "<p>生成时间: " + ts + "</p>"
+	metaLines := []string{"<span>生成时间: " + ts + "</span>"}
 	if testStart != "" {
-		metaLine += "<p>测试开始时间: " + html.EscapeString(testStart) + "</p>"
+		metaLines = append(metaLines, "<span>测试开始: "+html.EscapeString(testStart)+"</span>")
 	}
 	if testEnd != "" {
-		metaLine += "<p>测试结束时间: " + html.EscapeString(testEnd) + "</p>"
+		metaLines = append(metaLines, "<span>测试结束: "+html.EscapeString(testEnd)+"</span>")
 	}
+	metaLine := strings.Join(metaLines, "")
 
 	if groups == nil {
 		groups = []models.ChartGroup{}
@@ -48,12 +49,12 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
 			txt := html.EscapeString(systemTexts[ip])
 			lineCount := strings.Count(txt, "\n") + 1
 			if lineCount > 12 {
-				cards = append(cards, "<details style='border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;padding:12px;'><summary style='font-weight:600;color:#374151;cursor:pointer;'>"+html.EscapeString(ip)+"</summary><pre style='white-space:pre-wrap;font-family:Menlo,monospace;font-size:12px;line-height:1.5;color:#111827;margin-top:8px;'>"+txt+"</pre></details>")
+				cards = append(cards, "<details><summary>"+html.EscapeString(ip)+"</summary><pre style='white-space:pre-wrap;font-family:Menlo,monospace;font-size:12px;line-height:1.5;color:#111827;padding:12px 16px;margin:0;border-top:1px solid #e5e7eb;'>"+txt+"</pre></details>")
 			} else {
-				cards = append(cards, "<div style='border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;padding:12px;'><div style='font-weight:600;color:#374151;margin-bottom:8px;'>"+html.EscapeString(ip)+"</div><pre style='white-space:pre-wrap;font-family:Menlo,monospace;font-size:12px;line-height:1.5;color:#111827;'>"+txt+"</pre></div>")
+				cards = append(cards, "<div style='border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;padding:14px 16px;'><div style='font-weight:600;color:#374151;margin-bottom:8px;font-size:13px;'>"+html.EscapeString(ip)+"</div><pre style='white-space:pre-wrap;font-family:Menlo,monospace;font-size:12px;line-height:1.5;color:#111827;margin:0;'>"+txt+"</pre></div>")
 			}
 		}
-		sysHtml = "<h2>系统信息</h2><div style=\"display:grid;grid-template-columns:repeat(3,1fr);gap:16px;\">" + strings.Join(cards, "") + "</div>\n"
+		sysHtml = "<div class='section'><div class='section-title'>系统信息</div><div style=\"display:grid;grid-template-columns:repeat(3,1fr);gap:12px;\">" + strings.Join(cards, "") + "</div></div>\n"
 	}
 
 	htmlStr := `<!DOCTYPE html>
@@ -64,48 +65,75 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
   <script src="echarts.min.js"></script>
   <script>if (!window.echarts) document.write('<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"><\/script>')</script>
   <style>
-    body { font-family: Arial; max-width: 1100px; margin: 24px auto; }
-    .header-row { display: flex; justify-content: space-between; align-items: baseline; }
-    .version { color: #999; font-size: 13px; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-    th { background: #f3f3f3; }
-    h3 { color: #409EFF; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 1100px; margin: 0 auto; padding: 32px 24px; background: #f5f5f7; color: #1d1d1f; line-height: 1.6; }
+    .report-header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); color: #fff; padding: 32px 40px; border-radius: 16px; margin-bottom: 24px; box-shadow: 0 4px 24px rgba(0,0,0,0.15); }
+    .report-header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 12px; }
+    .header-meta { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .version { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.9); font-size: 13px; padding: 4px 12px; border-radius: 20px; backdrop-filter: blur(4px); }
+    .meta-info { display: flex; gap: 24px; flex-wrap: wrap; font-size: 13px; color: rgba(255,255,255,0.8); }
+    .meta-info span { display: flex; align-items: center; gap: 4px; }
+    .section { background: #fff; border-radius: 12px; padding: 24px 28px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .section-title { font-size: 18px; font-weight: 600; color: #1d1d1f; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #007AFF; display: inline-block; }
+    h3 { color: #007AFF; font-size: 15px; font-weight: 600; margin: 20px 0 10px; }
+    table { border-collapse: collapse; width: 100%; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    th, td { border: 1px solid #e5e7eb; padding: 10px 12px; text-align: center; font-size: 13px; }
+    th { background: #f8f9fa; font-weight: 600; color: #374151; border-bottom: 2px solid #d1d5db; }
+    td { color: #1f2937; }
+    tr:nth-child(even) { background: #f9fafb; }
+    tr:hover { background: #eff6ff; }
+    .bw-toggle { margin: 12px 0; display: flex; align-items: center; gap: 12px; font-size: 13px; color: #6b7280; }
+    .bw-toggle label { display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 4px 12px; border-radius: 6px; transition: background 0.15s; }
+    .bw-toggle label:hover { background: #f3f4f6; }
     .chart { width: 100%; height: 320px; margin: 16px 0; }
-    .bw-toggle { margin: 8px 0; }
-    details > summary { list-style: none; }
+    details { border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb; margin-bottom: 8px; }
+    details > summary { padding: 10px 16px; font-weight: 600; color: #374151; cursor: pointer; }
+    details > summary:hover { background: #f3f4f6; border-radius: 8px; }
     details > summary::-webkit-details-marker { display: none; }
+    details pre { padding: 12px 16px; margin: 0; font-size: 12px; line-height: 1.5; color: #111827; border-top: 1px solid #e5e7eb; }
+    .glossary-table td:first-child { font-weight: 600; color: #007AFF; text-align: left; width: 80px; }
+    .glossary-table td:last-child { text-align: left; }
   </style>
 </head>
 <body>
-  <div class="header-row">
-    <h1>FIO性能报告</h1>
-    <span class="version">` + html.EscapeString(models.Version) + `</span>
+  <div class="report-header">
+    <div class="header-meta">
+      <h1>FIO性能报告</h1>
+      <span class="version">v` + html.EscapeString(models.Version) + `</span>
+    </div>
+    <div class="meta-info">
+      ` + metaLine + `
+    </div>
   </div>
-  ` + metaLine + `
 
-  <h2>性能汇总</h2>
-  <div class="bw-toggle">带宽单位：
-    <label><input type="radio" name="bw_unit" onclick="setMiBps(true);" checked> MiBps</label>
-    <label style="margin-left:12px"><input type="radio" name="bw_unit" onclick="setMiBps(false);"> MBps</label>
+  <div class="section">
+    <div class="section-title">性能汇总</div>
+    <div class="bw-toggle">带宽单位：
+      <label><input type="radio" name="bw_unit" onclick="setMiBps(true);" checked> MiBps</label>
+      <label><input type="radio" name="bw_unit" onclick="setMiBps(false);"> MBps</label>
+    </div>
+    ` + generateHtmlSummaryTables(groupedRows) + `
   </div>
-  ` + generateHtmlSummaryTables(groupedRows) + `
   ` + sysHtml + `
 
-  <h2>术语解释</h2>
-  <table>
-    <thead><tr><th>术语</th><th>说明</th></tr></thead>
-    <tbody>
-      <tr><td>IOPS</td><td>每秒 I/O 数（吞吐的操作次数）</td></tr>
-      <tr><td>BW</td><td>带宽（MiB/s，已转换为每秒兆字节）</td></tr>
-      <tr><td>LAT</td><td>总延迟（提交延迟 SLAT + 完成延迟 CLAT 的总和，单位 ms）</td></tr>
-      <tr><td>CLAT</td><td>完成延迟（设备端完成 I/O 的耗时，单位 ms）</td></tr>
-      <tr><td>SLAT</td><td>提交延迟（从线程发起到操作系统受理的前端耗时，单位 ms）</td></tr>
-    </tbody>
-  </table>
+  <div class="section">
+    <div class="section-title">术语解释</div>
+    <table class="glossary-table">
+      <thead><tr><th>术语</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>IOPS</td><td>每秒 I/O 数（吞吐的操作次数）</td></tr>
+        <tr><td>BW</td><td>带宽（MiB/s，已转换为每秒兆字节）</td></tr>
+        <tr><td>LAT</td><td>总延迟（提交延迟 SLAT + 完成延迟 CLAT 的总和，单位 ms）</td></tr>
+        <tr><td>CLAT</td><td>完成延迟（设备端完成 I/O 的耗时，单位 ms）</td></tr>
+        <tr><td>SLAT</td><td>提交延迟（从线程发起到操作系统受理的前端耗时，单位 ms）</td></tr>
+      </tbody>
+    </table>
+  </div>
 
-  <h2>分组时序图</h2>
-  <div id="groups_root"></div>
+  <div class="section">
+    <div class="section-title">分组时序图</div>
+    <div id="groups_root"></div>
+  </div>
 
   <script>
     const groups = ` + string(jsGroups) + `;
