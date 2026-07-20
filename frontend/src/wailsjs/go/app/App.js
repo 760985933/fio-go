@@ -172,3 +172,87 @@ export function DeleteHost(id) {
 export function UpdateHost(id, host) {
     return window['go']['app']['App']['UpdateHost'](id, host);
 }
+
+export function SaveIperfConfig(config) {
+    return window['go']['app']['App']['SaveIperfConfig'](config);
+}
+
+export function GetIperfConfigs() {
+    return window['go']['app']['App']['GetIperfConfigs']();
+}
+
+export function GetIperfConfig(id) {
+    return window['go']['app']['App']['GetIperfConfig'](id);
+}
+
+export function DeleteIperfConfig(id) {
+    return window['go']['app']['App']['DeleteIperfConfig'](id);
+}
+
+export function CreateIperfTask(task) {
+    return window['go']['app']['App']['CreateIperfTask'](task);
+}
+
+export function GetIperfTasks() {
+    return window['go']['app']['App']['GetIperfTasks']();
+}
+
+export function DeleteIperfTask(id) {
+    return window['go']['app']['App']['DeleteIperfTask'](id);
+}
+
+export function StartIperfServer(host, port) {
+    return window['go']['app']['App']['StartIperfServer'](host, port);
+}
+
+export function StopIperfServer(host, port) {
+    return window['go']['app']['App']['StopIperfServer'](host, port);
+}
+
+export function CheckIperfServer(host, port) {
+    return window['go']['app']['App']['CheckIperfServer'](host, port);
+}
+
+export function CheckIperfInstalled(hosts) {
+    return window['go']['app']['App']['CheckIperfInstalled'](hosts);
+}
+
+export function RunIperfTest(taskID) {
+    return window['go']['app']['App']['RunIperfTest'](taskID);
+}
+
+export function StopIperfTest(taskID) {
+    return window['go']['app']['App']['StopIperfTest'](taskID);
+}
+
+export function CheckIperfTestStatus(taskID) {
+    return window['go']['app']['App']['CheckIperfTestStatus'](taskID);
+}
+
+export function IsIperfMonitorRunning(taskID) {
+    return window['go']['app']['App']['IsIperfMonitorRunning'](taskID);
+}
+
+export function PullIperfData(taskID) {
+    return window['go']['app']['App']['PullIperfData'](taskID);
+}
+
+export function GenerateIperfReport(taskID) {
+    return window['go']['app']['App']['GenerateIperfReport'](taskID);
+}
+
+export function GetIperfReportHTML(taskID) {
+    return window['go']['app']['App']['GetIperfReportHTML'](taskID);
+}
+
+export function GetIperfAnalysisTasks() {
+    return window['go']['app']['App']['GetIperfAnalysisTasks']();
+}
+
+export function CleanIperfLocal(taskID) {
+    return window['go']['app']['App']['CleanIperfLocal'](taskID);
+}
+
+export function CleanIperfRemote(taskID) {
+    return window['go']['app']['App']['CleanIperfRemote'](taskID);
+}

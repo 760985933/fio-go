@@ -85,6 +85,20 @@ func StartServer(port int) error {
 	mux.HandleFunc("/api/analysis/assets", handleAnalysisAsset)
 	mux.HandleFunc("/api/analysis/download", handleAnalysisDownload)
 
+	// iperf API endpoints
+	mux.HandleFunc("/api/iperf/configs", handleIperfConfigs)
+	mux.HandleFunc("/api/iperf/tasks", handleIperfTasks)
+	mux.HandleFunc("/api/iperf/server/start", handleIperfServerStart)
+	mux.HandleFunc("/api/iperf/server/stop", handleIperfServerStop)
+	mux.HandleFunc("/api/iperf/server/check", handleIperfServerCheck)
+	mux.HandleFunc("/api/iperf/run", handleIperfRun)
+	mux.HandleFunc("/api/iperf/stop", handleIperfStop)
+	mux.HandleFunc("/api/iperf/pull", handleIperfPull)
+	mux.HandleFunc("/api/iperf/report/generate", handleIperfReportGenerate)
+	mux.HandleFunc("/api/iperf/report/preview", handleIperfReportPreview)
+	mux.HandleFunc("/api/iperf/analysis", handleIperfAnalysis)
+	mux.HandleFunc("/api/iperf/installed", handleIperfInstalled)
+
 	addr := fmt.Sprintf(":%d", port)
 	log.Printf("[INFO] Starting GUI server at http://localhost%s\n", addr)
 	return http.ListenAndServe(addr, mux)
@@ -95,7 +109,7 @@ func openWebDB() (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	dbDir := filepath.Join(home, ".fio-gui")
+	dbDir := filepath.Join(home, ".nettopo_test")
 	if err := os.MkdirAll(dbDir, 0700); err != nil {
 		return nil, err
 	}
@@ -1033,4 +1047,356 @@ func handleAuditLog(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func handleIperfConfigs(w http.ResponseWriter, r *http.Request) {
+	db, err := openWebDB()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
+
+	switch r.Method {
+	case http.MethodGet:
+		rows, err := db.Query(`SELECT id, name, config_json FROM iperf_configs ORDER BY created_at`)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+		var configs []map[string]interface{}
+		for rows.Next() {
+			var id, name, configJSON string
+			if err := rows.Scan(&id, &name, &configJSON); err != nil {
+				continue
+			}
+			var cfg map[string]interface{}
+			json.Unmarshal([]byte(configJSON), &cfg)
+			if cfg != nil {
+				configs = append(configs, cfg)
+			}
+		}
+		if configs == nil {
+			configs = []map[string]interface{}{}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(configs)
+
+	case http.MethodPost:
+		var cfg struct {
+			ID         string `json:"id"`
+			Name       string `json:"name"`
+			ConfigJSON string `json:"config_json"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if cfg.ID == "" {
+			cfg.ID = fmt.Sprintf("iperf-cfg-%d", time.Now().UnixNano())
+		}
+		_, err := db.Exec(`INSERT OR REPLACE INTO iperf_configs (id, name, config_json) VALUES (?, ?, ?)`, cfg.ID, cfg.Name, cfg.ConfigJSON)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+
+	case http.MethodDelete:
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			http.Error(w, "missing id", http.StatusBadRequest)
+			return
+		}
+		db.Exec(`DELETE FROM iperf_configs WHERE id = ?`, id)
+		w.WriteHeader(http.StatusOK)
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func handleIperfTasks(w http.ResponseWriter, r *http.Request) {
+	db, err := openWebDB()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
+
+	switch r.Method {
+	case http.MethodGet:
+		rows, err := db.Query(`SELECT id, name, config_json, server_host_json, client_hosts_json, status, created_at FROM iperf_tasks ORDER BY created_at`)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+		var tasks []map[string]interface{}
+		for rows.Next() {
+			var id, name, configJSON, serverHostJSON, clientHostsJSON, status, createdAt string
+			if err := rows.Scan(&id, &name, &configJSON, &serverHostJSON, &clientHostsJSON, &status, &createdAt); err != nil {
+				continue
+			}
+			task := map[string]interface{}{
+				"id": id, "name": name, "status": status, "createdAt": createdAt,
+			}
+			var config, serverHost, clientHosts interface{}
+			json.Unmarshal([]byte(configJSON), &config)
+			json.Unmarshal([]byte(serverHostJSON), &serverHost)
+			json.Unmarshal([]byte(clientHostsJSON), &clientHosts)
+			task["config"] = config
+			task["serverHost"] = serverHost
+			task["clientHosts"] = clientHosts
+			tasks = append(tasks, task)
+		}
+		if tasks == nil {
+			tasks = []map[string]interface{}{}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(tasks)
+
+	case http.MethodPost:
+		var task struct {
+			ID              string `json:"id"`
+			Name            string `json:"name"`
+			ConfigJSON      string `json:"config_json"`
+			ServerHostJSON  string `json:"server_host_json"`
+			ClientHostsJSON string `json:"client_hosts_json"`
+			Status          string `json:"status"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if task.ID == "" {
+			task.ID = fmt.Sprintf("iperf-task-%d", time.Now().UnixNano())
+		}
+		if task.Status == "" {
+			task.Status = "pending"
+		}
+		_, err := db.Exec(`INSERT OR REPLACE INTO iperf_tasks (id, name, config_json, server_host_json, client_hosts_json, status) VALUES (?, ?, ?, ?, ?, ?)`,
+			task.ID, task.Name, task.ConfigJSON, task.ServerHostJSON, task.ClientHostsJSON, task.Status)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+
+	case http.MethodDelete:
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			http.Error(w, "missing id", http.StatusBadRequest)
+			return
+		}
+		db.Exec(`DELETE FROM iperf_tasks WHERE id = ?`, id)
+		w.WriteHeader(http.StatusOK)
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func handleIperfServerStart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Host executor.HostConfig `json:"host"`
+		Port int                 `json:"port"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.Port <= 0 {
+		req.Port = 5201
+	}
+	result := executor.StartIperfServer(req.Host, req.Port)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+func handleIperfServerStop(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Host executor.HostConfig `json:"host"`
+		Port int                 `json:"port"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.Port <= 0 {
+		req.Port = 5201
+	}
+	result := executor.StopIperfServer(req.Host, req.Port)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+func handleIperfServerCheck(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Host executor.HostConfig `json:"host"`
+		Port int                 `json:"port"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.Port <= 0 {
+		req.Port = 5201
+	}
+	result := executor.CheckIperfServerRunning(req.Host, req.Port)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+func handleIperfRun(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		TaskID string `json:"taskId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "started"})
+}
+
+func handleIperfStop(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		TaskID string `json:"taskId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
+}
+
+func handleIperfPull(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		TaskID string `json:"taskId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "pulling"})
+}
+
+func handleIperfReportGenerate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		TaskID string `json:"taskId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "generating"})
+}
+
+func handleIperfReportPreview(w http.ResponseWriter, r *http.Request) {
+	taskID := r.URL.Query().Get("taskId")
+	if taskID == "" {
+		http.Error(w, "missing taskId", http.StatusBadRequest)
+		return
+	}
+	home, _ := os.UserHomeDir()
+	reportPath := filepath.Join(home, ".nettopo_test", "output", "iperf-tasks", taskID, "iperf_report.html")
+	data, err := os.ReadFile(reportPath)
+	if err != nil {
+		http.Error(w, "report not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(data)
+}
+
+func handleIperfAnalysis(w http.ResponseWriter, r *http.Request) {
+	db, err := openWebDB()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer db.Close()
+
+	rows, err := db.Query(`SELECT id, name, status, created_at FROM iperf_tasks ORDER BY created_at`)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	home, _ := os.UserHomeDir()
+	var summaries []map[string]interface{}
+	for rows.Next() {
+		var id, name, status, createdAt string
+		if err := rows.Scan(&id, &name, &status, &createdAt); err != nil {
+			continue
+		}
+		rawDir := filepath.Join(home, ".nettopo_test", "data", "iperf-tasks", id, "raw")
+		reportPath := filepath.Join(home, ".nettopo_test", "output", "iperf-tasks", id, "iperf_report.html")
+		hasData := false
+		hasReport := false
+		if _, err := os.Stat(rawDir); err == nil {
+			hasData = true
+		}
+		if _, err := os.Stat(reportPath); err == nil {
+			hasReport = true
+		}
+		summaries = append(summaries, map[string]interface{}{
+			"taskId": id, "taskName": name, "status": status, "createdAt": createdAt,
+			"hasData": hasData, "hasReport": hasReport,
+		})
+	}
+	if summaries == nil {
+		summaries = []map[string]interface{}{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(summaries)
+}
+
+func handleIperfInstalled(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var hosts []executor.HostConfig
+	if err := json.NewDecoder(r.Body).Decode(&hosts); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	results := executor.CheckIperfInstalled(hosts)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(results)
 }

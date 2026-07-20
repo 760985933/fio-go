@@ -10,6 +10,11 @@ import { SystemSettings } from './components/SystemSettings'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { Modal } from './components/Modal'
 import { useModal } from './hooks/useModal'
+import { IperfConfigManager } from './components/iperf/IperfConfigManager'
+import { IperfServerManager } from './components/iperf/IperfServerManager'
+import { IperfTaskManager } from './components/iperf/IperfTaskManager'
+import { IperfMonitor } from './components/iperf/IperfMonitor'
+import { IperfAnalysisView } from './components/iperf/IperfAnalysisView'
 import * as WailsApp from './wailsjs/go/app/App'
 
 const svgProps = { width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
@@ -21,9 +26,11 @@ const IconDoc = <svg {...svgProps}><path d="M4 2h5.5L12 4.5V13a1 1 0 0 1-1 1H4a1
 const IconServer = <svg {...svgProps}><rect x="2" y="2" width="12" height="4" rx="1"/><rect x="2" y="10" width="12" height="4" rx="1"/><circle cx="4.5" cy="4" r="0.75" fill="currentColor"/><circle cx="4.5" cy="12" r="0.75" fill="currentColor"/><line x1="8" y1="4" x2="12" y2="4"/><line x1="8" y1="12" x2="12" y2="12"/></svg>
 const IconClipboard = <svg {...svgProps}><rect x="4" y="1.5" width="8" height="13" rx="1"/><line x1="6" y1="5" x2="10" y2="5"/><line x1="6" y1="8" x2="10" y2="8"/><line x1="6" y1="11" x2="8" y2="11"/></svg>
 const IconRocket = <svg {...svgProps}><path d="M8 2C5 2 3 5 3 8c0 2 1 4 2.5 5.5L8 14l2.5-0.5C12 12 13 10 13 8c0-3-2-6-5-6z"/><circle cx="8" cy="7" r="1.5"/><path d="M3 8c-1 0-1.5 1-1.5 2L3 12"/><path d="M13 8c1 0 1.5 1 1.5 2L13 12"/></svg>
+const IconNetwork = <svg {...svgProps}><circle cx="8" cy="8" r="3"/><path d="M8 2v3M8 11v3M2 8h3M11 8h3M3.8 3.8l2.1 2.1M10.1 10.1l2.1 2.1M3.8 12.2l2.1-2.1M10.1 5.9l2.1-2.1"/></svg>
 
 const MAIN_TABS = [
   { id: 'configure', label: 'FIO测试', icon: IconSliders },
+  { id: 'iperf', label: 'iperf3测试', icon: IconNetwork },
   { id: 'settings', label: '系统设置', icon: IconWrench },
 ]
 
@@ -38,11 +45,21 @@ const SIDEBAR_ITEMS_TOOL: SidebarItem[] = [
   { id: 'orchestration', icon: IconRocket, label: '编排' },
 ]
 
+const SIDEBAR_ITEMS_IPERF: SidebarItem[] = [
+  { id: 'iperf-config', icon: IconDoc, label: '测试配置' },
+  { id: 'iperf-server', icon: IconServer, label: 'Server管理' },
+  { id: 'iperf-host', icon: IconServer, label: '主机管理' },
+  { id: 'iperf-task', icon: IconClipboard, label: '任务执行' },
+  { id: 'iperf-monitor', icon: IconChart, label: '实时监控' },
+  { id: 'iperf-analysis', icon: IconChart, label: '结果分析' },
+]
+
 function App() {
   const [activeTab, setActiveTab] = useState('configure')
   const [sidebarItem, setSidebarItem] = useState('script')
+  const [iperfSidebarItem, setIperfSidebarItem] = useState('iperf-config')
   const { modal, close, confirm, showInfo, showConfirm, showResults } = useModal()
-  const [mountedSidebar, setMountedSidebar] = useState<Record<string, boolean>>({ script: true })
+  const [mountedSidebar, setMountedSidebar] = useState<Record<string, boolean>>({ script: true, 'iperf-config': true })
   const [mountedTabs, setMountedTabs] = useState<Record<string, boolean>>({ configure: true })
 
   const handleAudit = useCallback(async (action: string, details: string) => {
@@ -79,6 +96,11 @@ function App() {
   const selectTab = (id: string) => {
     setMountedTabs(prev => ({ ...prev, [id]: true }))
     setActiveTab(id)
+  }
+
+  const selectIperfSidebar = (id: string) => {
+    setMountedSidebar(prev => ({ ...prev, [id]: true }))
+    setIperfSidebarItem(id)
   }
 
   const stepItems = [
@@ -135,6 +157,33 @@ function App() {
     </Sidebar>
   )
 
+  const iperfSidebar = (
+    <Sidebar
+      items={SIDEBAR_ITEMS_IPERF}
+      activeItem={iperfSidebarItem}
+      onSelect={selectIperfSidebar}
+    >
+      <div style={{ display: iperfSidebarItem === 'iperf-config' ? 'block' : 'none' }}>
+        {mountedSidebar['iperf-config'] && <IperfConfigManager onAudit={handleAudit} />}
+      </div>
+      <div style={{ display: iperfSidebarItem === 'iperf-server' ? 'block' : 'none' }}>
+        {mountedSidebar['iperf-server'] && <IperfServerManager onAudit={handleAudit} onShowResults={showResults} />}
+      </div>
+      <div style={{ display: iperfSidebarItem === 'iperf-host' ? 'block' : 'none' }}>
+        {mountedSidebar['iperf-host'] && <HostManager onAudit={handleAudit} onShowResults={showResults} />}
+      </div>
+      <div style={{ display: iperfSidebarItem === 'iperf-task' ? 'block' : 'none' }}>
+        {mountedSidebar['iperf-task'] && <IperfTaskManager onAudit={handleAudit} onShowResults={showResults} />}
+      </div>
+      <div style={{ display: iperfSidebarItem === 'iperf-monitor' ? 'block' : 'none' }}>
+        {mountedSidebar['iperf-monitor'] && <IperfMonitor onShowResults={showResults} />}
+      </div>
+      <div style={{ display: iperfSidebarItem === 'iperf-analysis' ? 'block' : 'none' }}>
+        {mountedSidebar['iperf-analysis'] && <IperfAnalysisView onAudit={handleAudit} onShowResults={showResults} />}
+      </div>
+    </Sidebar>
+  )
+
   return (
     <>
       <Layout
@@ -142,7 +191,7 @@ function App() {
         activeTab={activeTab}
         onTabChange={selectTab}
         headerActions={null}
-        sidebar={activeTab === 'configure' ? configureSidebar : undefined}
+        sidebar={activeTab === 'configure' ? configureSidebar : activeTab === 'iperf' ? iperfSidebar : undefined}
       >
         <div style={{ display: activeTab === 'settings' ? 'block' : 'none' }}>
           {mountedTabs.settings && <SystemSettings />}

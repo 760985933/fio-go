@@ -18,8 +18,28 @@ export function CheckConnectivity(arg1) {
   return window['go']['app']['App']['CheckConnectivity'](arg1);
 }
 
+export function CheckIperfInstalled(arg1) {
+  return window['go']['app']['App']['CheckIperfInstalled'](arg1);
+}
+
+export function CheckIperfServer(arg1, arg2) {
+  return window['go']['app']['App']['CheckIperfServer'](arg1, arg2);
+}
+
+export function CheckIperfTestStatus(arg1) {
+  return window['go']['app']['App']['CheckIperfTestStatus'](arg1);
+}
+
 export function CheckStatus(arg1, arg2) {
   return window['go']['app']['App']['CheckStatus'](arg1, arg2);
+}
+
+export function CleanIperfLocal(arg1) {
+  return window['go']['app']['App']['CleanIperfLocal'](arg1);
+}
+
+export function CleanIperfRemote(arg1) {
+  return window['go']['app']['App']['CleanIperfRemote'](arg1);
 }
 
 export function CleanLocal(arg1) {
@@ -34,6 +54,10 @@ export function ClearExecutionLog(arg1) {
   return window['go']['app']['App']['ClearExecutionLog'](arg1);
 }
 
+export function CreateIperfTask(arg1) {
+  return window['go']['app']['App']['CreateIperfTask'](arg1);
+}
+
 export function CreateReportZIP(arg1) {
   return window['go']['app']['App']['CreateReportZIP'](arg1);
 }
@@ -44,6 +68,14 @@ export function DeleteExecutionTask(arg1) {
 
 export function DeleteHost(arg1) {
   return window['go']['app']['App']['DeleteHost'](arg1);
+}
+
+export function DeleteIperfConfig(arg1) {
+  return window['go']['app']['App']['DeleteIperfConfig'](arg1);
+}
+
+export function DeleteIperfTask(arg1) {
+  return window['go']['app']['App']['DeleteIperfTask'](arg1);
 }
 
 export function DeleteScript(arg1) {
@@ -64,6 +96,10 @@ export function DeployMulti(arg1, arg2, arg3) {
 
 export function ExecuteOrchestration(arg1, arg2) {
   return window['go']['app']['App']['ExecuteOrchestration'](arg1, arg2);
+}
+
+export function GenerateIperfReport(arg1) {
+  return window['go']['app']['App']['GenerateIperfReport'](arg1);
 }
 
 export function GenerateReport(arg1) {
@@ -98,6 +134,26 @@ export function GetHosts() {
   return window['go']['app']['App']['GetHosts']();
 }
 
+export function GetIperfAnalysisTasks() {
+  return window['go']['app']['App']['GetIperfAnalysisTasks']();
+}
+
+export function GetIperfConfig(arg1) {
+  return window['go']['app']['App']['GetIperfConfig'](arg1);
+}
+
+export function GetIperfConfigs() {
+  return window['go']['app']['App']['GetIperfConfigs']();
+}
+
+export function GetIperfReportHTML(arg1) {
+  return window['go']['app']['App']['GetIperfReportHTML'](arg1);
+}
+
+export function GetIperfTasks() {
+  return window['go']['app']['App']['GetIperfTasks']();
+}
+
 export function GetOrchestrationConfig() {
   return window['go']['app']['App']['GetOrchestrationConfig']();
 }
@@ -122,6 +178,10 @@ export function GetScripts() {
   return window['go']['app']['App']['GetScripts']();
 }
 
+export function IsIperfMonitorRunning(arg1) {
+  return window['go']['app']['App']['IsIperfMonitorRunning'](arg1);
+}
+
 export function KillAll(arg1, arg2) {
   return window['go']['app']['App']['KillAll'](arg1, arg2);
 }
@@ -142,6 +202,10 @@ export function PullData(arg1, arg2) {
   return window['go']['app']['App']['PullData'](arg1, arg2);
 }
 
+export function PullIperfData(arg1) {
+  return window['go']['app']['App']['PullIperfData'](arg1);
+}
+
 export function PullTaskData(arg1) {
   return window['go']['app']['App']['PullTaskData'](arg1);
 }
@@ -150,8 +214,16 @@ export function RevealFile(arg1) {
   return window['go']['app']['App']['RevealFile'](arg1);
 }
 
+export function RunIperfTest(arg1) {
+  return window['go']['app']['App']['RunIperfTest'](arg1);
+}
+
 export function SaveExecutionTasks(arg1) {
   return window['go']['app']['App']['SaveExecutionTasks'](arg1);
+}
+
+export function SaveIperfConfig(arg1) {
+  return window['go']['app']['App']['SaveIperfConfig'](arg1);
 }
 
 export function SaveOrchestrationConfig(arg1) {
@@ -176,6 +248,18 @@ export function SetTaskStarted(arg1) {
 
 export function Shutdown(arg1) {
   return window['go']['app']['App']['Shutdown'](arg1);
+}
+
+export function StartIperfServer(arg1, arg2) {
+  return window['go']['app']['App']['StartIperfServer'](arg1, arg2);
+}
+
+export function StopIperfServer(arg1, arg2) {
+  return window['go']['app']['App']['StopIperfServer'](arg1, arg2);
+}
+
+export function StopIperfTest(arg1) {
+  return window['go']['app']['App']['StopIperfTest'](arg1);
 }
 
 export function UpdateHost(arg1, arg2) {

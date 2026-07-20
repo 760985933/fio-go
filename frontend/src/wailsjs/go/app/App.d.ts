@@ -121,3 +121,73 @@ export interface OrchestrationProgress {
     current: number;
     total: number;
 }
+
+// ========== iperf methods ==========
+
+export function SaveIperfConfig(config: IperfConfig): Promise<void>;
+export function GetIperfConfigs(): Promise<IperfConfig[]>;
+export function GetIperfConfig(id: string): Promise<IperfConfig | null>;
+export function DeleteIperfConfig(id: string): Promise<void>;
+export function CreateIperfTask(task: IperfTask): Promise<void>;
+export function GetIperfTasks(): Promise<IperfTask[]>;
+export function DeleteIperfTask(id: string): Promise<void>;
+export function StartIperfServer(host: HostConfig, port: number): Promise<ExecutionResult>;
+export function StopIperfServer(host: HostConfig, port: number): Promise<ExecutionResult>;
+export function CheckIperfServer(host: HostConfig, port: number): Promise<ExecutionResult>;
+export function CheckIperfInstalled(hosts: HostConfig[]): Promise<ExecutionResult[]>;
+export function RunIperfTest(taskID: string): Promise<void>;
+export function StopIperfTest(taskID: string): Promise<void>;
+export function CheckIperfTestStatus(taskID: string): Promise<string>;
+export function IsIperfMonitorRunning(taskID: string): Promise<boolean>;
+export function PullIperfData(taskID: string): Promise<void>;
+export function GenerateIperfReport(taskID: string): Promise<void>;
+export function GetIperfReportHTML(taskID: string): Promise<string>;
+export function GetIperfAnalysisTasks(): Promise<IperfAnalysisSummary[]>;
+export function CleanIperfLocal(taskID: string): Promise<void>;
+export function CleanIperfRemote(taskID: string): Promise<void>;
+
+export interface IperfConfig {
+    id: string;
+    name: string;
+    protocol: string;
+    bandwidth: string;
+    duration: number;
+    parallel: number;
+    blockSize: string;
+    windowSize: string;
+    reverse: boolean;
+    bidir: boolean;
+    extraFlags: string;
+}
+
+export interface IperfTask {
+    id: string;
+    name: string;
+    config: IperfConfig;
+    serverHost: HostConfig;
+    clientHosts: HostConfig[];
+    status: string;
+    createdAt: string;
+    startedAt?: string;
+    finishedAt?: string;
+}
+
+export interface ExecutionResult {
+    host: string;
+    error: string;
+    msg: string;
+    running: boolean;
+}
+
+export interface IperfAnalysisSummary {
+    taskId: string;
+    taskName: string;
+    serverHost: string;
+    clientCount: number;
+    status: string;
+    hasData: boolean;
+    hasReport: boolean;
+    createdAt: string;
+    avgBandwidth: number;
+    maxBandwidth: number;
+}

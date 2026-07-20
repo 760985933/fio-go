@@ -339,6 +339,91 @@ func dbDeleteTaskTimestamp(db *sql.DB, taskID string) error {
 	return err
 }
 
+func dbSaveIperfConfig(db *sql.DB, id, name, configJSON string) error {
+	_, err := db.Exec(
+		`INSERT OR REPLACE INTO iperf_configs (id, name, config_json) VALUES (?, ?, ?)`,
+		id, name, configJSON,
+	)
+	return err
+}
+
+func dbGetIperfConfigs(db *sql.DB) ([]string, error) {
+	rows, err := db.Query(`SELECT id FROM iperf_configs ORDER BY created_at`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+func dbGetIperfConfig(db *sql.DB, id string) (string, string, error) {
+	var name, configJSON string
+	err := db.QueryRow(`SELECT name, config_json FROM iperf_configs WHERE id = ?`, id).Scan(&name, &configJSON)
+	if err == sql.ErrNoRows {
+		return "", "", nil
+	}
+	return name, configJSON, err
+}
+
+func dbDeleteIperfConfig(db *sql.DB, id string) error {
+	_, err := db.Exec(`DELETE FROM iperf_configs WHERE id = ?`, id)
+	return err
+}
+
+func dbSaveIperfTask(db *sql.DB, id, name, configJSON, serverHostJSON, clientHostsJSON, status string) error {
+	_, err := db.Exec(
+		`INSERT OR REPLACE INTO iperf_tasks (id, name, config_json, server_host_json, client_hosts_json, status) VALUES (?, ?, ?, ?, ?, ?)`,
+		id, name, configJSON, serverHostJSON, clientHostsJSON, status,
+	)
+	return err
+}
+
+func dbGetIperfTasks(db *sql.DB) ([]string, error) {
+	rows, err := db.Query(`SELECT id FROM iperf_tasks ORDER BY created_at`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+func dbGetIperfTask(db *sql.DB, id string) (string, string, string, string, string, error) {
+	var name, configJSON, serverHostJSON, clientHostsJSON, status string
+	err := db.QueryRow(
+		`SELECT name, config_json, server_host_json, client_hosts_json, status FROM iperf_tasks WHERE id = ?`, id,
+	).Scan(&name, &configJSON, &serverHostJSON, &clientHostsJSON, &status)
+	if err == sql.ErrNoRows {
+		return "", "", "", "", "", nil
+	}
+	return name, configJSON, serverHostJSON, clientHostsJSON, status, err
+}
+
+func dbUpdateIperfTaskStatus(db *sql.DB, id, status string) error {
+	_, err := db.Exec(`UPDATE iperf_tasks SET status = ? WHERE id = ?`, status, id)
+	return err
+}
+
+func dbDeleteIperfTask(db *sql.DB, id string) error {
+	_, err := db.Exec(`DELETE FROM iperf_tasks WHERE id = ?`, id)
+	return err
+}
+
 func dbAddAuditLog(db *sql.DB, action, details, timestamp string) error {
 	_, err := db.Exec(`INSERT INTO audit_log (action, details, timestamp) VALUES (?, ?, ?)`, action, details, timestamp)
 	return err
