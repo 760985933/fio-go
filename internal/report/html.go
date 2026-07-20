@@ -140,6 +140,11 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
     <div id="groups_root"></div>
   </div>
 
+  <div class="float-nav">
+    <div class="float-nav-menu" id="float-nav-menu"></div>
+    <button class="float-nav-toggle" title="快速跳转">☰</button>
+  </div>
+
   <script>
     const groups = ` + string(jsGroups) + `;
     const metricTitle = {
@@ -263,11 +268,6 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
     switch_bw_unit();
     initFloatNav();
   </script>
-
-  <div class="float-nav">
-    <div class="float-nav-menu" id="float-nav-menu"></div>
-    <button class="float-nav-toggle" title="快速跳转">☰</button>
-  </div>
 </body>
 </html>`
 
