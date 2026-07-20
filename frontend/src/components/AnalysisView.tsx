@@ -50,6 +50,7 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
       onAudit('拉取源端数据', `任务: ${taskId}`)
       await loadTasks()
 
+      setPulling(null)
       setGenerating(taskId)
       try {
         await App.GenerateReport(taskId)
