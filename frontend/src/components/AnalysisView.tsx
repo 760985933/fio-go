@@ -42,12 +42,23 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
     try {
       const results = await App.PullTaskData(taskId)
       const errors = results.filter((r: any) => r.error)
-      if (errors.length > 0) {
-        await onShowResults('数据拉取部分失败',
-          results.map((r: any) => `${r.host}: ${r.error || '成功'}`).join('\n'))
+      if (errors.length === results.length) {
+        await onShowResults('数据拉取失败', results.map((r: any) => `${r.host}: ${r.error}`).join('\n'))
+        setPulling(null)
+        return
       }
       onAudit('拉取源端数据', `任务: ${taskId}`)
       await loadTasks()
+
+      setGenerating(taskId)
+      try {
+        await App.GenerateReport(taskId)
+        onAudit('自动生成报告', `任务: ${taskId}`)
+        await loadTasks()
+      } catch (err) {
+        await onShowResults('报告生成失败', `数据拉取成功，但报告生成失败: ${err}`)
+      }
+      setGenerating(null)
     } catch (err) {
       await onShowResults('数据拉取失败', `错误: ${err}`)
     }
@@ -144,8 +155,8 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
               <div style={{ display: 'flex', gap: 4 }}>
                 {!task.hasData && (
                   <button className="btn btn-primary btn-sm" onClick={() => pullData(task.id)}
-                    disabled={pulling === task.id}>
-                    {pulling === task.id ? '拉取中...' : '获取源端数据'}
+                    disabled={pulling === task.id || generating === task.id}>
+                    {pulling === task.id ? '拉取中...' : generating === task.id ? '分析中...' : '拉取并分析'}
                   </button>
                 )}
                 {task.hasData && !task.hasReport && (

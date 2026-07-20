@@ -254,6 +254,50 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
     }
   }
 
+  const pullAndAnalyze = async (task: ExecutionTaskConfig) => {
+    const key = `pull:${task.id}`
+    setProgressOpen(true)
+    setProgressTitle(`拉取数据: ${task.name}`)
+    setProgressLines([])
+    setProgressDone(false)
+    setLoadingAction(key)
+
+    const log = (msg: string) => {
+      setProgressLines(prev => [...prev, `[${new Date().toLocaleTimeString('zh-CN')}] ${msg}`])
+    }
+
+    try {
+      log('开始从源端拉取数据...')
+      const pullResults = await App.PullTaskData(task.id)
+      const pullSummary = pullResults.map((r: any) => `${r.host}: ${r.error || '成功'}`).join(', ')
+      log(`数据拉取完成: ${pullSummary}`)
+
+      const errors = pullResults.filter((r: any) => r.error)
+      if (errors.length === pullResults.length) {
+        log('所有主机拉取失败，跳过分析')
+        setProgressDone(true)
+        return
+      }
+
+      log('自动生成分析报告...')
+      await App.GenerateReport(task.id)
+      log('分析报告生成完成')
+      onAudit('拉取并分析', `任务: ${task.id}`)
+      setProgressDone(true)
+    } catch (err) {
+      log(`操作异常: ${err}`)
+      setProgressDone(true)
+    } finally {
+      setLoadingAction('')
+    }
+  }
+
+  useEffect(() => {
+    if (progressRef.current) {
+      progressRef.current.scrollTop = progressRef.current.scrollHeight
+    }
+  }, [progressLines])
+
   return (
     <div>
       <div className="manager-header">
@@ -363,19 +407,16 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
                   {(() => {
                     const busy = executing || !!loadingAction
                     const pfx = (action: string) => `${action}:${task.id}`
-  useEffect(() => {
-    if (progressRef.current) {
-      progressRef.current.scrollTop = progressRef.current.scrollHeight
-    }
-  }, [progressLines])
-
-  return (
+                    return (
                       <>
                         <button className="btn btn-outline btn-sm" onClick={() => preCheck(task)} disabled={busy}>
                           {loadingAction === pfx('preCheck') ? '检查中...' : '预检查'}
                         </button>
                         <button className="btn btn-primary btn-sm" onClick={() => executeDeploy(task)} disabled={busy}>
                           {loadingAction === pfx('deploy') ? '执行中...' : '执行'}
+                        </button>
+                        <button className="btn btn-outline btn-sm" onClick={() => pullAndAnalyze(task)} disabled={busy}>
+                          {loadingAction === pfx('pull') ? '拉取中...' : '拉取'}
                         </button>
                         <button className="btn btn-outline btn-sm" onClick={() => checkStatus(task)} disabled={busy}>
                           {loadingAction === pfx('status') ? '查询中...' : '状态'}
