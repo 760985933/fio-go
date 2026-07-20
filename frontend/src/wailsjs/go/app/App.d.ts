@@ -162,6 +162,7 @@ export interface IperfConfig {
     extraFlags: string;
     serverTestIP: string;
     serverBindIP: string;
+    port?: number;
 }
 
 export interface IperfTask {

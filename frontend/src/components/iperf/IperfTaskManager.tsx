@@ -113,7 +113,8 @@ export function IperfTaskManager({ onAudit, onShowResults }: Props) {
   }
 
   const runTask = async (task: IperfTask) => {
-    const port = 5201
+    // 端口与后端 RunIperfTest 保持一致：优先使用任务配置中的端口，未配置则默认 5201
+    const port = task.config.port && task.config.port > 0 ? task.config.port : 5201
     const hosts = [task.serverHost, ...task.clientHosts]
     setExecuting(prev => ({ ...prev, [task.id]: true }))
     setProgressTitle(`执行任务：${task.name}`)

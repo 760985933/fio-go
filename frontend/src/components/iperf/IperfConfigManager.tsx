@@ -21,6 +21,7 @@ const DEFAULT_CONFIG: IperfConfig = {
   extraFlags: '',
   serverTestIP: '',
   serverBindIP: '',
+  port: 5201,
 }
 
 export function IperfConfigManager({ onAudit }: Props) {
@@ -204,7 +205,7 @@ export function IperfConfigManager({ onAudit }: Props) {
               <label>附加参数</label>
               <input value={editing.extraFlags} placeholder="例如: --connect-timeout 10" onChange={e => updateField('extraFlags', e.target.value)} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 12 }}>
               <div className="form-group">
                 <label>服务端测试 IP (-c)</label>
                 <input value={editing.serverTestIP} placeholder="留空则使用主机登录 IP" onChange={e => updateField('serverTestIP', e.target.value)} />
@@ -212,6 +213,10 @@ export function IperfConfigManager({ onAudit }: Props) {
               <div className="form-group">
                 <label>服务端监听 IP (-B)</label>
                 <input value={editing.serverBindIP} placeholder="留空则监听所有网卡" onChange={e => updateField('serverBindIP', e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label>服务端端口</label>
+                <input type="number" value={editing.port ?? 5201} min={1} max={65535} onChange={e => updateField('port', parseInt(e.target.value, 10) || 5201)} style={{ width: 100 }} />
               </div>
             </div>
             <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center' }}>

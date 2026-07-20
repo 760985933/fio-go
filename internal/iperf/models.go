@@ -16,18 +16,19 @@ type IperfConfig struct {
 	ExtraFlags   string `json:"extraFlags"`
 	ServerTestIP string `json:"serverTestIP"`
 	ServerBindIP string `json:"serverBindIP"`
+	Port         int    `json:"port"`
 }
 
 type IperfTask struct {
-	ID          string              `json:"id"`
-	Name        string              `json:"name"`
-	Config      IperfConfig         `json:"config"`
-	ServerHost  executor.HostConfig `json:"serverHost"`
+	ID          string                `json:"id"`
+	Name        string                `json:"name"`
+	Config      IperfConfig           `json:"config"`
+	ServerHost  executor.HostConfig   `json:"serverHost"`
 	ClientHosts []executor.HostConfig `json:"clientHosts"`
-	Status      string              `json:"status"`
-	CreatedAt   string              `json:"createdAt"`
-	StartedAt   string              `json:"startedAt,omitempty"`
-	FinishedAt  string              `json:"finishedAt,omitempty"`
+	Status      string                `json:"status"`
+	CreatedAt   string                `json:"createdAt"`
+	StartedAt   string                `json:"startedAt,omitempty"`
+	FinishedAt  string                `json:"finishedAt,omitempty"`
 }
 
 type IperfInterval struct {
@@ -53,19 +54,19 @@ type IperfResult struct {
 }
 
 type StreamResult struct {
-	StreamID  int              `json:"streamID"`
+	StreamID  int             `json:"streamID"`
 	Intervals []IperfInterval `json:"intervals"`
 }
 
 type IperfAnalysisSummary struct {
-	TaskID       string `json:"taskId"`
-	TaskName     string `json:"taskName"`
-	ServerHost   string `json:"serverHost"`
-	ClientCount  int    `json:"clientCount"`
-	Status       string `json:"status"`
-	HasData      bool   `json:"hasData"`
-	HasReport    bool   `json:"hasReport"`
-	CreatedAt    string `json:"createdAt"`
+	TaskID       string  `json:"taskId"`
+	TaskName     string  `json:"taskName"`
+	ServerHost   string  `json:"serverHost"`
+	ClientCount  int     `json:"clientCount"`
+	Status       string  `json:"status"`
+	HasData      bool    `json:"hasData"`
+	HasReport    bool    `json:"hasReport"`
+	CreatedAt    string  `json:"createdAt"`
 	AvgBandwidth float64 `json:"avgBandwidth"`
 	MaxBandwidth float64 `json:"maxBandwidth"`
 }

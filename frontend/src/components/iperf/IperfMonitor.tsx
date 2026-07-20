@@ -71,6 +71,12 @@ export function IperfMonitor({ onShowResults }: Props) {
       pollRef.current = window.setInterval(async () => {
         try {
           setCurrentTime((Date.now() - startTimeRef.current) / 1000)
+          // 实时回源：直接读取实时落盘的 JSONL（emitAndPersist 边跑边写），
+          // 与「日志查看」同源，避免单纯依赖 Wails 事件时偶发丢数据导致监控空白。
+          try {
+            const hist = await App.GetIperfIntervals(taskId)
+            if (hist && hist.length > 0) setIntervals(hist)
+          } catch { /* ignore */ }
           const st = await App.CheckIperfTestStatus(taskId)
           if (st !== 'running') {
             // 测试已结束（完成/停止/出错），停止轮询但保留已采集的曲线

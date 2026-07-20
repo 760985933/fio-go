@@ -308,6 +308,7 @@ export namespace iperf {
 	    extraFlags: string;
 	    serverTestIP: string;
 	    serverBindIP: string;
+	    port: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new IperfConfig(source);
@@ -328,6 +329,7 @@ export namespace iperf {
 	        this.extraFlags = source["extraFlags"];
 	        this.serverTestIP = source["serverTestIP"];
 	        this.serverBindIP = source["serverBindIP"];
+	        this.port = source["port"];
 	    }
 	}
 	export class IperfInterval {

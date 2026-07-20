@@ -180,8 +180,11 @@ func (a *App) RunIperfTest(taskID string) error {
 	// 清空上一次运行的实时数据，保证回放只展示本次结果
 	os.Remove(iperf.IntervalDataFile(taskID))
 
-	// iperf3 默认端口：客户端参数未显式指定 -p，统一使用 5201
-	const iperfPort = 5201
+	// iperf3 端口：优先使用任务配置中的端口，未配置则默认 5201
+	iperfPort := task.Config.Port
+	if iperfPort <= 0 {
+		iperfPort = 5201
+	}
 
 	// 1) 确保 server 端 iperf3 已启动并真正在监听
 	serverRunning := executor.CheckIperfServerRunning(task.ServerHost, iperfPort)
@@ -203,6 +206,10 @@ func (a *App) RunIperfTest(taskID string) error {
 	args := []string{"iperf3", "-c", task.Config.ServerTestIP}
 	if task.Config.ServerTestIP == "" {
 		args[2] = task.ServerHost.Host
+	}
+	// 客户端连接的服务端端口需与启动端口一致（自定义端口场景必需）；若 ExtraFlags 已含 -p 则不重复添加
+	if !strings.Contains(task.Config.ExtraFlags, "-p") {
+		args = append(args, "-p", fmt.Sprintf("%d", iperfPort))
 	}
 	if task.Config.Protocol == "udp" {
 		args = append(args, "-u")
@@ -381,13 +388,26 @@ func (a *App) GetIperfTaskLog(taskID string) (string, error) {
 		return "", fmt.Errorf("任务 %s 不存在", taskID)
 	}
 
-	// iperf3 默认端口，server 日志路径使用同一端口（与 RunIperfTest / StartIperfServer 一致）
-	const iperfPort = 5201
+	// iperf3 端口：从任务配置读取，未配置则默认 5201。
+	// 须与启动服务端时使用的端口一致，否则 /tmp/iperf_server_<port>.log 路径不匹配导致找不到日志。
+	iperfPort := task.Config.Port
+	if iperfPort <= 0 {
+		iperfPort = 5201
+	}
 	_, dataDir, _ := executor.BuildIperfPaths(taskID)
 	clientLog := filepath.Join(dataDir, "iperf_stdout.log")
 	serverLog := fmt.Sprintf("/tmp/iperf_server_%d.log", iperfPort)
 
 	var sb strings.Builder
+
+	// 任务时间信息头：记录任务创建/开始/结束时间及本次日志收集时间，方便排查中断时间点
+	sb.WriteString("===== 任务执行日志 =====\n")
+	sb.WriteString(fmt.Sprintf("任务名称: %s\n", task.Name))
+	sb.WriteString(fmt.Sprintf("创建时间: %s\n", orDash(task.CreatedAt)))
+	sb.WriteString(fmt.Sprintf("开始时间: %s\n", orDash(task.StartedAt)))
+	sb.WriteString(fmt.Sprintf("结束时间: %s\n", orDash(task.FinishedAt)))
+	sb.WriteString(fmt.Sprintf("日志收集时间: %s\n", time.Now().Format("2006-01-02 15:04:05")))
+	sb.WriteString("\n")
 
 	// 服务端日志
 	sb.WriteString("===== Server 日志 (")
@@ -409,6 +429,14 @@ func (a *App) GetIperfTaskLog(taskID string) (string, error) {
 	}
 
 	return sb.String(), nil
+}
+
+// orDash 将空字符串显示为占位符 "-"，其余原样返回，用于时间字段的友好展示
+func orDash(s string) string {
+	if strings.TrimSpace(s) == "" {
+		return "-"
+	}
+	return s
 }
 
 // readRemoteIperfLog 经 SSH 读取远端日志文件尾部（最多 2000 行）。文件不存在/为空/读取失败时
