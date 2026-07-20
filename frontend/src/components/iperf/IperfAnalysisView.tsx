@@ -104,7 +104,10 @@ export function IperfAnalysisView({ onAudit, onShowResults }: Props) {
                   <button className="btn btn-primary btn-sm" onClick={() => generateReport(task)}>生成报告</button>
                 )}
                 {task.hasReport && (
-                  <button className="btn btn-outline btn-sm" onClick={() => previewReport(task.taskId)}>预览报告</button>
+                  <>
+                    <button className="btn btn-outline btn-sm" onClick={() => previewReport(task.taskId)}>预览报告</button>
+                    <button className="btn btn-primary btn-sm" onClick={() => generateReport(task)}>重新分析</button>
+                  </>
                 )}
               </div>
             </div>
