@@ -358,6 +358,12 @@ body {
   background: #ebebed;
 }
 
+.host-item.active {
+  background: var(--primary-bg);
+  border-left: 3px solid var(--primary);
+  font-weight: 500;
+}
+
 /* ---- Code Preview ---- */
 .code-preview {
   background: #1d1d1f;
