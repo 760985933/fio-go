@@ -198,23 +198,6 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
     }
   }
 
-  const viewHostLogs = async (task: ExecutionTaskConfig) => {
-    const key = `hostLogs:${task.id}`
-    try {
-      setLoadingAction(key)
-      const results: string[] = []
-      for (const host of task.hosts) {
-        const log = await App.GetHostLog(task.id, `${host.user}@${host.host}:${host.port}`)
-        results.push(`=== ${host.host} ===\n${log || '暂无日志'}`)
-      }
-      await onShowResults(`单机日志 - ${task.id}`, results.join('\n\n'))
-    } catch (err) {
-      await onShowResults('日志加载失败', `错误: ${err}`)
-    } finally {
-      setLoadingAction('')
-    }
-  }
-
   const checkStatus = async (task: ExecutionTaskConfig) => {
     const key = `status:${task.id}`
     try {
@@ -385,9 +368,6 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
                         </button>
                         <button className="btn btn-outline btn-sm" onClick={() => viewLogs(task)} disabled={busy}>
                           {loadingAction === pfx('logs') ? '加载中...' : '日志'}
-                        </button>
-                        <button className="btn btn-outline btn-sm" onClick={() => viewHostLogs(task)} disabled={busy}>
-                          {loadingAction === pfx('hostLogs') ? '加载中...' : '单机日志'}
                         </button>
                         <button className="btn btn-outline btn-sm" onClick={() => cleanLocal(task)} disabled={busy}>
                           {loadingAction === pfx('cleanLocal') ? '清理中...' : '清理本地'}
