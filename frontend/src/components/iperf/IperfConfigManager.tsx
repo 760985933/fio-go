@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { IperfConfig } from '../../types'
+import { ConfirmDialog } from '../ConfirmDialog'
 import * as App from '../../wailsjs/go/app/App'
 
 interface Props {
@@ -25,6 +26,10 @@ export function IperfConfigManager({ onAudit }: Props) {
   const [selectedId, setSelectedId] = useState<string>('')
   const [editing, setEditing] = useState<IperfConfig>({ ...DEFAULT_CONFIG })
   const [dirty, setDirty] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [pendingSelect, setPendingSelect] = useState<IperfConfig | null>(null)
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
+  const [nameError, setNameError] = useState('')
 
   useEffect(() => { loadConfigs() }, [])
 
@@ -44,29 +49,57 @@ export function IperfConfigManager({ onAudit }: Props) {
   }
 
   const selectConfig = (cfg: IperfConfig) => {
+    if (dirty) {
+      setPendingSelect(cfg)
+      setConfirmOpen(true)
+      return
+    }
     setSelectedId(cfg.id)
     setEditing({ ...cfg })
     setDirty(false)
   }
 
+  const confirmDiscard = () => {
+    if (pendingSelect) {
+      setSelectedId(pendingSelect.id)
+      setEditing({ ...pendingSelect })
+      setDirty(false)
+    }
+    setPendingSelect(null)
+    setConfirmOpen(false)
+  }
+
+  const cancelDiscard = () => {
+    setPendingSelect(null)
+    setConfirmOpen(false)
+  }
+
   const deleteConfig = async (id: string) => {
-    if (!confirm('确定删除此配置？')) return
+    setDeleteTargetId(id)
+    setConfirmOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTargetId) return
     try {
-      await App.DeleteIperfConfig(id)
-      if (selectedId === id) {
+      await App.DeleteIperfConfig(deleteTargetId)
+      if (selectedId === deleteTargetId) {
         setSelectedId('')
         setEditing({ ...DEFAULT_CONFIG })
       }
       loadConfigs()
-      onAudit('删除iperf3配置', id)
+      onAudit('删除iperf3配置', deleteTargetId)
     } catch { /* ignore */ }
+    setDeleteTargetId(null)
+    setConfirmOpen(false)
   }
 
   const saveConfig = async () => {
     if (configs.some(c => c.name === editing.name && c.id !== editing.id)) {
-      alert('配置名称已存在，请使用其他名称')
+      setNameError('配置名称已存在')
       return
     }
+    setNameError('')
     try {
       await App.SaveIperfConfig(editing)
       setDirty(false)
@@ -78,9 +111,11 @@ export function IperfConfigManager({ onAudit }: Props) {
   const updateField = <K extends keyof IperfConfig>(key: K, value: IperfConfig[K]) => {
     setEditing(prev => ({ ...prev, [key]: value }))
     setDirty(true)
+    if (key === 'name') setNameError('')
   }
 
   return (
+    <>
     <div style={{ display: 'flex', height: '100%', gap: 16 }}>
       <div style={{ width: 240, flexShrink: 0 }}>
         <div className="manager-header">
@@ -152,9 +187,10 @@ export function IperfConfigManager({ onAudit }: Props) {
               <label>附加参数</label>
               <input value={editing.extraFlags} placeholder="例如: --connect-timeout 10" onChange={e => updateField('extraFlags', e.target.value)} />
             </div>
-            <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+            <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
               <button className="btn btn-primary" onClick={saveConfig} disabled={!dirty}>保存</button>
-              {dirty && <span style={{ fontSize: 12, color: 'var(--warning)', alignSelf: 'center' }}>有未保存的更改</span>}
+              {dirty && <span style={{ fontSize: 12, color: 'var(--warning)' }}>有未保存的更改</span>}
+              {nameError && <span style={{ fontSize: 12, color: 'var(--danger)' }}>{nameError}</span>}
             </div>
           </div>
         ) : (
@@ -164,5 +200,15 @@ export function IperfConfigManager({ onAudit }: Props) {
         )}
       </div>
     </div>
+      <ConfirmDialog
+        open={confirmOpen}
+        title={deleteTargetId ? '删除配置' : '放弃更改'}
+        message={deleteTargetId ? '确定删除此配置？' : '有未保存的更改，是否放弃？'}
+        confirmText={deleteTargetId ? '删除' : '放弃'}
+        danger={!!deleteTargetId}
+        onConfirm={deleteTargetId ? confirmDelete : confirmDiscard}
+        onCancel={() => { setDeleteTargetId(null); cancelDiscard() }}
+      />
+    </>
   )
 }
