@@ -10,11 +10,12 @@ interface Props {
 
 export function IperfServerManager({ onAudit, onShowResults, active }: Props) {
   const [hosts, setHosts] = useState<HostConfig[]>([])
-  const [selectedHost, setSelectedHost] = useState<string>('')
-  const [port, setPort] = useState(5201)
+  const [hostPorts, setHostPorts] = useState<Record<string, number>>({})
   const [serverStatus, setServerStatus] = useState<Record<string, boolean>>({})
   const [installStatus, setInstallStatus] = useState<Record<string, boolean | null>>({})
   useEffect(() => { if (active) loadHosts() }, [active])
+
+  const getPort = (hostKey: string) => hostPorts[hostKey] || 5201
 
   const loadHosts = async () => {
     try {
@@ -24,6 +25,7 @@ export function IperfServerManager({ onAudit, onShowResults, active }: Props) {
   }
 
   const checkServer = async (host: HostConfig) => {
+    const port = getPort(host.host)
     try {
       const result = await App.CheckIperfServer(host, port)
       setServerStatus(prev => ({ ...prev, [host.host]: result.running }))
@@ -32,6 +34,7 @@ export function IperfServerManager({ onAudit, onShowResults, active }: Props) {
   }
 
   const startServer = async (host: HostConfig) => {
+    const port = getPort(host.host)
     try {
       const result = await App.StartIperfServer(host, port)
       if (result.error) {
@@ -46,6 +49,7 @@ export function IperfServerManager({ onAudit, onShowResults, active }: Props) {
   }
 
   const stopServer = async (host: HostConfig) => {
+    const port = getPort(host.host)
     try {
       const result = await App.StopIperfServer(host, port)
       setServerStatus(prev => ({ ...prev, [host.host]: false }))
@@ -79,10 +83,6 @@ export function IperfServerManager({ onAudit, onShowResults, active }: Props) {
       <div className="manager-header">
         <h2>Server 管理</h2>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label>端口</label>
-            <input type="number" value={port} onChange={e => setPort(parseInt(e.target.value) || 5201)} style={{ width: 80 }} />
-          </div>
           <button className="btn btn-outline btn-sm" onClick={loadHosts}>刷新主机</button>
           <button className="btn btn-outline btn-sm" onClick={checkAll}>批量检查</button>
           <button className="btn btn-outline btn-sm" onClick={checkInstalled}>检查iperf3安装</button>
@@ -102,6 +102,7 @@ export function IperfServerManager({ onAudit, onShowResults, active }: Props) {
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
                 <th style={{ padding: '8px 12px' }}>主机</th>
+                <th style={{ padding: '8px 12px' }}>端口</th>
                 <th style={{ padding: '8px 12px' }}>iperf3</th>
                 <th style={{ padding: '8px 12px' }}>状态</th>
                 <th style={{ padding: '8px 12px' }}>操作</th>
@@ -113,6 +114,14 @@ export function IperfServerManager({ onAudit, onShowResults, active }: Props) {
                 return (
                   <tr key={host.host} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '8px 12px' }}>{host.user}@{host.host}:{host.port}</td>
+                    <td style={{ padding: '8px 12px' }}>
+                      <input
+                        type="number"
+                        value={getPort(host.host)}
+                        onChange={e => setHostPorts(prev => ({ ...prev, [host.host]: parseInt(e.target.value) || 5201 }))}
+                        style={{ width: 70, fontSize: 13 }}
+                      />
+                    </td>
                     <td style={{ padding: '8px 12px' }}>
                       {installStatus[host.host] === undefined ? (
                         <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>未检查</span>
