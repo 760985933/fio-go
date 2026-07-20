@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { IperfConfig, IperfTask, HostConfig } from '../../types'
 import * as App from '../../wailsjs/go/app/App'
 import { ConfirmDialog } from '../ConfirmDialog'
@@ -48,6 +48,19 @@ export function IperfTaskManager({ onAudit, onShowResults }: Props) {
       setHosts(h || [])
     } catch { /* ignore */ }
   }
+
+  // 定时探测任务运行状态：仅当存在"运行中"任务时才刷新，使测试在客户端服务结束后
+  // 能自动从「停止」按钮过渡到执行后状态（completed/stopped），而无需手动刷新页面。
+  const tasksRef = useRef<IperfTask[]>([])
+  useEffect(() => { tasksRef.current = tasks }, [tasks])
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (tasksRef.current.some(t => t.status === 'running')) {
+        loadData()
+      }
+    }, 3000)
+    return () => clearInterval(id)
+  }, [])
 
   const openCreate = () => {
     setFormName('')

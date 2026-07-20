@@ -256,3 +256,7 @@ export function CleanIperfLocal(taskID) {
 export function CleanIperfRemote(taskID) {
     return window['go']['app']['App']['CleanIperfRemote'](taskID);
 }
+
+export function GetIperfIntervals(taskID) {
+    return window['go']['app']['App']['GetIperfIntervals'](taskID);
+}

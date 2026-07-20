@@ -145,6 +145,7 @@ export function GetIperfReportHTML(taskID: string): Promise<string>;
 export function GetIperfAnalysisTasks(): Promise<IperfAnalysisSummary[]>;
 export function CleanIperfLocal(taskID: string): Promise<void>;
 export function CleanIperfRemote(taskID: string): Promise<void>;
+export function GetIperfIntervals(taskID: string): Promise<IperfInterval[]>;
 
 export interface IperfConfig {
     id: string;
@@ -192,4 +193,18 @@ export interface IperfAnalysisSummary {
     createdAt: string;
     avgBandwidth: number;
     maxBandwidth: number;
+}
+
+export interface IperfInterval {
+    timestamp: number;
+    streamID: number;
+    duration: number;
+    bytes: number;
+    bitsPerSecond: number;
+    jitterMs: number;
+    lostPackets: number;
+    totalPackets: number;
+    retransmits: number;
+    cpuUser: number;
+    cpuSys: number;
 }

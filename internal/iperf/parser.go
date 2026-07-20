@@ -9,8 +9,8 @@ import (
 )
 
 type iperf3JSONRaw struct {
-	End      *iperf3EndRaw   `json:"end"`
-	Start    *iperf3StartRaw `json:"start"`
+	End       *iperf3EndRaw   `json:"end"`
+	Start     *iperf3StartRaw `json:"start"`
 	Intervals []struct {
 		Streams []iperf3StreamRaw `json:"streams"`
 		Sum     *iperf3SumRaw     `json:"sum"`
@@ -18,39 +18,39 @@ type iperf3JSONRaw struct {
 }
 
 type iperf3StartRaw struct {
-	Version  string                 `json:"version"`
-	Host     string                 `json:"host"`
+	Version   string                 `json:"version"`
+	Host      string                 `json:"host"`
 	OtherInfo map[string]interface{} `json:"-"`
 }
 
 type iperf3EndRaw struct {
-	Time     string                `json:"time"`
-	Duration float64               `json:"duration"`
-	Streams  []iperf3StreamRaw     `json:"streams"`
-	SumSent  *iperf3SumRaw         `json:"sum_sent"`
-	Sum      *iperf3SumRaw         `json:"sum"`
-	CPU      *iperf3CPURaw         `json:"cpu_utilization_percent"`
+	Time     string            `json:"time"`
+	Duration float64           `json:"duration"`
+	Streams  []iperf3StreamRaw `json:"streams"`
+	SumSent  *iperf3SumRaw     `json:"sum_sent"`
+	Sum      *iperf3SumRaw     `json:"sum"`
+	CPU      *iperf3CPURaw     `json:"cpu_utilization_percent"`
 }
 
 type iperf3StreamRaw struct {
-	Start    float64 `json:"start"`
-	End      float64 `json:"end"`
-	Seconds  float64 `json:"seconds"`
-	Bytes    float64 `json:"bytes"`
+	Start         float64 `json:"start"`
+	End           float64 `json:"end"`
+	Seconds       float64 `json:"seconds"`
+	Bytes         float64 `json:"bytes"`
 	BitsPerSecond float64 `json:"bits_per_second"`
-	JitterMs float64 `json:"jitter_ms"`
-	LostPackets int   `json:"lost_packets"`
-	TotalPackets int `json:"total_packets"`
-	Retransmits  int `json:"retransmits"`
+	JitterMs      float64 `json:"jitter_ms"`
+	LostPackets   int     `json:"lost_packets"`
+	TotalPackets  int     `json:"total_packets"`
+	Retransmits   int     `json:"retransmits"`
 }
 
 type iperf3SumRaw struct {
-	Start    float64 `json:"start"`
-	End      float64 `json:"end"`
-	Seconds  float64 `json:"seconds"`
-	Bytes    float64 `json:"bytes"`
+	Start         float64 `json:"start"`
+	End           float64 `json:"end"`
+	Seconds       float64 `json:"seconds"`
+	Bytes         float64 `json:"bytes"`
 	BitsPerSecond float64 `json:"bits_per_second"`
-	Retransmits  int     `json:"retransmits"`
+	Retransmits   int     `json:"retransmits"`
 }
 
 type iperf3CPURaw struct {
@@ -68,44 +68,69 @@ func ParseIntervalLine(jsonLine string) ([]IperfInterval, error) {
 		return nil, nil
 	}
 
-	var raw struct {
-		Intervals []struct {
+	// iperf3 --json-stream 输出为事件流：{"event":"interval","data":{"streams":[...],"sum":{...}}}
+	var evt struct {
+		Event string `json:"event"`
+		Data  struct {
 			Streams []iperf3StreamRaw `json:"streams"`
 			Sum     *iperf3SumRaw     `json:"sum"`
-		} `json:"intervals"`
+		} `json:"data"`
 	}
-
-	if err := json.Unmarshal([]byte(jsonLine), &raw); err != nil {
+	if err := json.Unmarshal([]byte(jsonLine), &evt); err != nil {
 		return nil, fmt.Errorf("failed to parse iperf3 interval JSON: %v", err)
 	}
 
-	var intervals []IperfInterval
-	for _, interval := range raw.Intervals {
-		if interval.Sum != nil {
-			intervals = append(intervals, IperfInterval{
-				Timestamp:     interval.Sum.Start,
-				StreamID:      -1,
-				Duration:      interval.Sum.Seconds,
-				Bytes:         interval.Sum.Bytes,
-				BitsPerSecond: interval.Sum.BitsPerSecond,
-				Retransmits:   interval.Sum.Retransmits,
-			})
+	// 兼容旧格式（部分 iperf3 版本/参数下为 {"intervals":[{"streams":[...],"sum":{...}}]}）
+	if evt.Event == "" {
+		var legacy struct {
+			Intervals []struct {
+				Streams []iperf3StreamRaw `json:"streams"`
+				Sum     *iperf3SumRaw     `json:"sum"`
+			} `json:"intervals"`
 		}
-		for streamIdx, stream := range interval.Streams {
-			intervals = append(intervals, IperfInterval{
-				Timestamp:     stream.Start,
-				StreamID:      streamIdx,
-				Duration:      stream.Seconds,
-				Bytes:         stream.Bytes,
-				BitsPerSecond: stream.BitsPerSecond,
-				JitterMs:      stream.JitterMs,
-				LostPackets:   stream.LostPackets,
-				TotalPackets:  stream.TotalPackets,
-				Retransmits:   stream.Retransmits,
-			})
+		if err := json.Unmarshal([]byte(jsonLine), &legacy); err != nil {
+			return nil, fmt.Errorf("failed to parse iperf3 interval JSON: %v", err)
 		}
+		var out []IperfInterval
+		for _, interval := range legacy.Intervals {
+			out = append(out, buildIntervalsFromData(interval.Streams, interval.Sum)...)
+		}
+		return out, nil
 	}
-	return intervals, nil
+
+	if evt.Event != "interval" {
+		return nil, nil
+	}
+	return buildIntervalsFromData(evt.Data.Streams, evt.Data.Sum), nil
+}
+
+// buildIntervalsFromData 把一次 interval 的 streams（逐流）与 sum（汇总）转成 IperfInterval 列表。
+func buildIntervalsFromData(streams []iperf3StreamRaw, sum *iperf3SumRaw) []IperfInterval {
+	var intervals []IperfInterval
+	if sum != nil {
+		intervals = append(intervals, IperfInterval{
+			Timestamp:     sum.Start,
+			StreamID:      -1,
+			Duration:      sum.Seconds,
+			Bytes:         sum.Bytes,
+			BitsPerSecond: sum.BitsPerSecond,
+			Retransmits:   sum.Retransmits,
+		})
+	}
+	for streamIdx, stream := range streams {
+		intervals = append(intervals, IperfInterval{
+			Timestamp:     stream.Start,
+			StreamID:      streamIdx,
+			Duration:      stream.Seconds,
+			Bytes:         stream.Bytes,
+			BitsPerSecond: stream.BitsPerSecond,
+			JitterMs:      stream.JitterMs,
+			LostPackets:   stream.LostPackets,
+			TotalPackets:  stream.TotalPackets,
+			Retransmits:   stream.Retransmits,
+		})
+	}
+	return intervals
 }
 
 func ParseResultFile(filePath string) (*IperfResult, error) {
@@ -119,23 +144,58 @@ func ParseResultFile(filePath string) (*IperfResult, error) {
 	decoder := json.NewDecoder(strings.NewReader(string(data)))
 
 	for decoder.More() {
-		var raw iperf3JSONRaw
-		if err := decoder.Decode(&raw); err != nil {
+		// 兼容两种格式：
+		//  1) --json-stream 事件流：{"event":"start|interval|end","data":{...}}
+		//  2) 旧版单次 JSON 报告：{"start":{...},"end":{...},"intervals":[{...}]}
+		var obj struct {
+			Event string `json:"event"`
+			Data  struct {
+				Version string            `json:"version"`
+				Streams []iperf3StreamRaw `json:"streams"`
+				SumSent *iperf3SumRaw     `json:"sum_sent"`
+				Sum     *iperf3SumRaw     `json:"sum"`
+				CPU     *iperf3CPURaw     `json:"cpu_utilization_percent"`
+			} `json:"data"`
+			Start     *iperf3StartRaw `json:"start"`
+			End       *iperf3EndRaw   `json:"end"`
+			Intervals []struct {
+				Streams []iperf3StreamRaw `json:"streams"`
+				Sum     *iperf3SumRaw     `json:"sum"`
+			} `json:"intervals"`
+		}
+		if err := decoder.Decode(&obj); err != nil {
 			break
 		}
 
-		if raw.Start != nil && raw.Start.Version != "" {
-			result.Version = raw.Start.Version
+		if obj.Event != "" {
+			switch obj.Event {
+			case "start":
+				if obj.Data.Version != "" {
+					result.Version = obj.Data.Version
+				}
+			case "interval":
+				appendStreamIntervals(result, obj.Data.Streams)
+			case "end":
+				// end 事件给出的是累计值（start=0），不再作为时序点追加，仅取 CPU 信息
+				if obj.Data.CPU != nil {
+					setCPU(result, obj.Data.CPU.HostUser, obj.Data.CPU.HostSystem)
+				}
+			}
+			continue
 		}
 
-		if raw.End != nil {
-			for _, stream := range raw.End.Streams {
-				streamIdx := len(result.Streams)
+		// 旧版单次 JSON 报告
+		if obj.Start != nil && obj.Start.Version != "" {
+			result.Version = obj.Start.Version
+		}
+		if obj.End != nil {
+			for _, stream := range obj.End.Streams {
+				idx := len(result.Streams)
 				result.Streams = append(result.Streams, StreamResult{
-					StreamID: streamIdx,
+					StreamID: idx,
 					Intervals: []IperfInterval{{
 						Timestamp:     stream.Start,
-						StreamID:      streamIdx,
+						StreamID:      idx,
 						Duration:      stream.Seconds,
 						Bytes:         stream.Bytes,
 						BitsPerSecond: stream.BitsPerSecond,
@@ -146,45 +206,49 @@ func ParseResultFile(filePath string) (*IperfResult, error) {
 					}},
 				})
 			}
-
-			if raw.End.CPU != nil {
-				cpuUser := raw.End.CPU.HostUser
-				cpuSys := raw.End.CPU.HostSystem
-				for i := range result.Streams {
-					if len(result.Streams[i].Intervals) > 0 {
-						last := len(result.Streams[i].Intervals) - 1
-						result.Streams[i].Intervals[last].CPUUser = cpuUser
-						result.Streams[i].Intervals[last].CPUSys = cpuSys
-					}
-				}
+			if obj.End.CPU != nil {
+				setCPU(result, obj.End.CPU.HostUser, obj.End.CPU.HostSystem)
 			}
 			continue
 		}
-
-		for _, interval := range raw.Intervals {
-			for streamIdx, stream := range interval.Streams {
-				for len(result.Streams) <= streamIdx {
-					result.Streams = append(result.Streams, StreamResult{
-						StreamID:  len(result.Streams),
-						Intervals: []IperfInterval{},
-					})
-				}
-				result.Streams[streamIdx].Intervals = append(result.Streams[streamIdx].Intervals, IperfInterval{
-					Timestamp:     stream.Start,
-					StreamID:      streamIdx,
-					Duration:      stream.Seconds,
-					Bytes:         stream.Bytes,
-					BitsPerSecond: stream.BitsPerSecond,
-					JitterMs:      stream.JitterMs,
-					LostPackets:   stream.LostPackets,
-					TotalPackets:  stream.TotalPackets,
-					Retransmits:   stream.Retransmits,
-				})
-			}
+		for _, interval := range obj.Intervals {
+			appendStreamIntervals(result, interval.Streams)
 		}
 	}
 
 	return result, nil
+}
+
+func appendStreamIntervals(result *IperfResult, streams []iperf3StreamRaw) {
+	for streamIdx, stream := range streams {
+		for len(result.Streams) <= streamIdx {
+			result.Streams = append(result.Streams, StreamResult{
+				StreamID:  len(result.Streams),
+				Intervals: []IperfInterval{},
+			})
+		}
+		result.Streams[streamIdx].Intervals = append(result.Streams[streamIdx].Intervals, IperfInterval{
+			Timestamp:     stream.Start,
+			StreamID:      streamIdx,
+			Duration:      stream.Seconds,
+			Bytes:         stream.Bytes,
+			BitsPerSecond: stream.BitsPerSecond,
+			JitterMs:      stream.JitterMs,
+			LostPackets:   stream.LostPackets,
+			TotalPackets:  stream.TotalPackets,
+			Retransmits:   stream.Retransmits,
+		})
+	}
+}
+
+func setCPU(result *IperfResult, user, sys float64) {
+	for i := range result.Streams {
+		if len(result.Streams[i].Intervals) > 0 {
+			last := len(result.Streams[i].Intervals) - 1
+			result.Streams[i].Intervals[last].CPUUser = user
+			result.Streams[i].Intervals[last].CPUSys = sys
+		}
+	}
 }
 
 func CollectResults(taskDir string, hosts []string) ([]*IperfResult, error) {

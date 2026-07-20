@@ -171,9 +171,12 @@ func RunIperfClient(hostCfg HostConfig, taskKey string, args []string) (*IperfSe
 
 	argsStr := strings.Join(args, " ")
 	logFile := filepath.Join(dataDir, "iperf_stdout.log")
+	// 用 stdbuf -oL 强制 iperf3 行缓冲输出：当 stdout 被管道/SSH 接管时 glibc 默认全缓冲（8KB），
+	// 会导致实时监控"等待数据"且远端 iperf_stdout.log 长时间为空。-oL 让每行 JSON 立即 flush。
+	// 若目标机没有 stdbuf（极少见），回退为直接运行（仅失去实时性，不影响最终落盘）。
 	cmd := fmt.Sprintf(
-		"cd %s && %s 2>&1 | tee %s",
-		taskDir, argsStr, logFile,
+		"cd %s && { command -v stdbuf >/dev/null 2>&1 && stdbuf -oL %s || %s; } 2>&1 | tee %s",
+		taskDir, argsStr, argsStr, logFile,
 	)
 
 	session, err := client.Client.NewSession()

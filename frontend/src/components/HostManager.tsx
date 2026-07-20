@@ -45,6 +45,7 @@ export function HostManager({ onAudit, onShowResults }: Props) {
 
   const saveEdit = async () => {
     if (editingId === null) return
+    if (!editingHost.host.trim()) return
     try {
       await App.UpdateHost(editingId, { ...editingHost })
       setEditingId(null)

@@ -1,10 +1,16 @@
 package iperf
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 type StreamSession interface {
@@ -19,6 +25,7 @@ type RealtimeManager struct {
 	clients  map[string][]chan IperfInterval
 	mu       sync.RWMutex
 	running  map[string]bool
+	ctx      context.Context
 }
 
 func NewRealtimeManager() *RealtimeManager {
@@ -27,6 +34,20 @@ func NewRealtimeManager() *RealtimeManager {
 		clients:  make(map[string][]chan IperfInterval),
 		running:  make(map[string]bool),
 	}
+}
+
+// SetContext 设置 Wails 运行时上下文，用于把实时区间数据推送到前端监控页。
+func (m *RealtimeManager) SetContext(ctx context.Context) {
+	m.mu.Lock()
+	m.ctx = ctx
+	m.mu.Unlock()
+}
+
+// IntervalDataFile 返回某任务实时区间数据的落盘路径（JSONL，每行一个 IperfInterval）。
+// 既用于任务结束后回放查看，也作为实时监控的数据来源。
+func IntervalDataFile(taskID string) string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".nettopo_test", "output", "iperf-tasks", taskID, "intervals.jsonl")
 }
 
 func SessionKey(taskId string, idx int) string {
@@ -110,6 +131,8 @@ func (m *RealtimeManager) startStreamWithKey(key, taskId string, session StreamS
 				continue
 			}
 
+			m.emitAndPersist(taskId, intervals)
+
 			m.mu.RLock()
 			clients := make([]chan IperfInterval, len(m.clients[taskId]))
 			copy(clients, m.clients[taskId])
@@ -155,4 +178,36 @@ func (m *RealtimeManager) GetClientCount(taskId string) int {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return len(m.clients[taskId])
+}
+
+// emitAndPersist 将解析出的区间数据：
+//  1. 通过 Wails 事件推送给前端实时监控页（事件名 iperf:interval:<taskID>）；
+//  2. 追加写入本地 JSONL 文件，供任务结束后回放查看。
+func (m *RealtimeManager) emitAndPersist(taskId string, intervals []IperfInterval) {
+	if len(intervals) == 0 {
+		return
+	}
+
+	// 1) 推送前端事件
+	m.mu.RLock()
+	ctx := m.ctx
+	m.mu.RUnlock()
+	if ctx != nil {
+		for _, iv := range intervals {
+			runtime.EventsEmit(ctx, "iperf:interval:"+taskId, iv)
+		}
+	}
+
+	// 2) 落盘持久化
+	path := IntervalDataFile(taskId)
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err == nil {
+		if f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644); err == nil {
+			for _, iv := range intervals {
+				if data, err := json.Marshal(iv); err == nil {
+					f.Write(append(data, '\n'))
+				}
+			}
+			f.Close()
+		}
+	}
 }

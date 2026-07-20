@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { IperfTask, IperfInterval } from '../../types'
 import * as App from '../../wailsjs/go/app/App'
+import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime'
 import { BandwidthChart } from './charts/BandwidthChart'
 import { JitterChart } from './charts/JitterChart'
 import { RetransmitChart } from './charts/RetransmitChart'
@@ -18,11 +19,15 @@ export function IperfMonitor({ onShowResults }: Props) {
   const [intervals, setIntervals] = useState<IperfInterval[]>([])
   const [currentTime, setCurrentTime] = useState(0)
   const pollRef = useRef<number | null>(null)
+  const eventRef = useRef<string | null>(null)
   const startTimeRef = useRef<number>(0)
 
   useEffect(() => { loadTasks() }, [])
   useEffect(() => {
-    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+      if (eventRef.current) EventsOff(eventRef.current)
+    }
   }, [])
 
   const loadTasks = async () => {
@@ -33,30 +38,61 @@ export function IperfMonitor({ onShowResults }: Props) {
   }
 
   const startMonitor = useCallback(async (taskId: string) => {
+    // 切换任务前先清理上一次的轮询与事件订阅
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+    if (eventRef.current) { EventsOff(eventRef.current); eventRef.current = null }
+
     setSelectedTaskId(taskId)
     setIntervals([])
-    setIsMonitoring(true)
     startTimeRef.current = Date.now()
 
-    pollRef.current = window.setInterval(async () => {
+    // 订阅该任务的实时区间数据事件（iperf3 一边跑一边推送）
+    const eventName = `iperf:interval:${taskId}`
+    const handler = (payload: any) => {
+      const raw = Array.isArray(payload) ? payload[0] : payload
+      const iv: IperfInterval = typeof raw === 'string' ? JSON.parse(raw) : raw
+      if (iv && typeof iv.bitsPerSecond === 'number') {
+        setIntervals(prev => [...prev, iv].slice(-600))
+      }
+    }
+    EventsOn(eventName, handler)
+    eventRef.current = eventName
+
+    // 依据任务真实状态决定是否常驻"监控中"
+    let status = ''
+    try { status = await App.CheckIperfTestStatus(taskId) } catch { /* ignore */ }
+
+    if (status === 'running') {
+      setIsMonitoring(true)
+      pollRef.current = window.setInterval(async () => {
+        try {
+          setCurrentTime((Date.now() - startTimeRef.current) / 1000)
+          const st = await App.CheckIperfTestStatus(taskId)
+          if (st !== 'running') {
+            // 测试已结束（完成/停止/出错），停止轮询但保留已采集的曲线
+            if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+            setIsMonitoring(false)
+          }
+        } catch { /* ignore */ }
+      }, 1000)
+    } else {
+      setIsMonitoring(false)
+      // 已结束的任务：加载落盘的区间数据回放，曲线不会空白
       try {
-        const running = await App.IsIperfMonitorRunning(taskId)
-        if (!running) {
-          stopMonitor()
-          return
-        }
-        setCurrentTime((Date.now() - startTimeRef.current) / 1000)
+        const hist = await App.GetIperfIntervals(taskId)
+        if (hist && hist.length > 0) setIntervals(hist)
       } catch { /* ignore */ }
-    }, 1000)
+    }
   }, [])
 
   const stopMonitor = useCallback(async () => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current)
-      pollRef.current = null
-    }
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+    if (eventRef.current) { EventsOff(eventRef.current); eventRef.current = null }
     setIsMonitoring(false)
-  }, [])
+    if (selectedTaskId) {
+      try { await App.StopIperfTest(selectedTaskId) } catch { /* ignore */ }
+    }
+  }, [selectedTaskId])
 
   const selectedTask = tasks.find(t => t.id === selectedTaskId)
 

@@ -177,6 +177,9 @@ func (a *App) RunIperfTest(taskID string) error {
 		return fmt.Errorf("任务 %s 无可用客户端主机", taskID)
 	}
 
+	// 清空上一次运行的实时数据，保证回放只展示本次结果
+	os.Remove(iperf.IntervalDataFile(taskID))
+
 	// iperf3 默认端口：客户端参数未显式指定 -p，统一使用 5201
 	const iperfPort = 5201
 
@@ -337,6 +340,26 @@ func (a *App) CheckIperfTestStatus(taskID string) string {
 
 func (a *App) IsIperfMonitorRunning(taskID string) bool {
 	return iperfRealtime.IsRunning(taskID)
+}
+
+// GetIperfIntervals 读取某任务落盘的实时区间数据（JSONL），用于任务结束后在监控页回放查看。
+func (a *App) GetIperfIntervals(taskID string) ([]iperf.IperfInterval, error) {
+	file := iperf.IntervalDataFile(taskID)
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return nil, nil
+	}
+	var intervals []iperf.IperfInterval
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		if line == "" {
+			continue
+		}
+		var iv iperf.IperfInterval
+		if err := json.Unmarshal([]byte(line), &iv); err == nil {
+			intervals = append(intervals, iv)
+		}
+	}
+	return intervals, nil
 }
 
 func (a *App) PullIperfData(taskID string) error {
