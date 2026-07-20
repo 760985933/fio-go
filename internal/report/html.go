@@ -67,7 +67,7 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>NetTopo_test 性能报告</title>
+  <title>FIO 性能测试报告</title>
   <script src="echarts.min.js"></script>
   <script>if (!window.echarts) document.write('<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"><\/script>')</script>
   <style>
@@ -111,7 +111,7 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
 <body>
   <div class="report-header">
     <span class="version">v` + html.EscapeString(models.Version) + `</span>
-    <h1>NetTopo_test 性能报告</h1>
+    <h1>FIO 性能测试报告</h1>
     <div class="meta-info">
       ` + metaLine + `
     </div>
