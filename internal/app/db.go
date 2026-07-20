@@ -25,7 +25,7 @@ func openDB() (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("获取用户目录失败: %v", err)
 	}
-	dbDir := filepath.Join(home, ".fio-gui")
+	dbDir := filepath.Join(home, ".nettopo_test")
 	if err := os.MkdirAll(dbDir, 0700); err != nil {
 		return nil, fmt.Errorf("创建数据目录失败: %v", err)
 	}
@@ -100,6 +100,31 @@ func initDB(db *sql.DB) error {
 			task_id    TEXT PRIMARY KEY,
 			started_at TEXT NOT NULL DEFAULT '',
 			finished_at TEXT NOT NULL DEFAULT ''
+		)
+	`)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS iperf_configs (
+			id         TEXT PRIMARY KEY,
+			name       TEXT NOT NULL,
+			config_json TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS iperf_tasks (
+			id                TEXT PRIMARY KEY,
+			name              TEXT NOT NULL,
+			config_json       TEXT NOT NULL,
+			server_host_json  TEXT NOT NULL,
+			client_hosts_json TEXT NOT NULL,
+			status            TEXT DEFAULT 'pending',
+			created_at        DATETIME DEFAULT CURRENT_TIMESTAMP
 		)
 	`)
 	if err != nil {

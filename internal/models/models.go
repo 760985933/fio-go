@@ -5,13 +5,13 @@ import (
 	"path/filepath"
 )
 
-// DataBaseDir 返回应用数据根目录 ~/.fio-gui
+// DataBaseDir 返回应用数据根目录 ~/.nettopo_test
 func DataBaseDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "."
 	}
-	return filepath.Join(home, ".fio-gui")
+	return filepath.Join(home, ".nettopo_test")
 }
 
 type NodeMetric struct {
