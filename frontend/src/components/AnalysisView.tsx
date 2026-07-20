@@ -79,7 +79,7 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
   const downloadReport = async (taskId: string) => {
     try {
       const zipPath = await App.CreateReportZIP(taskId)
-      await App.OpenFile(zipPath)
+      await App.RevealFile(zipPath)
       onAudit('下载报告', `任务: ${taskId}`)
     } catch (err) {
       await onShowResults('下载失败', `错误: ${err}`)

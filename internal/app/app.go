@@ -841,6 +841,18 @@ func (a *App) OpenFile(path string) error {
 	return openFile(path)
 }
 
+// RevealFile 在文件管理器中选中文件
+func (a *App) RevealFile(path string) error {
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", "-R", path).Start()
+	case "windows":
+		return exec.Command("explorer", "/select,"+path).Start()
+	default:
+		return exec.Command("xdg-open", filepath.Dir(path)).Start()
+	}
+}
+
 func openFile(path string) error {
 	switch runtime.GOOS {
 	case "darwin":

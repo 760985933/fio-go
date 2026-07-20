@@ -149,6 +149,10 @@ export function OpenFile(path) {
     return window['go']['app']['App']['OpenFile'](path);
 }
 
+export function RevealFile(path) {
+    return window['go']['app']['App']['RevealFile'](path);
+}
+
 export function AddHost(host) {
     return window['go']['app']['App']['AddHost'](host);
 }
