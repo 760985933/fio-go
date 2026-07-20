@@ -205,7 +205,6 @@ func generateFioText(cfg *FioConfig) string {
 		lines = append(lines, fmt.Sprintf("directory=%s", cfg.Global.Directory))
 	}
 	lines = append(lines, "time_based=1")
-	lines = append(lines, "group_reporting=1")
 	lines = append(lines, "")
 
 	for idx, job := range cfg.Jobs {

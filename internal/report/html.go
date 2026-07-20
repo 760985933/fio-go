@@ -30,7 +30,12 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
 		var cards []string
 		for _, ip := range ips {
 			txt := html.EscapeString(systemTexts[ip])
-			cards = append(cards, "<div style='border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;padding:12px;'><div style='font-weight:600;color:#374151;margin-bottom:8px;'>"+html.EscapeString(ip)+"</div><pre style='white-space:pre-wrap;font-family:Menlo,monospace;font-size:12px;line-height:1.5;color:#111827;'>"+txt+"</pre></div>")
+			lineCount := strings.Count(txt, "\n") + 1
+			if lineCount > 12 {
+				cards = append(cards, "<details style='border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;padding:12px;'><summary style='font-weight:600;color:#374151;cursor:pointer;'>"+html.EscapeString(ip)+"</summary><pre style='white-space:pre-wrap;font-family:Menlo,monospace;font-size:12px;line-height:1.5;color:#111827;margin-top:8px;'>"+txt+"</pre></details>")
+			} else {
+				cards = append(cards, "<div style='border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;padding:12px;'><div style='font-weight:600;color:#374151;margin-bottom:8px;'>"+html.EscapeString(ip)+"</div><pre style='white-space:pre-wrap;font-family:Menlo,monospace;font-size:12px;line-height:1.5;color:#111827;'>"+txt+"</pre></div>")
+			}
 		}
 		sysHtml = "<h2>系统信息</h2><div style=\"display:grid;grid-template-columns:repeat(3,1fr);gap:16px;\">" + strings.Join(cards, "") + "</div>\n"
 	}
