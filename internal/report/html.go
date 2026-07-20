@@ -67,11 +67,10 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 1100px; margin: 0 auto; padding: 32px 24px; background: #f5f5f7; color: #1d1d1f; line-height: 1.6; }
-    .report-header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); color: #fff; padding: 32px 40px; border-radius: 16px; margin-bottom: 24px; box-shadow: 0 4px 24px rgba(0,0,0,0.15); }
+    .report-header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); color: #fff; padding: 32px 40px; border-radius: 16px; margin-bottom: 24px; box-shadow: 0 4px 24px rgba(0,0,0,0.15); position: relative; text-align: center; }
     .report-header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 12px; }
-    .header-meta { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
-    .version { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.9); font-size: 13px; padding: 4px 12px; border-radius: 20px; backdrop-filter: blur(4px); }
-    .meta-info { display: flex; gap: 24px; flex-wrap: wrap; font-size: 13px; color: rgba(255,255,255,0.8); }
+    .version { position: absolute; top: 16px; right: 20px; background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.9); font-size: 13px; padding: 4px 12px; border-radius: 20px; backdrop-filter: blur(4px); }
+    .meta-info { display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; font-size: 13px; color: rgba(255,255,255,0.8); }
     .meta-info span { display: flex; align-items: center; gap: 4px; }
     .section { background: #fff; border-radius: 12px; padding: 24px 28px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
     .section-title { font-size: 18px; font-weight: 600; color: #1d1d1f; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #007AFF; display: inline-block; }
@@ -97,10 +96,8 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
 </head>
 <body>
   <div class="report-header">
-    <div class="header-meta">
-      <h1>FIO性能报告</h1>
-      <span class="version">v` + html.EscapeString(models.Version) + `</span>
-    </div>
+    <span class="version">v` + html.EscapeString(models.Version) + `</span>
+    <h1>FIO性能报告</h1>
     <div class="meta-info">
       ` + metaLine + `
     </div>
