@@ -12,7 +12,7 @@ import (
 	"fio-go/internal/models"
 )
 
-var logRe = regexp.MustCompile(`^(\d+)_([^_]+)_([A-Za-z]+)_iodepth(\d+)_(.*)$`)
+var logRe = regexp.MustCompile(`^(?:sec)?(\d+)_([^_]+)_([A-Za-z]+)_iodepth(\d+)_(.+?)(?:\.\d+)?\.log$`)
 
 func parseLogBase(base string) (int, string, string, int, string, bool) {
 	m := logRe.FindStringSubmatch(base)

@@ -350,9 +350,18 @@ func PullData(taskKey string, hosts []HostConfig, localBaseDir string) []Executi
 			tmpDir, tmpErr := os.MkdirTemp("", "fio-pull-*")
 			if tmpErr == nil {
 				defer os.RemoveAll(tmpDir)
-				downloadRemoteDir(client, taskDir, tmpDir)
+				if _, dlErr := downloadRemoteDir(client, taskDir, tmpDir); dlErr != nil {
+					res.Error = fmt.Errorf("failed to download task dir: %v", dlErr)
+					results[idx] = res
+					return
+				}
 				logCount := 0
-				entries, _ := os.ReadDir(tmpDir)
+				entries, rdErr := os.ReadDir(tmpDir)
+				if rdErr != nil {
+					res.Error = fmt.Errorf("failed to read temp dir: %v", rdErr)
+					results[idx] = res
+					return
+				}
 				for _, e := range entries {
 					if !e.IsDir() && strings.HasSuffix(strings.ToLower(e.Name()), ".log") {
 						os.MkdirAll(logsLocal, 0755)
