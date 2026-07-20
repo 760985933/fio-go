@@ -226,9 +226,36 @@ function OrchestrationManager({ onShowResults }: { onShowResults: (title: string
 
     for (let i = 0; i < taskIds.length; i++) {
       const taskId = taskIds[i]
-      const task = tasks.find(t => t.id === taskId)
+
+      // Re-fetch latest tasks to detect deletions during execution
+      let latestTasks: ExecutionTaskConfig[]
+      try {
+        latestTasks = await WailsApp.GetExecutionTasks()
+        setTasks(latestTasks)
+      } catch {
+        latestTasks = tasks
+      }
+      const task = latestTasks.find(t => t.id === taskId)
       const taskName = task?.name || taskId
       const safeId = taskId
+
+      if (!task) {
+        addProgress({ taskId: safeId, taskName, step: 'skip', status: 'error', error: '任务已被删除', current: i + 1, total })
+        await showError(`[${i+1}/${total}] ${taskName} 跳过`, '该任务已被删除，无法执行')
+        continue
+      }
+
+      if (!task.hosts || task.hosts.length === 0) {
+        addProgress({ taskId: safeId, taskName, step: 'skip', status: 'error', error: '任务没有配置主机', current: i + 1, total })
+        await showError(`[${i+1}/${total}] ${taskName} 跳过`, '该任务没有配置主机，无法执行')
+        continue
+      }
+
+      if (!task.scripts || task.scripts.length === 0) {
+        addProgress({ taskId: safeId, taskName, step: 'skip', status: 'error', error: '任务没有配置脚本', current: i + 1, total })
+        await showError(`[${i+1}/${total}] ${taskName} 跳过`, '该任务没有配置脚本，无法执行')
+        continue
+      }
 
       setCurrentStep(`${taskName} - 预检查...`)
 
