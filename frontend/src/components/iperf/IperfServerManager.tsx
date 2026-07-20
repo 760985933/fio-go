@@ -5,15 +5,16 @@ import * as App from '../../wailsjs/go/app/App'
 interface Props {
   onAudit: (action: string, details: string) => void
   onShowResults: (title: string, content: string, wide?: boolean) => Promise<void>
+  active?: boolean
 }
 
-export function IperfServerManager({ onAudit, onShowResults }: Props) {
+export function IperfServerManager({ onAudit, onShowResults, active }: Props) {
   const [hosts, setHosts] = useState<HostConfig[]>([])
   const [selectedHost, setSelectedHost] = useState<string>('')
   const [port, setPort] = useState(5201)
   const [serverStatus, setServerStatus] = useState<Record<string, boolean>>({})
   const [installStatus, setInstallStatus] = useState<Record<string, boolean | null>>({})
-  useEffect(() => { loadHosts() }, [])
+  useEffect(() => { if (active) loadHosts() }, [active])
 
   const loadHosts = async () => {
     try {
@@ -82,6 +83,7 @@ export function IperfServerManager({ onAudit, onShowResults }: Props) {
             <label>端口</label>
             <input type="number" value={port} onChange={e => setPort(parseInt(e.target.value) || 5201)} style={{ width: 80 }} />
           </div>
+          <button className="btn btn-outline btn-sm" onClick={loadHosts}>刷新主机</button>
           <button className="btn btn-outline btn-sm" onClick={checkAll}>批量检查</button>
           <button className="btn btn-outline btn-sm" onClick={checkInstalled}>检查iperf3安装</button>
         </div>

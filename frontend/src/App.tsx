@@ -167,7 +167,7 @@ function App() {
         {mountedSidebar['iperf-config'] && <IperfConfigManager onAudit={handleAudit} />}
       </div>
       <div style={{ display: iperfSidebarItem === 'iperf-server' ? 'block' : 'none' }}>
-        {mountedSidebar['iperf-server'] && <IperfServerManager onAudit={handleAudit} onShowResults={showResults} />}
+        {mountedSidebar['iperf-server'] && <IperfServerManager onAudit={handleAudit} onShowResults={showResults} active={iperfSidebarItem === 'iperf-server'} />}
       </div>
       <div style={{ display: iperfSidebarItem === 'iperf-host' ? 'block' : 'none' }}>
         {mountedSidebar['iperf-host'] && <HostManager onAudit={handleAudit} onShowResults={showResults} />}
