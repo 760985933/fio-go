@@ -6,7 +6,6 @@ import { BandwidthChart } from './charts/BandwidthChart'
 import { JitterChart } from './charts/JitterChart'
 import { RetransmitChart } from './charts/RetransmitChart'
 import { DashboardPanel } from './charts/DashboardPanel'
-import { CPUMemoryChart } from './charts/CPUMemoryChart'
 
 interface Props {
   onShowResults: (title: string, content: string, wide?: boolean) => Promise<void>
@@ -158,11 +157,6 @@ export function IperfMonitor({ onShowResults }: Props) {
           <div className="panel" style={{ marginBottom: 16 }}>
             <h4 style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>重传数</h4>
             <RetransmitChart intervals={intervals} />
-          </div>
-
-          <div className="panel" style={{ marginBottom: 16 }}>
-            <h4 style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>CPU 使用率</h4>
-            <CPUMemoryChart intervals={intervals} />
           </div>
         </>
       )}
