@@ -1214,7 +1214,20 @@ func (a *App) CreateReportZIP(taskID string) (string, error) {
 		return "", fmt.Errorf("报告目录不存在: %s", reportDir)
 	}
 
-	zipPath := reportDir + ".zip"
+	// Look up task name for ZIP filename
+	taskName := taskID
+	tasks, err := a.GetExecutionTasks()
+	if err == nil {
+		for _, t := range tasks {
+			if t.ID == taskID && t.Name != "" {
+				taskName = sanitizeTaskID(t.Name)
+				break
+			}
+		}
+	}
+	zipName := taskName + "_" + taskID + ".zip"
+	zipPath := filepath.Join(filepath.Dir(reportDir), zipName)
+
 	zipFile, err := os.Create(zipPath)
 	if err != nil {
 		return "", err
