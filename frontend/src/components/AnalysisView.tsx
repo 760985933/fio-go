@@ -154,7 +154,12 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
                 {!task.hasData && <span className="status-dot status-error" style={{ marginLeft: 8 }}></span>}
               </span>
               <div style={{ display: 'flex', gap: 4 }}>
-                {!task.hasData && (
+                {task.hasData ? (
+                  <button className="btn btn-primary btn-sm" onClick={() => pullData(task.id)}
+                    disabled={pulling === task.id || generating === task.id}>
+                    {pulling === task.id ? '拉取中...' : generating === task.id ? '分析中...' : '重新拉取'}
+                  </button>
+                ) : (
                   <button className="btn btn-primary btn-sm" onClick={() => pullData(task.id)}
                     disabled={pulling === task.id || generating === task.id}>
                     {pulling === task.id ? '拉取中...' : generating === task.id ? '分析中...' : '拉取并分析'}
