@@ -1,6 +1,7 @@
 package iperf
 
 import (
+	"embed"
 	"fmt"
 	"html"
 	"os"
@@ -8,6 +9,11 @@ import (
 	"strings"
 	"time"
 )
+
+// echartsFS 内联打包的 ECharts 库，确保报告在桌面应用（无外部文件/无网络）中也能渲染。
+//
+//go:embed echarts.min.js
+var echartsFS embed.FS
 
 func GenerateIperfHTML(results []*IperfResult, outPath string) error {
 	if len(results) == 0 {
@@ -101,11 +107,16 @@ func GenerateIperfHTML(results []*IperfResult, outPath string) error {
 </div>`, strings.Join(summaryRows, "\n"))
 	}
 
+	// 使用内联打包的 ECharts，避免依赖运行时工作目录或网络。
 	echartsJS := ""
-	echartPath := "output/echarts.min.js"
-	if _, err := os.Stat(echartPath); err == nil {
-		data, _ := os.ReadFile(echartPath)
+	if data, err := echartsFS.ReadFile("echarts.min.js"); err == nil {
 		echartsJS = string(data)
+	} else if fb, ferr := os.ReadFile("output/echarts.min.js"); ferr == nil {
+		// 兜底：开发态从项目 output 目录读取。
+		echartsJS = string(fb)
+	} else {
+		// 最终兜底：CDN（需要网络）。
+		echartsJS = "if(!window.echarts){document.write('<script src=\"https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js\"><\\/script>')}"
 	}
 
 	htmlContent := fmt.Sprintf(`<!DOCTYPE html>
@@ -123,7 +134,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .report-meta { font-size: 13px; color: #6b7280; }
 .chart-card { background: white; border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 .chart-card h3 { font-size: 15px; color: #374151; margin-bottom: 12px; }
-.chart-container { width: 100%; height: 350px; }
+.chart-container { width: 100%%; height: 350px; }
 </style>
 </head>
 <body>
@@ -153,7 +164,7 @@ bwChart.setOption({
 tooltip:{trigger:'axis'},
 legend:{type:'scroll',bottom:0},
 grid:{left:60,right:30,top:30,bottom:50},
-xAxis:{type:'time'},
+xAxis:{type:'value',name:'时间(s)',nameLocation:'middle',nameGap:30},
 yAxis:{type:'value',name:'Mbps'},
 series:[%s]
 });
@@ -162,7 +173,7 @@ jitChart.setOption({
 tooltip:{trigger:'axis'},
 legend:{type:'scroll',bottom:0},
 grid:{left:60,right:30,top:30,bottom:50},
-xAxis:{type:'time'},
+xAxis:{type:'value',name:'时间(s)',nameLocation:'middle',nameGap:30},
 yAxis:{type:'value',name:'ms'},
 series:[%s]
 });
@@ -171,7 +182,7 @@ retChart.setOption({
 tooltip:{trigger:'axis'},
 legend:{type:'scroll',bottom:0},
 grid:{left:60,right:30,top:30,bottom:50},
-xAxis:{type:'time'},
+xAxis:{type:'value',name:'时间(s)',nameLocation:'middle',nameGap:30},
 yAxis:{type:'value',name:'Retransmits'},
 series:[%s]
 });
