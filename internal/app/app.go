@@ -456,24 +456,23 @@ func (a *App) PreDeployCheck(taskID string, hosts []executor.HostConfig) ([]Chec
 			}
 		}
 		// fio installed check
-		if i < len(fioResults) {
-			if fioResults[i].Error != nil {
-				// if no error yet, report fio check failure
-				if msg == "" || strings.HasPrefix(msg, "空闲") {
-					msg = "FIO检查失败: " + fioResults[i].Error.Error()
-				}
-			} else if fioResults[i].Msg == "MISSING" {
-				if msg == "" || strings.HasPrefix(msg, "空闲") {
-					msg = "未安装FIO"
-				} else {
-					msg += " | 未安装FIO"
-				}
+		if fioResults[i].Error != nil {
+			if msg == "" || strings.HasPrefix(msg, "空闲") {
+				msg = "FIO检查失败: " + fioResults[i].Error.Error()
 			} else {
-				if msg == "" || msg == "空闲" {
-					msg = fioResults[i].Msg
-				} else {
-					msg += " | " + fioResults[i].Msg
-				}
+				msg += " | FIO检查失败: " + fioResults[i].Error.Error()
+			}
+		} else if fioResults[i].Msg == "MISSING" {
+			if msg == "" || strings.HasPrefix(msg, "空闲") {
+				msg = "未安装FIO"
+			} else {
+				msg += " | 未安装FIO"
+			}
+		} else {
+			if msg == "" || msg == "空闲" {
+				msg = fioResults[i].Msg
+			} else {
+				msg += " | " + fioResults[i].Msg
 			}
 		}
 		if msg == "" {
