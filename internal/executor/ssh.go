@@ -116,7 +116,6 @@ func (s *SSHClient) RunCommandNoWait(cmd string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create session: %v", err)
 	}
-	defer session.Close()
 
 	return session.Start(cmd)
 }
