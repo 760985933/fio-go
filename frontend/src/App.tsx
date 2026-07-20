@@ -173,7 +173,6 @@ function OrchestrationManager({ onShowResults }: { onShowResults: (title: string
   const [loaded, setLoaded] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
-  const validTasks = tasks.filter(t => taskIds.includes(t.id))
   const invalidIds = taskIds.filter(id => !tasks.some(t => t.id === id))
 
   useEffect(() => {
