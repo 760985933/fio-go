@@ -30,7 +30,7 @@ func GenerateIperfHTML(results []*IperfResult, outPath string) error {
 				avgBW := calculateAvgBandwidth(s.Intervals)
 				maxBW := calculateMaxBandwidth(s.Intervals)
 				summaryRows = append(summaryRows, fmt.Sprintf(
-					`<tr><td>%s</td><td>%d</td><td>%.2f</td><td>%.2f</td><td>%d</td><td>%.3f</td></tr>`,
+					`<tr><td class="host">%s</td><td class="num">%d</td><td class="num">%.2f</td><td class="num">%.2f</td><td class="num">%d</td><td class="num">%.3f</td></tr>`,
 					html.EscapeString(r.Host),
 					s.StreamID,
 					avgBW/1e6,
@@ -93,14 +93,14 @@ func GenerateIperfHTML(results []*IperfResult, outPath string) error {
 		summaryTable = fmt.Sprintf(`
 <div style="margin-bottom:24px;">
 <h3 style="font-size:15px;color:#374151;margin-bottom:12px;">测试汇总</h3>
-<table style="width:100%%;border-collapse:collapse;font-size:13px;">
-<thead><tr style="background:#f3f4f6;">
-<th style="padding:8px 12px;text-align:left;border:1px solid #e5e7eb;">主机</th>
-<th style="padding:8px 12px;text-align:left;border:1px solid #e5e7eb;">流ID</th>
-<th style="padding:8px 12px;text-align:right;border:1px solid #e5e7eb;">平均带宽(Mbps)</th>
-<th style="padding:8px 12px;text-align:right;border:1px solid #e5e7eb;">峰值带宽(Mbps)</th>
-<th style="padding:8px 12px;text-align:right;border:1px solid #e5e7eb;">重传数</th>
-<th style="padding:8px 12px;text-align:right;border:1px solid #e5e7eb;">抖动(ms)</th>
+<table class="summary-table">
+<thead><tr>
+<th>主机</th>
+<th class="num">流ID</th>
+<th class="num">平均带宽(Mbps)</th>
+<th class="num">峰值带宽(Mbps)</th>
+<th class="num">重传数</th>
+<th class="num">抖动(ms)</th>
 </tr></thead>
 <tbody>%s</tbody>
 </table>
@@ -135,6 +135,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .chart-card { background: white; border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 .chart-card h3 { font-size: 15px; color: #374151; margin-bottom: 12px; }
 .chart-container { width: 100%%; height: 350px; }
+.summary-table { width:100%%; border-collapse:separate; border-spacing:0; font-size:13px; background:#fff; border:1px solid #e5e7eb; border-radius:10px; overflow:hidden; }
+.summary-table thead th { background:#374151; color:#fff; font-weight:600; padding:11px 14px; text-align:left; white-space:nowrap; }
+.summary-table thead th.num { text-align:right; }
+.summary-table tbody td { padding:10px 14px; border-top:1px solid #eef0f3; color:#374151; }
+.summary-table tbody td.num { text-align:right; font-variant-numeric:tabular-nums; }
+.summary-table tbody td.host { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; word-break:break-all; }
+.summary-table tbody tr:nth-child(even) { background:#f9fafb; }
+.summary-table tbody tr:hover { background:#eff6ff; }
 </style>
 </head>
 <body>
