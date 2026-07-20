@@ -152,7 +152,7 @@ jobs:
         with:
           generate_release_notes: true
           body: |
-            ## FIO 性能测试工具 ${{ github.ref_name }}
+            ## NetTopo 性能测试工具 ${{ github.ref_name }}
 
             ---
 
