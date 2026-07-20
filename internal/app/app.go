@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"fio-go/internal/executor"
+	"fio-go/internal/models"
 	"fio-go/internal/parser"
 	"fio-go/internal/report"
 )
@@ -523,7 +524,9 @@ func (a *App) KillAll(taskID string, hosts []executor.HostConfig) ([]ActionResul
 // PullData 拉取远程数据
 func (a *App) PullData(taskID string, hosts []executor.HostConfig) ([]ActionResult, error) {
 	rawDir := taskRawDataDir(taskID)
-	os.MkdirAll(rawDir, 0755)
+	if err := os.MkdirAll(rawDir, 0755); err != nil {
+		return nil, fmt.Errorf("创建数据目录失败: %v", err)
+	}
 
 	results := executor.PullData(taskID, hosts, rawDir)
 	return toActionResults(results), nil
@@ -548,9 +551,19 @@ func (a *App) CleanLocal(taskID string) error {
 	baseDir := filepath.Join(dataBaseDir(), "data", "tasks", sanitizeTaskID(taskID))
 	reportDir := filepath.Join(dataBaseDir(), "output", "tasks", sanitizeTaskID(taskID))
 
-	os.RemoveAll(baseDir)
-	os.RemoveAll(reportDir)
-	os.MkdirAll(baseDir, 0755)
+	var errs []string
+	if err := os.RemoveAll(baseDir); err != nil {
+		errs = append(errs, fmt.Sprintf("清理数据目录失败: %v", err))
+	}
+	if err := os.RemoveAll(reportDir); err != nil {
+		errs = append(errs, fmt.Sprintf("清理报告目录失败: %v", err))
+	}
+	if err := os.MkdirAll(baseDir, 0755); err != nil {
+		errs = append(errs, fmt.Sprintf("重建数据目录失败: %v", err))
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
 	return nil
 }
 
@@ -633,11 +646,7 @@ type AnalysisSummary struct {
 }
 
 func dataBaseDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "."
-	}
-	return filepath.Join(home, ".fio-gui")
+	return models.DataBaseDir()
 }
 
 func taskRawDataDir(taskID string) string {

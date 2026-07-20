@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"fio-go/internal/executor"
+	"fio-go/internal/models"
 	"fio-go/internal/parser"
 	"fio-go/internal/report"
 
@@ -29,14 +30,6 @@ var frontendFS embed.FS
 const (
 	defaultTaskName = "默认执行任务"
 )
-
-func webDataBaseDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "."
-	}
-	return filepath.Join(home, ".fio-gui")
-}
 
 type executionTaskConfig struct {
 	ID      string                `json:"id"`
@@ -205,7 +198,7 @@ func sanitizeTaskID(taskID string) string {
 }
 
 func taskBaseDir(taskID string) string {
-	return filepath.Join(webDataBaseDir(), "data", "tasks", sanitizeTaskID(taskID))
+	return filepath.Join(models.DataBaseDir(), "data", "tasks", sanitizeTaskID(taskID))
 }
 
 func taskRawDataDir(taskID string) string {
@@ -217,7 +210,7 @@ func taskExecutionLogPath(taskID string) string {
 }
 
 func taskReportDir(taskID string) string {
-	return filepath.Join(webDataBaseDir(), "output", "tasks", sanitizeTaskID(taskID))
+	return filepath.Join(models.DataBaseDir(), "output", "tasks", sanitizeTaskID(taskID))
 }
 
 func taskReportHTMLPath(taskID string) string {

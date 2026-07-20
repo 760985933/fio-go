@@ -1,5 +1,19 @@
 package models
 
+import (
+	"os"
+	"path/filepath"
+)
+
+// DataBaseDir 返回应用数据根目录 ~/.fio-gui
+func DataBaseDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "."
+	}
+	return filepath.Join(home, ".fio-gui")
+}
+
 type NodeMetric struct {
 	IP              string
 	RW              string
