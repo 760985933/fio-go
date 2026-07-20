@@ -34,7 +34,7 @@ export function Layout({ tabs, activeTab, onTabChange, headerActions, sidebar, c
               <line x1="24" y1="24" x2="16" y2="16" stroke="white" strokeWidth="1.5" />
             </g>
           </svg>
-          <h1>FIO 测试工具 <span className="app-version">v1.0.3</span></h1>
+          <h1>NetTopo 性能测试工具 <span className="app-version">v1.0.3</span></h1>
         </div>
         <div className="tab-bar">
           {tabs.map(tab => (

@@ -23,7 +23,7 @@ const IconClipboard = <svg {...svgProps}><rect x="4" y="1.5" width="8" height="1
 const IconRocket = <svg {...svgProps}><path d="M8 2C5 2 3 5 3 8c0 2 1 4 2.5 5.5L8 14l2.5-0.5C12 12 13 10 13 8c0-3-2-6-5-6z"/><circle cx="8" cy="7" r="1.5"/><path d="M3 8c-1 0-1.5 1-1.5 2L3 12"/><path d="M13 8c1 0 1.5 1 1.5 2L13 12"/></svg>
 
 const MAIN_TABS = [
-  { id: 'configure', label: 'FIO测试', icon: IconSliders },
+  { id: 'configure', label: 'NetTopo', icon: IconSliders },
   { id: 'settings', label: '系统设置', icon: IconWrench },
 ]
 

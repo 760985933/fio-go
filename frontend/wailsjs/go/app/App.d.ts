@@ -76,6 +76,8 @@ export function PullData(arg1:string,arg2:Array<executor.HostConfig>):Promise<Ar
 
 export function PullTaskData(arg1:string):Promise<Array<app.ActionResult>>;
 
+export function RevealFile(arg1:string):Promise<void>;
+
 export function SaveExecutionTasks(arg1:Array<app.ExecutionTaskConfig>):Promise<void>;
 
 export function SaveOrchestrationConfig(arg1:app.OrchestrationConfig):Promise<void>;

@@ -62,7 +62,7 @@ export function SystemSettings() {
       <div className="panel">
         <h3 className="section-title">关于</h3>
         <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 2 }}>
-          <p><strong>FIO 性能测试工具</strong> v1.0.3</p>
+          <p><strong>NetTopo 性能测试工具</strong> v1.0.3</p>
           <p>© 2026 nettopo.com</p>
           <p>License: AGPLv3</p>
         </div>

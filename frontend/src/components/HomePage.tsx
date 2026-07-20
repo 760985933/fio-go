@@ -50,7 +50,7 @@ export function HomePage({ onNavigateTo }: Props) {
   return (
     <div>
       <div className="welcome-card">
-        <h2>FIO 性能测试工具</h2>
+        <h2>NetTopo 性能测试工具</h2>
         <p>快速完成存储性能测试，支持分布式多节点并行测试</p>
       </div>
 

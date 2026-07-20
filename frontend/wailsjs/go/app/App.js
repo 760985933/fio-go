@@ -146,6 +146,10 @@ export function PullTaskData(arg1) {
   return window['go']['app']['App']['PullTaskData'](arg1);
 }
 
+export function RevealFile(arg1) {
+  return window['go']['app']['App']['RevealFile'](arg1);
+}
+
 export function SaveExecutionTasks(arg1) {
   return window['go']['app']['App']['SaveExecutionTasks'](arg1);
 }
