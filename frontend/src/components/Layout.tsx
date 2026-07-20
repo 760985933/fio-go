@@ -4,6 +4,7 @@ interface Tab {
   id: string
   label: string
   icon: ReactNode
+  badge?: string
 }
 
 interface Props {
@@ -43,7 +44,7 @@ export function Layout({ tabs, activeTab, onTabChange, headerActions, sidebar, c
               className={`tab ${activeTab === tab.id ? 'active' : ''}`}
               onClick={() => onTabChange(tab.id)}
             >
-              {tab.icon} {tab.label}
+              {tab.icon} {tab.label}{tab.badge && <span className="tab-badge">{tab.badge}</span>}
             </button>
           ))}
         </div>

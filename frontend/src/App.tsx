@@ -24,7 +24,7 @@ const IconRocket = <svg {...svgProps}><path d="M8 2C5 2 3 5 3 8c0 2 1 4 2.5 5.5L
 
 const MAIN_TABS = [
   { id: 'configure', label: 'FIO测试', icon: IconSliders },
-  { id: 'settings', label: '系统设置', icon: IconWrench },
+  { id: 'settings', label: '系统设置', icon: IconWrench, badge: '免费版本' },
 ]
 
 const SIDEBAR_ITEMS: SidebarItem[] = [
