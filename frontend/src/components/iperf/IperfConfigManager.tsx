@@ -19,6 +19,8 @@ const DEFAULT_CONFIG: IperfConfig = {
   reverse: false,
   bidir: false,
   extraFlags: '',
+  serverTestIP: '',
+  serverBindIP: '',
 }
 
 export function IperfConfigManager({ onAudit }: Props) {
@@ -29,6 +31,7 @@ export function IperfConfigManager({ onAudit }: Props) {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pendingSelect, setPendingSelect] = useState<IperfConfig | null>(null)
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
+  const [pendingAction, setPendingAction] = useState<'select' | 'new' | null>(null)
   const [nameError, setNameError] = useState('')
 
   useEffect(() => { loadConfigs() }, [])
@@ -41,6 +44,15 @@ export function IperfConfigManager({ onAudit }: Props) {
   }
 
   const createNew = () => {
+    if (dirty) {
+      setPendingAction('new')
+      setConfirmOpen(true)
+      return
+    }
+    doCreateNew()
+  }
+
+  const doCreateNew = () => {
     const id = `iperf-cfg-${Date.now()}`
     const cfg: IperfConfig = { ...DEFAULT_CONFIG, id, name: '新配置' }
     setEditing(cfg)
@@ -51,6 +63,7 @@ export function IperfConfigManager({ onAudit }: Props) {
   const selectConfig = (cfg: IperfConfig) => {
     if (dirty) {
       setPendingSelect(cfg)
+      setPendingAction('select')
       setConfirmOpen(true)
       return
     }
@@ -60,17 +73,21 @@ export function IperfConfigManager({ onAudit }: Props) {
   }
 
   const confirmDiscard = () => {
-    if (pendingSelect) {
+    if (pendingAction === 'select' && pendingSelect) {
       setSelectedId(pendingSelect.id)
       setEditing({ ...pendingSelect })
       setDirty(false)
+    } else if (pendingAction === 'new') {
+      doCreateNew()
     }
     setPendingSelect(null)
+    setPendingAction(null)
     setConfirmOpen(false)
   }
 
   const cancelDiscard = () => {
     setPendingSelect(null)
+    setPendingAction(null)
     setConfirmOpen(false)
   }
 
@@ -186,6 +203,16 @@ export function IperfConfigManager({ onAudit }: Props) {
             <div className="form-group" style={{ marginTop: 12 }}>
               <label>附加参数</label>
               <input value={editing.extraFlags} placeholder="例如: --connect-timeout 10" onChange={e => updateField('extraFlags', e.target.value)} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+              <div className="form-group">
+                <label>服务器测试 IP (-c)</label>
+                <input value={editing.serverTestIP} placeholder="留空则使用主机登录 IP" onChange={e => updateField('serverTestIP', e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label>服务器监听 IP (-B)</label>
+                <input value={editing.serverBindIP} placeholder="留空则监听所有网卡" onChange={e => updateField('serverBindIP', e.target.value)} />
+              </div>
             </div>
             <div style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
               <button className="btn btn-primary" onClick={saveConfig} disabled={!dirty}>保存</button>

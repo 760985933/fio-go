@@ -306,6 +306,8 @@ export namespace iperf {
 	    reverse: boolean;
 	    bidir: boolean;
 	    extraFlags: string;
+	    serverTestIP: string;
+	    serverBindIP: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new IperfConfig(source);
@@ -324,6 +326,8 @@ export namespace iperf {
 	        this.reverse = source["reverse"];
 	        this.bidir = source["bidir"];
 	        this.extraFlags = source["extraFlags"];
+	        this.serverTestIP = source["serverTestIP"];
+	        this.serverBindIP = source["serverBindIP"];
 	    }
 	}
 	export class IperfTask {

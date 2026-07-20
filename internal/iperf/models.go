@@ -3,17 +3,19 @@ package iperf
 import "fio-go/internal/executor"
 
 type IperfConfig struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	Protocol   string `json:"protocol"`
-	Bandwidth  string `json:"bandwidth"`
-	Duration   int    `json:"duration"`
-	Parallel   int    `json:"parallel"`
-	BlockSize  string `json:"blockSize"`
-	WindowSize string `json:"windowSize"`
-	Reverse    bool   `json:"reverse"`
-	Bidir      bool   `json:"bidir"`
-	ExtraFlags string `json:"extraFlags"`
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Protocol     string `json:"protocol"`
+	Bandwidth    string `json:"bandwidth"`
+	Duration     int    `json:"duration"`
+	Parallel     int    `json:"parallel"`
+	BlockSize    string `json:"blockSize"`
+	WindowSize   string `json:"windowSize"`
+	Reverse      bool   `json:"reverse"`
+	Bidir        bool   `json:"bidir"`
+	ExtraFlags   string `json:"extraFlags"`
+	ServerTestIP string `json:"serverTestIP"`
+	ServerBindIP string `json:"serverBindIP"`
 }
 
 type IperfTask struct {

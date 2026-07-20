@@ -67,6 +67,8 @@ export interface IperfConfig {
   reverse: boolean
   bidir: boolean
   extraFlags: string
+  serverTestIP: string
+  serverBindIP: string
 }
 
 export interface IperfTask {

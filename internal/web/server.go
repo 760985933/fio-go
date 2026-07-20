@@ -1204,8 +1204,9 @@ func handleIperfServerStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Host executor.HostConfig `json:"host"`
-		Port int                 `json:"port"`
+		Host   executor.HostConfig `json:"host"`
+		Port   int                 `json:"port"`
+		BindIP string              `json:"bindIP"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -1214,7 +1215,7 @@ func handleIperfServerStart(w http.ResponseWriter, r *http.Request) {
 	if req.Port <= 0 {
 		req.Port = 5201
 	}
-	result := executor.StartIperfServer(req.Host, req.Port)
+	result := executor.StartIperfServer(req.Host, req.Port, req.BindIP)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
 }

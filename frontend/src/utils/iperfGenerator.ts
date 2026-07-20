@@ -1,7 +1,8 @@
 import { IperfConfig } from '../types'
 
 export function generateIperfCommand(config: IperfConfig, serverHost: string): string {
-  const args = ['iperf3', '-c', serverHost]
+  const target = config.serverTestIP || serverHost
+  const args = ['iperf3', '-c', target]
 
   if (config.protocol === 'udp') {
     args.push('-u')
@@ -42,6 +43,14 @@ export function generateIperfCommand(config: IperfConfig, serverHost: string): s
     args.push(...flags.filter(f => f.length > 0))
   }
 
+  return args.join(' ')
+}
+
+export function generateIperfServerCommand(config: IperfConfig, port: number = 5201): string {
+  const args = ['iperf3', '-s', '-p', String(port)]
+  if (config.serverBindIP) {
+    args.push('-B', config.serverBindIP)
+  }
   return args.join(' ')
 }
 

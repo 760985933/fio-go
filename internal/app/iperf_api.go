@@ -132,11 +132,11 @@ func (a *App) DeleteIperfTask(id string) error {
 	return dbDeleteIperfTask(a.db, id)
 }
 
-func (a *App) StartIperfServer(host executor.HostConfig, port int) executor.ExecutionResult {
+func (a *App) StartIperfServer(host executor.HostConfig, port int, bindIP string) executor.ExecutionResult {
 	if port <= 0 {
 		port = 5201
 	}
-	return executor.StartIperfServer(host, port)
+	return executor.StartIperfServer(host, port, bindIP)
 }
 
 func (a *App) StopIperfServer(host executor.HostConfig, port int) executor.ExecutionResult {
@@ -176,7 +176,10 @@ func (a *App) RunIperfTest(taskID string) error {
 		return fmt.Errorf("任务 %s 无可用客户端主机", taskID)
 	}
 
-	args := []string{"iperf3", "-c", task.ServerHost.Host}
+	args := []string{"iperf3", "-c", task.Config.ServerTestIP}
+	if task.Config.ServerTestIP == "" {
+		args[2] = task.ServerHost.Host
+	}
 	if task.Config.Protocol == "udp" {
 		args = append(args, "-u")
 	}

@@ -92,7 +92,7 @@ func (s *IperfSession) Host() string {
 	return s.host
 }
 
-func StartIperfServer(hostCfg HostConfig, port int) ExecutionResult {
+func StartIperfServer(hostCfg HostConfig, port int, bindIP string) ExecutionResult {
 	normalized := normalizeHostConfig(hostCfg)
 	res := ExecutionResult{Host: displayIperfHost(hostCfg)}
 
@@ -106,7 +106,11 @@ func StartIperfServer(hostCfg HostConfig, port int) ExecutionResult {
 	stopCmd := fmt.Sprintf("pkill -f 'iperf3 -s -p %d' 2>/dev/null; sleep 0.5", port)
 	client.RunCommand(stopCmd)
 
-	cmd := fmt.Sprintf("nohup iperf3 -s -p %d > /tmp/iperf_server_%d.log 2>&1 & echo $!", port, port)
+	bindFlag := ""
+	if bindIP != "" {
+		bindFlag = fmt.Sprintf(" -B %s", bindIP)
+	}
+	cmd := fmt.Sprintf("nohup iperf3 -s -p %d%s > /tmp/iperf_server_%d.log 2>&1 & echo $!", port, bindFlag, port)
 	out, err := client.RunCommand(cmd)
 	if err != nil {
 		res.Error = fmt.Errorf("failed to start iperf3 server: %v", err)
