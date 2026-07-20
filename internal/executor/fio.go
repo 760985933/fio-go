@@ -362,9 +362,9 @@ func PullData(taskKey string, hosts []HostConfig, localBaseDir string) []Executi
 					results[idx] = res
 					return
 				}
+				os.MkdirAll(logsLocal, 0755)
 				for _, e := range entries {
 					if !e.IsDir() && strings.HasSuffix(strings.ToLower(e.Name()), ".log") {
-						os.MkdirAll(logsLocal, 0755)
 						if err := os.Rename(filepath.Join(tmpDir, e.Name()), filepath.Join(logsLocal, e.Name())); err == nil {
 							logCount++
 						}
