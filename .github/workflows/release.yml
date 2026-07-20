@@ -71,8 +71,8 @@ jobs:
       - name: Package macOS desktop
         run: |
           mkdir -p dist
-          cp build/bin/nettopo_test dist/
-          cd dist && zip -r nettopo_test_macos_universal.zip nettopo_test
+          cd build/bin
+          zip -r ../../dist/nettopo_test_macos_universal.zip nettopo_test.app
 
       - uses: actions/upload-artifact@v4
         with:
@@ -144,7 +144,7 @@ jobs:
         run: |
           mkdir -p dist
           cp build/bin/nettopo_test dist/
-          cd dist && zip nettopo_test_linux_amd64.zip nettopo_test
+          cd dist && zip -r nettopo_test_linux_amd64.zip nettopo_test
 
       - uses: actions/upload-artifact@v4
         with:
