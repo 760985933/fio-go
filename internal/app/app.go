@@ -522,7 +522,7 @@ func (a *App) KillAll(taskID string, hosts []executor.HostConfig) ([]ActionResul
 
 // PullData 拉取远程数据
 func (a *App) PullData(taskID string, hosts []executor.HostConfig) ([]ActionResult, error) {
-	rawDir := filepath.Join("data", "tasks", sanitizeTaskID(taskID), "raw")
+	rawDir := taskRawDataDir(taskID)
 	os.MkdirAll(rawDir, 0755)
 
 	results := executor.PullData(taskID, hosts, rawDir)
@@ -545,8 +545,8 @@ func (a *App) PullTaskData(taskID string) ([]ActionResult, error) {
 
 // CleanLocal 清理本地数据
 func (a *App) CleanLocal(taskID string) error {
-	baseDir := filepath.Join("data", "tasks", sanitizeTaskID(taskID))
-	reportDir := filepath.Join("output", "tasks", sanitizeTaskID(taskID))
+	baseDir := filepath.Join(dataBaseDir(), "data", "tasks", sanitizeTaskID(taskID))
+	reportDir := filepath.Join(dataBaseDir(), "output", "tasks", sanitizeTaskID(taskID))
 
 	os.RemoveAll(baseDir)
 	os.RemoveAll(reportDir)
@@ -632,12 +632,20 @@ type AnalysisSummary struct {
 	FinishedAt    string   `json:"finishedAt,omitempty"`
 }
 
+func dataBaseDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "."
+	}
+	return filepath.Join(home, ".fio-gui")
+}
+
 func taskRawDataDir(taskID string) string {
-	return filepath.Join("data", "tasks", sanitizeTaskID(taskID), "raw")
+	return filepath.Join(dataBaseDir(), "data", "tasks", sanitizeTaskID(taskID), "raw")
 }
 
 func taskReportDir(taskID string) string {
-	return filepath.Join("output", "tasks", sanitizeTaskID(taskID))
+	return filepath.Join(dataBaseDir(), "output", "tasks", sanitizeTaskID(taskID))
 }
 
 func taskReportHTMLPath(taskID string) string {
@@ -786,7 +794,7 @@ func (a *App) AddAuditLog(action, details string) error {
 // ========== 执行日志 ==========
 
 func taskExecutionLogPath(taskID string) string {
-	return filepath.Join("data", "tasks", sanitizeTaskID(taskID), "execution.log")
+	return filepath.Join(dataBaseDir(), "data", "tasks", sanitizeTaskID(taskID), "execution.log")
 }
 
 // GetExecutionLog 获取任务执行日志

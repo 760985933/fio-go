@@ -235,12 +235,12 @@ func TestTaskPathConsistency(t *testing.T) {
 
 	// Verify paths don't escape base directories
 	taskID := "test-task"
-	rawDir := filepath.Join("data", "tasks", sanitizeTaskID(taskID), "raw")
-	reportDir := filepath.Join("output", "tasks", sanitizeTaskID(taskID))
+	rawDir := taskRawDataDir(taskID)
+	reportDir := taskReportDir(taskID)
 
 	absRaw, _ := filepath.Abs(rawDir)
 	absReport, _ := filepath.Abs(reportDir)
-	absBase, _ := filepath.Abs(".")
+	absBase, _ := filepath.Abs(dataBaseDir())
 
 	if len(absRaw) <= len(absBase) || absRaw[:len(absBase)] != absBase {
 		t.Errorf("rawDir escapes base: %s", absRaw)
