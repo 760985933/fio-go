@@ -44,7 +44,6 @@ export function IperfConfigManager({ onAudit }: Props) {
   }
 
   const selectConfig = (cfg: IperfConfig) => {
-    if (dirty && !confirm('有未保存的更改，是否放弃？')) return
     setSelectedId(cfg.id)
     setEditing({ ...cfg })
     setDirty(false)
@@ -64,6 +63,10 @@ export function IperfConfigManager({ onAudit }: Props) {
   }
 
   const saveConfig = async () => {
+    if (configs.some(c => c.name === editing.name && c.id !== editing.id)) {
+      alert('配置名称已存在，请使用其他名称')
+      return
+    }
     try {
       await App.SaveIperfConfig(editing)
       setDirty(false)

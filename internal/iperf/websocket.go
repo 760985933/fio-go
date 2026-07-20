@@ -74,14 +74,14 @@ func (m *RealtimeManager) startStreamWithKey(key, taskId string, session StreamS
 		defer func() {
 			m.mu.Lock()
 			delete(m.sessions, key)
-			running := false
-			for k, v := range m.running {
-				if strings.HasPrefix(k, taskId) && v {
-					running = true
+			remaining := false
+			for k := range m.sessions {
+				if k == taskId || strings.HasPrefix(k, taskId+":") {
+					remaining = true
 					break
 				}
 			}
-			if !running {
+			if !remaining {
 				m.running[taskId] = false
 			}
 			m.mu.Unlock()
