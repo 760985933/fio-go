@@ -21,15 +21,15 @@ jobs:
 
       - name: Build CLI binaries
         run: |
-          GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o fio-cli-linux-amd64       ./cmd/cli/
-          GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o fio-cli-darwin-amd64      ./cmd/cli/
-          GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o fio-cli-darwin-arm64      ./cmd/cli/
-          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o fio-cli-windows-amd64.exe ./cmd/cli/
+          GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o nettopo_test_cli-linux-amd64       ./cmd/cli/
+          GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o nettopo_test_cli-darwin-amd64      ./cmd/cli/
+          GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o nettopo_test_cli-darwin-arm64      ./cmd/cli/
+          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o nettopo_test_cli-windows-amd64.exe ./cmd/cli/
 
       - uses: actions/upload-artifact@v4
         with:
           name: cli-binaries
-          path: fio-cli-*
+          path: nettopo_test_cli-*
 
   # ==================== Desktop 模式编译 (Wails) ====================
   build-desktop-macos:
@@ -57,12 +57,12 @@ jobs:
 
       - name: Build macOS universal
         run: |
-          wails build -platform darwin/universal -trimpath -ldflags="-s -w" -o fio-gui
+          wails build -platform darwin/universal -trimpath -ldflags="-s -w" -o nettopo_test
 
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-macos
-          path: build/bin/fio-gui*
+          path: build/bin/nettopo_test*
 
   build-desktop-windows:
     runs-on: windows-latest
@@ -85,12 +85,12 @@ jobs:
         run: npm ci
 
       - name: Build Windows
-        run: wails build -trimpath -ldflags="-s -w" -o fio-gui.exe
+        run: wails build -trimpath -ldflags="-s -w" -o nettopo_test.exe
 
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-windows
-          path: build/bin/fio-gui.exe
+          path: build/bin/nettopo_test.exe
 
   build-desktop-linux:
     runs-on: ubuntu-22.04
@@ -118,12 +118,12 @@ jobs:
         run: npm ci
 
       - name: Build Linux
-        run: wails build -trimpath -ldflags="-s -w" -o fio-gui
+        run: wails build -trimpath -ldflags="-s -w" -o nettopo_test
 
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-linux
-          path: build/bin/fio-gui
+          path: build/bin/nettopo_test
 
   # ==================== 发布 ====================
   release:
@@ -145,7 +145,7 @@ jobs:
           cp artifacts/desktop-macos/* release/ 2>/dev/null || true
           cp artifacts/desktop-windows/* release/ 2>/dev/null || true
           cp artifacts/desktop-linux/* release/ 2>/dev/null || true
-          chmod +x release/fio-cli-* release/fio-gui*
+          chmod +x release/nettopo_test_cli-* release/nettopo_test*
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -160,13 +160,13 @@ jobs:
 
             | 文件 | 平台 | 说明 |
             |------|------|------|
-            | `fio-cli-linux-amd64` | Linux | CLI 模式，命令行直接运行 |
-            | `fio-cli-darwin-amd64` | macOS Intel | CLI 模式 |
-            | `fio-cli-darwin-arm64` | macOS Apple Silicon | CLI 模式 |
-            | `fio-cli-windows-amd64.exe` | Windows | CLI 模式 |
-            | `fio-gui` (macOS) | macOS Universal | 桌面 GUI 应用，双击运行 |
-            | `fio-gui.exe` | Windows | 桌面 GUI 应用，双击运行 |
-            | `fio-gui` (Linux) | Linux amd64 | 桌面 GUI 应用 |
+            | `nettopo_test_cli-linux-amd64` | Linux | CLI 模式，命令行直接运行 |
+            | `nettopo_test_cli-darwin-amd64` | macOS Intel | CLI 模式 |
+            | `nettopo_test_cli-darwin-arm64` | macOS Apple Silicon | CLI 模式 |
+            | `nettopo_test_cli-windows-amd64.exe` | Windows | CLI 模式 |
+            | `nettopo_test` (macOS) | macOS Universal | 桌面 GUI 应用，双击运行 |
+            | `nettopo_test.exe` | Windows | 桌面 GUI 应用，双击运行 |
+            | `nettopo_test` (Linux) | Linux amd64 | 桌面 GUI 应用 |
 
             ---
 
@@ -174,13 +174,13 @@ jobs:
 
             ```bash
             # 直接分析数据并生成报告
-            ./fio-cli -data /path/to/fio/data -output-dir ./output
+            ./nettopo_test_cli -data /path/to/fio/data -output-dir ./output
 
             # 启动 Web 管理界面 (默认端口 8080)
-            ./fio-cli -web -port 8080
+            ./nettopo_test_cli -web -port 8080
 
             # 无参数时默认启动 Web 模式
-            ./fio-cli
+            ./nettopo_test_cli
             ```
 
             **参数说明：**
@@ -194,9 +194,9 @@ jobs:
             ### Desktop 桌面模式使用
 
             1. 下载对应平台的桌面应用
-            2. macOS: 双击 `fio-gui` 运行（首次可能需要在「系统偏好设置 → 安全性」中允许）
-            3. Windows: 双击 `fio-gui.exe` 运行
-            4. Linux: `chmod +x fio-gui && ./fio-gui`
+            2. macOS: 双击 `nettopo_test` 运行（首次可能需要在「系统偏好设置 → 安全性」中允许）
+            3. Windows: 双击 `nettopo_test.exe` 运行
+            4. Linux: `chmod +x nettopo_test && ./nettopo_test`
 
             **桌面模式功能：**
             - FIO 配置可视化编辑器
@@ -218,7 +218,7 @@ jobs:
 
             ```bash
             # CLI 模式
-            go build -o fio-cli ./cmd/cli/
+            go build -o nettopo_test_cli ./cmd/cli/
 
             # Desktop 模式 (需要 Wails CLI)
             go install github.com/wailsapp/wails/v2/cmd/wails@latest
