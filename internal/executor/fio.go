@@ -288,6 +288,40 @@ func CheckResidualData(taskKey string, hosts []HostConfig) []ExecutionResult {
 	return results
 }
 
+// CheckFioInstalled checks if fio is installed on remote hosts
+func CheckFioInstalled(hosts []HostConfig) []ExecutionResult {
+	var wg sync.WaitGroup
+	results := make([]ExecutionResult, len(hosts))
+
+	for i, host := range hosts {
+		wg.Add(1)
+		go func(idx int, hostCfg HostConfig) {
+			defer wg.Done()
+			res := ExecutionResult{Host: displayHost(hostCfg)}
+
+			client, err := NewSSHClient(hostCfg)
+			if err != nil {
+				res.Error = err
+				results[idx] = res
+				return
+			}
+			defer client.Close()
+
+			out, err := client.RunCommand("fio --version 2>/dev/null || echo MISSING")
+			if err != nil {
+				res.Error = err
+				results[idx] = res
+				return
+			}
+			res.Msg = strings.TrimSpace(out)
+			results[idx] = res
+		}(i, host)
+	}
+
+	wg.Wait()
+	return results
+}
+
 // CleanRemote cleans up the task directory on remote hosts
 func CleanRemote(taskKey string, hosts []HostConfig) []ExecutionResult {
 	var wg sync.WaitGroup
