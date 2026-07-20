@@ -8,6 +8,8 @@ export function AddAuditLog(arg1:string,arg2:string):Promise<void>;
 
 export function AddHost(arg1:executor.HostConfig):Promise<number>;
 
+export function AppendExecutionLog(arg1:string,arg2:string):Promise<void>;
+
 export function CheckConnectivity(arg1:executor.HostConfig):Promise<app.ConnectivityResult>;
 
 export function CheckStatus(arg1:string,arg2:Array<executor.HostConfig>):Promise<Array<app.ActionResult>>;

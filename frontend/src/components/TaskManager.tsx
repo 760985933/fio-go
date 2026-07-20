@@ -114,20 +114,30 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
     setCurrentTask(task.id)
     onAudit('开始部署', `任务: ${task.id}`)
 
+    const log = (msg: string) => App.AppendExecutionLog(task.id, msg)
+
     try {
       await App.SetTaskStarted(task.id)
+      await log(`任务开始执行，脚本: ${(task.scripts || []).length}个，主机: ${(task.hosts || []).length}台`)
 
       const checks = await App.PreDeployCheck(task.id, task.hosts)
+      const checkSummary = checks.map((c: CheckResult) => `${c.host}: ${c.running ? 'FIO运行中' : c.msg.startsWith('连接失败') ? '连接失败' : '空闲'}`).join(', ')
+      await log(`预检查完成: ${checkSummary}`)
+
       if (checks.some((c: CheckResult) => c.running)) {
+        await log('预检查发现FIO运行中，任务中止')
         await onShowResults('预检查发现FIO运行中',
           checks.filter((c: CheckResult) => c.running).map((c: CheckResult) => `${c.host}: ${c.msg}`).join('\n') +
           '\n\n请先停止运行中的FIO或清理残留数据')
         return
       }
 
-      await App.DeployMulti(task.id, task.scripts, task.hosts)
+      const deployResults = await App.DeployMulti(task.id, task.scripts, task.hosts)
+      const deploySummary = deployResults.map((r: ActionResult) => `${r.host}: ${r.error || '成功'}`).join(', ')
+      await log(`部署完成: ${deploySummary}`)
       onAudit('部署完成', `任务: ${task.id}`)
 
+      await log('FIO开始运行，等待执行完成...')
       let finished = false
       let pollCount = 0
       while (!finished && pollCount < 300) {
@@ -136,15 +146,20 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
         const statusResults = await App.CheckStatus(task.id, task.hosts)
         finished = statusResults.every((r: ActionResult) => !r.running)
       }
+      await log(`FIO执行完成，共轮询${pollCount}次`)
 
       const pullResults = await App.PullData(task.id, task.hosts)
+      const pullSummary = pullResults.map((r: ActionResult) => `${r.host}: ${r.error || '成功'}`).join(', ')
+      await log(`数据拉取完成: ${pullSummary}`)
       await App.SetTaskFinished(task.id)
+      await log('任务执行完成')
       onAudit('数据拉取完成', `任务: ${task.id}`)
 
       await onShowResults('执行完成',
         `拉取结果:\n${pullResults.map((r: ActionResult) => `${r.host}: ${r.error ? '失败: ' + r.error : '成功'}`).join('\n')}`
       )
     } catch (err) {
+      await log(`执行异常: ${err}`)
       await onShowResults('执行异常', `错误: ${err}`)
     } finally {
       setExecuting(false)

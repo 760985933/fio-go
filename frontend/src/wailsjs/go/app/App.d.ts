@@ -37,6 +37,7 @@ export function CreateReportZIP(taskID: string): Promise<string>;
 export function GetReportHTMLWithEcharts(taskID: string): Promise<string>;
 
 export function AddHost(host: HostConfig): Promise<number>;
+export function AppendExecutionLog(taskID: string, message: string): Promise<void>;
 export function GetHosts(): Promise<HostRecord[]>;
 export function DeleteHost(id: number): Promise<void>;
 export function UpdateHost(id: number, host: HostConfig): Promise<void>;

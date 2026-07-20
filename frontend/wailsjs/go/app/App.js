@@ -10,6 +10,10 @@ export function AddHost(arg1) {
   return window['go']['app']['App']['AddHost'](arg1);
 }
 
+export function AppendExecutionLog(arg1, arg2) {
+  return window['go']['app']['App']['AppendExecutionLog'](arg1, arg2);
+}
+
 export function CheckConnectivity(arg1) {
   return window['go']['app']['App']['CheckConnectivity'](arg1);
 }

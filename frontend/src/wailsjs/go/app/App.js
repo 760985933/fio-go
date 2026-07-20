@@ -141,6 +141,10 @@ export function AddHost(host) {
     return window['go']['app']['App']['AddHost'](host);
 }
 
+export function AppendExecutionLog(taskID, message) {
+    return window['go']['app']['App']['AppendExecutionLog'](taskID, message);
+}
+
 export function GetHosts() {
     return window['go']['app']['App']['GetHosts']();
 }

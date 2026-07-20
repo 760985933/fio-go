@@ -818,6 +818,25 @@ func (a *App) GetExecutionLog(taskID string) (string, error) {
 	return string(data), nil
 }
 
+// AppendExecutionLog 追加执行日志
+func (a *App) AppendExecutionLog(taskID, message string) error {
+	logPath := taskExecutionLogPath(taskID)
+	os.MkdirAll(filepath.Dir(logPath), 0755)
+	line := fmt.Sprintf("[%s] %s\n", time.Now().Format("2006-01-02 15:04:05"), message)
+	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.WriteString(line)
+	return err
+}
+
+// ClearExecutionLog 清空执行日志
+func (a *App) ClearExecutionLog(taskID string) error {
+	return os.Remove(taskExecutionLogPath(taskID))
+}
+
 // GetHostLog 获取远程主机日志
 func (a *App) GetHostLog(taskID, hostStr string) (string, error) {
 	tasks, err := a.GetExecutionTasks()
