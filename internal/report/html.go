@@ -92,6 +92,14 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
     details pre { padding: 12px 16px; margin: 0; font-size: 12px; line-height: 1.5; color: #111827; border-top: 1px solid #e5e7eb; }
     .glossary-table td:first-child { font-weight: 600; color: #007AFF; text-align: left; width: 80px; }
     .glossary-table td:last-child { text-align: left; }
+    .float-nav { position: fixed; bottom: 24px; right: 24px; z-index: 100; }
+    .float-nav-toggle { width: 44px; height: 44px; border-radius: 50%; background: #007AFF; color: #fff; border: none; cursor: pointer; box-shadow: 0 4px 16px rgba(0,122,255,0.35); font-size: 20px; display: flex; align-items: center; justify-content: center; transition: transform 0.2s, box-shadow 0.2s; }
+    .float-nav-toggle:hover { transform: scale(1.08); box-shadow: 0 6px 24px rgba(0,122,255,0.45); }
+    .float-nav-menu { position: absolute; bottom: 56px; right: 0; background: #fff; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); padding: 8px 0; min-width: 180px; display: none; max-height: 400px; overflow-y: auto; }
+    .float-nav-menu.open { display: block; }
+    .float-nav-menu a { display: block; padding: 8px 16px; font-size: 13px; color: #374151; text-decoration: none; transition: background 0.12s; white-space: nowrap; }
+    .float-nav-menu a:hover { background: #eff6ff; color: #007AFF; }
+    .float-nav-menu a.active { color: #007AFF; font-weight: 600; background: #f0f7ff; }
   </style>
 </head>
 <body>
@@ -165,12 +173,15 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
 
     function createGroups() {
       const root = document.getElementById('groups_root');
+      const nav = document.getElementById('float-nav-menu');
       if (!groups || groups.length === 0) {
         root.innerHTML = '<p>No log groups found</p>';
         return;
       }
-      groups.forEach(g => {
+      groups.forEach((g, idx) => {
         const section = document.createElement('section');
+        const secId = 'group_' + idx;
+        section.id = secId;
         const h = document.createElement('h3');
         h.textContent = g.BS + ' / ' + g.RW + ' / iodepth ' + g.IODepth;
         section.appendChild(h);
@@ -183,7 +194,38 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
           section.appendChild(div);
         });
         root.appendChild(section);
+
+        const link = document.createElement('a');
+        link.href = '#' + secId;
+        link.textContent = g.BS + ' / ' + g.RW + ' / QD' + g.IODepth;
+        link.dataset.secId = secId;
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          document.getElementById(secId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          nav.classList.remove('open');
+        });
+        nav.appendChild(link);
       });
+    }
+
+    function initFloatNav() {
+      const btn = document.querySelector('.float-nav-toggle');
+      const nav = document.getElementById('float-nav-menu');
+      btn.addEventListener('click', () => nav.classList.toggle('open'));
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.float-nav')) nav.classList.remove('open');
+      });
+      const links = () => nav.querySelectorAll('a');
+      const onScroll = () => {
+        const sections = document.querySelectorAll('#groups_root section');
+        let activeIdx = 0;
+        sections.forEach((sec, i) => {
+          if (sec.getBoundingClientRect().top <= 120) activeIdx = i;
+        });
+        links().forEach((a, i) => a.classList.toggle('active', i === activeIdx));
+      };
+      window.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
     }
 
     function renderGroups() {
@@ -219,7 +261,13 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
     createGroups();
     renderGroups();
     switch_bw_unit();
+    initFloatNav();
   </script>
+
+  <div class="float-nav">
+    <div class="float-nav-menu" id="float-nav-menu"></div>
+    <button class="float-nav-toggle" title="快速跳转">☰</button>
+  </div>
 </body>
 </html>`
 
