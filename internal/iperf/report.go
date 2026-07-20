@@ -162,8 +162,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 var bwChart = echarts.init(document.getElementById('bandwidthChart'));
 bwChart.setOption({
 tooltip:{trigger:'axis'},
-legend:{type:'scroll',bottom:0},
-grid:{left:60,right:30,top:30,bottom:50},
+legend:{type:'scroll',top:8},
+grid:{left:60,right:30,top:50,bottom:50},
 xAxis:{type:'value',name:'时间(s)',nameLocation:'middle',nameGap:30},
 yAxis:{type:'value',name:'Mbps'},
 series:[%s]
@@ -171,8 +171,8 @@ series:[%s]
 var jitChart = echarts.init(document.getElementById('jitterChart'));
 jitChart.setOption({
 tooltip:{trigger:'axis'},
-legend:{type:'scroll',bottom:0},
-grid:{left:60,right:30,top:30,bottom:50},
+legend:{type:'scroll',top:8},
+grid:{left:60,right:30,top:50,bottom:50},
 xAxis:{type:'value',name:'时间(s)',nameLocation:'middle',nameGap:30},
 yAxis:{type:'value',name:'ms'},
 series:[%s]
@@ -180,8 +180,8 @@ series:[%s]
 var retChart = echarts.init(document.getElementById('retransmitChart'));
 retChart.setOption({
 tooltip:{trigger:'axis'},
-legend:{type:'scroll',bottom:0},
-grid:{left:60,right:30,top:30,bottom:50},
+legend:{type:'scroll',top:8},
+grid:{left:60,right:30,top:50,bottom:50},
 xAxis:{type:'value',name:'时间(s)',nameLocation:'middle',nameGap:30},
 yAxis:{type:'value',name:'Retransmits'},
 series:[%s]
