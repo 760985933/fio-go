@@ -21,15 +21,24 @@ jobs:
 
       - name: Build CLI binaries
         run: |
-          GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o nettopo_test_cli-linux-amd64       ./cmd/cli/
-          GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o nettopo_test_cli-darwin-amd64      ./cmd/cli/
-          GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o nettopo_test_cli-darwin-arm64      ./cmd/cli/
-          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o nettopo_test_cli-windows-amd64.exe ./cmd/cli/
+          mkdir -p dist
+          GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/nettopo_test_cli_linux_amd64       ./cmd/cli/
+          GOOS=darwin  GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/nettopo_test_cli_darwin_amd64      ./cmd/cli/
+          GOOS=darwin  GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/nettopo_test_cli_darwin_arm64      ./cmd/cli/
+          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/nettopo_test_cli_windows_amd64.exe ./cmd/cli/
+
+      - name: Package CLI binaries
+        working-directory: dist
+        run: |
+          zip nettopo_test_cli_linux_amd64.zip    nettopo_test_cli_linux_amd64
+          zip nettopo_test_cli_darwin_amd64.zip   nettopo_test_cli_darwin_amd64
+          zip nettopo_test_cli_darwin_arm64.zip   nettopo_test_cli_darwin_arm64
+          zip nettopo_test_cli_windows_amd64.zip  nettopo_test_cli_windows_amd64.exe
 
       - uses: actions/upload-artifact@v4
         with:
           name: cli-binaries
-          path: nettopo_test_cli-*
+          path: dist/*.zip
 
   # ==================== Desktop 模式编译 (Wails) ====================
   build-desktop-macos:
@@ -59,10 +68,16 @@ jobs:
         run: |
           wails build -platform darwin/universal -trimpath -ldflags="-s -w" -o nettopo_test
 
+      - name: Package macOS desktop
+        run: |
+          mkdir -p dist
+          cp build/bin/nettopo_test dist/
+          cd dist && zip -r nettopo_test_macos_universal.zip nettopo_test
+
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-macos
-          path: build/bin/nettopo_test*
+          path: dist/nettopo_test_macos_universal.zip
 
   build-desktop-windows:
     runs-on: windows-latest
@@ -87,10 +102,15 @@ jobs:
       - name: Build Windows
         run: wails build -trimpath -ldflags="-s -w" -o nettopo_test.exe
 
+      - name: Package Windows desktop
+        run: |
+          mkdir dist -Force
+          Compress-Archive -Path build/bin/nettopo_test.exe -DestinationPath dist/nettopo_test_windows_amd64.zip
+
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-windows
-          path: build/bin/nettopo_test.exe
+          path: dist/nettopo_test_windows_amd64.zip
 
   build-desktop-linux:
     runs-on: ubuntu-22.04
@@ -120,10 +140,16 @@ jobs:
       - name: Build Linux
         run: wails build -trimpath -ldflags="-s -w" -o nettopo_test
 
+      - name: Package Linux desktop
+        run: |
+          mkdir -p dist
+          cp build/bin/nettopo_test dist/
+          cd dist && zip nettopo_test_linux_amd64.zip nettopo_test
+
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-linux
-          path: build/bin/nettopo_test
+          path: dist/nettopo_test_linux_amd64.zip
 
   # ==================== 发布 ====================
   release:
@@ -139,13 +165,7 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release
-          # CLI binaries
-          cp artifacts/cli-binaries/* release/
-          # Desktop apps
-          cp artifacts/desktop-macos/* release/ 2>/dev/null || true
-          cp artifacts/desktop-windows/* release/ 2>/dev/null || true
-          cp artifacts/desktop-linux/* release/ 2>/dev/null || true
-          chmod +x release/nettopo_test_cli-* release/nettopo_test*
+          find artifacts -name '*.zip' -exec cp {} release/ \;
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -160,13 +180,13 @@ jobs:
 
             | 文件 | 平台 | 说明 |
             |------|------|------|
-            | `nettopo_test_cli-linux-amd64` | Linux | CLI 模式，命令行直接运行 |
-            | `nettopo_test_cli-darwin-amd64` | macOS Intel | CLI 模式 |
-            | `nettopo_test_cli-darwin-arm64` | macOS Apple Silicon | CLI 模式 |
-            | `nettopo_test_cli-windows-amd64.exe` | Windows | CLI 模式 |
-            | `nettopo_test` (macOS) | macOS Universal | 桌面 GUI 应用，双击运行 |
-            | `nettopo_test.exe` | Windows | 桌面 GUI 应用，双击运行 |
-            | `nettopo_test` (Linux) | Linux amd64 | 桌面 GUI 应用 |
+            | `nettopo_test_cli_linux_amd64.zip` | Linux | CLI 模式，命令行直接运行 |
+            | `nettopo_test_cli_darwin_amd64.zip` | macOS Intel | CLI 模式 |
+            | `nettopo_test_cli_darwin_arm64.zip` | macOS Apple Silicon | CLI 模式 |
+            | `nettopo_test_cli_windows_amd64.zip` | Windows | CLI 模式 |
+            | `nettopo_test_macos_universal.zip` | macOS Universal | 桌面 GUI 应用，双击运行 |
+            | `nettopo_test_windows_amd64.zip` | Windows | 桌面 GUI 应用，双击运行 |
+            | `nettopo_test_linux_amd64.zip` | Linux amd64 | 桌面 GUI 应用 |
 
             ---
 
@@ -193,7 +213,7 @@ jobs:
 
             ### Desktop 桌面模式使用
 
-            1. 下载对应平台的桌面应用
+            1. 下载对应平台的桌面应用 ZIP 包并解压
             2. macOS: 双击 `nettopo_test` 运行（首次可能需要在「系统偏好设置 → 安全性」中允许）
             3. Windows: 双击 `nettopo_test.exe` 运行
             4. Linux: `chmod +x nettopo_test && ./nettopo_test`
@@ -225,6 +245,6 @@ jobs:
             cd frontend && npm install && cd ..
             wails build
             ```
-          files: release/*
+          files: release/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
