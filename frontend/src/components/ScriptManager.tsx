@@ -495,17 +495,16 @@ export function ScriptManager({ onAudit }: Props) {
             </div>
 
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-              {isEditing ? (
+              {isEditing && (
                 <>
                   <button className="btn btn-primary btn-sm" onClick={saveEditedJob}>更新参数</button>
                   <button className="btn btn-outline btn-sm" onClick={resetForm}>取消编辑</button>
                 </>
-              ) : (
-                <button className="btn btn-primary btn-sm" onClick={addJob} disabled={!canAdd}
-                  style={{ opacity: canAdd ? 1 : 0.5, cursor: canAdd ? 'pointer' : 'not-allowed' }}>
-                  添加模型
-                </button>
               )}
+              <button className="btn btn-primary btn-sm" onClick={addJob} disabled={!canAdd}
+                style={{ opacity: canAdd ? 1 : 0.5, cursor: canAdd ? 'pointer' : 'not-allowed' }}>
+                添加模型
+              </button>
             </div>
             {!canAdd && (
               <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>请先在左侧选中一个配置模型</p>
