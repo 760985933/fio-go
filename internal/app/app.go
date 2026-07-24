@@ -783,7 +783,7 @@ func (a *App) GenerateReport(taskID string) (string, error) {
 	}
 
 	chartGroups := parser.BuildChartGroups(dataDir)
-	err = report.GenerateHTML(chartGroups, analysisResult.SystemTexts, groupedRows, taskReportHTMLPath(taskID), startedAt, finishedAt)
+	err = report.GenerateHTML(chartGroups, analysisResult.SystemTexts, groupedRows, taskReportHTMLPath(taskID), analysisResult.ClatAnalysis, startedAt, finishedAt)
 	if err != nil {
 		return "", err
 	}

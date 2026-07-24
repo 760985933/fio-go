@@ -174,6 +174,12 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
                 {task.hasReport && (
                   <button className="btn btn-outline btn-sm" onClick={() => previewReport(task.id)}>预览报告</button>
                 )}
+                {task.hasData && task.hasReport && (
+                  <button className="btn btn-primary btn-sm" onClick={() => generateReport(task.id)}
+                    disabled={generating === task.id}>
+                    {generating === task.id ? '分析中...' : '重新分析'}
+                  </button>
+                )}
                 {task.hasReport && (
                   <button className="btn btn-primary btn-sm" onClick={() => downloadReport(task.id)}>下载报告</button>
                 )}

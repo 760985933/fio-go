@@ -170,12 +170,13 @@ func ParseFioJSON(fpath string) (*FioResult, error) {
 }
 
 type AnalysisResult struct {
-        FilesTotal  int
-        FilesOK     int
-        FilesFailed int
-        Aggregated  map[string]map[string]map[string]models.NodeMetric
-        SystemTexts map[string]string
-        NumJobsMap  map[string]int
+	FilesTotal  int
+	FilesOK     int
+	FilesFailed int
+	Aggregated  map[string]map[string]map[string]models.NodeMetric
+	SystemTexts map[string]string
+	NumJobsMap  map[string]int
+	ClatAnalysis map[string]map[string]*models.HostClatData
 }
 
 func MakeNumJobsKey(bs, rw string, iodepth int) string {
@@ -183,11 +184,12 @@ func MakeNumJobsKey(bs, rw string, iodepth int) string {
 }
 
 func AnalyzeJSONFiles(dataRoot string) (*AnalysisResult, error) {
-        res := &AnalysisResult{
-                Aggregated:  make(map[string]map[string]map[string]models.NodeMetric),
-                SystemTexts: make(map[string]string),
-                NumJobsMap:  make(map[string]int),
-        }
+	res := &AnalysisResult{
+		Aggregated:   make(map[string]map[string]map[string]models.NodeMetric),
+		SystemTexts:  make(map[string]string),
+		NumJobsMap:   make(map[string]int),
+		ClatAnalysis: make(map[string]map[string]*models.HostClatData),
+	}
 
 	err := filepath.Walk(dataRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -236,29 +238,44 @@ func AnalyzeJSONFiles(dataRoot string) (*AnalysisResult, error) {
 			wIops := parseValueFloat(writeMap["iops"])
 			rBw := parseValueFloat(readMap["bw"])
 			wBw := parseValueFloat(writeMap["bw"])
-			rClat, wClat := ClatMeanUS(job)
+		rClat, wClat := ClatMeanUS(job)
 
-			bs := ExtractBS(job)
-			rw := ExtractRW(job)
-			iodepth := ExtractIODepth(job)
-			nj := ExtractNumJobs(job)
+		bs := ExtractBS(job)
+		rw := ExtractRW(job)
+		iodepth := ExtractIODepth(job)
+		nj := ExtractNumJobs(job)
 
-			if bs != "unknown" && rw != "unknown" && iodepth > 0 && nj > 0 {
-				res.NumJobsMap[MakeNumJobsKey(bs, rw, iodepth)] = nj
-			}
+		if bs != "unknown" && rw != "unknown" && iodepth > 0 && nj > 0 {
+			res.NumJobsMap[MakeNumJobsKey(bs, rw, iodepth)] = nj
+		}
 
-			ip := ExtractIPFromPath(path)
-			metric := models.NodeMetric{
-				IP:              ip,
-				RW:              rw,
-				IODepth:         iodepth,
-				ReadIOPS:        rIops,
-				WriteIOPS:       wIops,
-				ReadBW:          rBw,
-				WriteBW:         wBw,
-				ReadClatMeanUS:  rClat,
-				WriteClatMeanUS: wClat,
-			}
+		ip := ExtractIPFromPath(path)
+
+		rP, wP := extractClatPercentiles(readMap, writeMap)
+
+		metric := models.NodeMetric{
+			IP:              ip,
+			RW:              rw,
+			IODepth:         iodepth,
+			ReadIOPS:        rIops,
+			WriteIOPS:       wIops,
+			ReadBW:          rBw,
+			WriteBW:         wBw,
+			ReadClatMeanUS:  rClat,
+			WriteClatMeanUS: wClat,
+			ReadClatP50:     rP[0],
+			ReadClatP95:     rP[1],
+			ReadClatP99:     rP[2],
+			ReadClatP999:    rP[3],
+			ReadClatMin:     rP[4],
+			ReadClatMax:     rP[5],
+			WriteClatP50:    wP[0],
+			WriteClatP95:    wP[1],
+			WriteClatP99:    wP[2],
+			WriteClatP999:   wP[3],
+			WriteClatMin:    wP[4],
+			WriteClatMax:    wP[5],
+		}
 
 			if res.Aggregated[bs] == nil {
 				res.Aggregated[bs] = make(map[string]map[string]models.NodeMetric)
@@ -267,6 +284,9 @@ func AnalyzeJSONFiles(dataRoot string) (*AnalysisResult, error) {
 				res.Aggregated[bs][jobname] = make(map[string]models.NodeMetric)
 			}
 			res.Aggregated[bs][jobname][ip] = metric
+
+		clatData := ExtractClatAnalysis(fioRes, ip)
+		mergeClatAnalysis(res.ClatAnalysis, clatData)
 		}
 
 		return nil

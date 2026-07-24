@@ -379,7 +379,7 @@ func generateTaskReport(task executionTaskConfig) error {
 	}
 
 	chartGroups := parser.BuildChartGroups(dataDir)
-	err = report.GenerateHTML(chartGroups, analysisResult.SystemTexts, groupedRows, taskReportHTMLPath(task.ID))
+	err = report.GenerateHTML(chartGroups, analysisResult.SystemTexts, groupedRows, taskReportHTMLPath(task.ID), analysisResult.ClatAnalysis)
 	if err != nil {
 		return err
 	}

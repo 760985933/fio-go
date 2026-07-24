@@ -24,6 +24,18 @@ type NodeMetric struct {
 	WriteBW         float64 // KiB/s
 	ReadClatMeanUS  float64
 	WriteClatMeanUS float64
+	ReadClatP50     float64
+	ReadClatP95     float64
+	ReadClatP99     float64
+	ReadClatP999    float64
+	ReadClatMin     float64
+	ReadClatMax     float64
+	WriteClatP50    float64
+	WriteClatP95    float64
+	WriteClatP99    float64
+	WriteClatP999   float64
+	WriteClatMin    float64
+	WriteClatMax    float64
 }
 
 type GroupedMetric struct {
@@ -68,4 +80,27 @@ type ChartGroup struct {
 	Metrics map[string]map[string][][]float64
 	BSBytes int
 	RWRank  int
+}
+
+type ClatDistEntry struct {
+	Edge  float64 `json:"edge"`
+	Count float64 `json:"count"`
+}
+
+type HostClatData struct {
+	IP        string           `json:"ip"`
+	ReadP50   float64          `json:"readP50"`
+	ReadP95   float64          `json:"readP95"`
+	ReadP99   float64          `json:"readP99"`
+	ReadP999  float64          `json:"readP999"`
+	ReadMin   float64          `json:"readMin"`
+	ReadMax   float64          `json:"readMax"`
+	WriteP50  float64          `json:"writeP50"`
+	WriteP95  float64          `json:"writeP95"`
+	WriteP99  float64          `json:"writeP99"`
+	WriteP999 float64          `json:"writeP999"`
+	WriteMin  float64          `json:"writeMin"`
+	WriteMax  float64          `json:"writeMax"`
+	ReadDist  []ClatDistEntry  `json:"readDist"`
+	WriteDist []ClatDistEntry  `json:"writeDist"`
 }

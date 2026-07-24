@@ -11,15 +11,18 @@ import (
 	"fio-go/internal/models"
 )
 
-func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, groupedRows []models.GroupedMetric, outPath string, startedAt ...string) error {
+func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, groupedRows []models.GroupedMetric, outPath string, clatAnalysis map[string]map[string]*models.HostClatData, startedAt ...string) error {
 	ts := time.Now().Format("2006-01-02 15:04:05")
-
 	var testStart, testEnd string
+
 	if len(startedAt) > 0 {
 		testStart = startedAt[0]
 	}
 	if len(startedAt) > 1 {
 		testEnd = startedAt[1]
+	}
+	if clatAnalysis == nil {
+		clatAnalysis = make(map[string]map[string]*models.HostClatData)
 	}
 
 	metaLines := []string{"<span>生成时间: " + ts + "</span>"}
@@ -41,6 +44,7 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
 		groups = []models.ChartGroup{}
 	}
 	jsGroups, _ := json.Marshal(groups)
+	jsClat, _ := json.Marshal(clatAnalysis)
 
 	sysHtml := ""
 	if len(systemTexts) > 0 {
@@ -146,6 +150,18 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
     <div id="groups_root"></div>
   </div>
 
+  <div class="section" id="clat_percentile_section">
+    <div class="section-title">CLAT 延迟百分位</div>
+    <p style="font-size:13px;color:#6b7280;margin-bottom:12px;">完成延迟(CLAT)的 P50/P95/P99/P99.9 百分位分布，单位 μs</p>
+    <div id="clat_percentile_root"></div>
+  </div>
+
+  <div class="section" id="clat_dist_section">
+    <div class="section-title">CLAT 延迟分布</div>
+    <p style="font-size:13px;color:#6b7280;margin-bottom:12px;">完成延迟(CLAT)的直方图分布，横轴为延迟上界(μs)，纵轴为 I/O 次数</p>
+    <div id="clat_dist_root"></div>
+  </div>
+
   <div class="float-nav">
     <div class="float-nav-menu" id="float-nav-menu"></div>
     <button class="float-nav-toggle" title="快速跳转">☰</button>
@@ -153,6 +169,7 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
 
   <script>
     const groups = ` + string(jsGroups) + `;
+    const clatData = ` + string(jsClat) + `;
     const metricTitle = {
       iops: 'IOPS 每秒I/O数',
       bw: 'BW 带宽(MiB/s)',
@@ -273,6 +290,148 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
     renderGroups();
     switch_bw_unit();
     initFloatNav();
+    renderClatCharts();
+
+    function renderClatCharts() {
+      if (!clatData || Object.keys(clatData).length === 0) return;
+
+      const pctRoot = document.getElementById('clat_percentile_root');
+      const distRoot = document.getElementById('clat_dist_root');
+      if (!pctRoot || !distRoot) return;
+
+      const nav = document.getElementById('float-nav-menu');
+      if (nav) {
+        [{id:'clat_percentile_section',text:'CLAT 百分位'},{id:'clat_dist_section',text:'CLAT 分布'}].forEach(item => {
+          const a = document.createElement('a');
+          a.href = '#' + item.id;
+          a.textContent = item.text;
+          a.addEventListener('click', e => {
+            e.preventDefault();
+            document.getElementById(item.id)?.scrollIntoView({behavior:'smooth',block:'start'});
+            nav.classList.remove('open');
+          });
+          nav.appendChild(a);
+        });
+      }
+
+      const sortedBs = Object.keys(clatData).sort((a, b) => {
+        const toBytes = s => {
+          s = s.toLowerCase();
+          if (s.endsWith('k')) return parseInt(s) * 1024;
+          if (s.endsWith('m')) return parseInt(s) * 1024 * 1024;
+          return parseInt(s) || 0;
+        };
+        return toBytes(a) - toBytes(b);
+      });
+
+      sortedBs.forEach(bs => {
+        const jobMap = clatData[bs];
+        const jobNames = Object.keys(jobMap).sort();
+
+        const pctH3 = document.createElement('h3');
+        pctH3.textContent = bs + ' CLAT 百分位';
+        pctRoot.appendChild(pctH3);
+
+        const distH3 = document.createElement('h3');
+        distH3.textContent = bs + ' CLAT 分布';
+        distRoot.appendChild(distH3);
+
+        jobNames.forEach(jobname => {
+          const hostData = jobMap[jobname];
+          if (!hostData) return;
+
+          const pctDiv = document.createElement('div');
+          pctDiv.className = 'chart';
+          pctDiv.id = 'clat_pct_' + bs + '_' + jobname;
+          pctRoot.appendChild(pctDiv);
+
+          const distDiv = document.createElement('div');
+          distDiv.className = 'chart';
+          distDiv.id = 'clat_dist_' + bs + '_' + jobname;
+          distRoot.appendChild(distDiv);
+
+          // Percentile bar chart
+          if (hostData.readP50 > 0 || hostData.writeP50 > 0) {
+            const chart = echarts.init(pctDiv);
+            const categories = ['P50', 'P95', 'P99', 'P99.9', 'Min', 'Max'];
+            const readSeries = [
+              hostData.readP50, hostData.readP95, hostData.readP99,
+              hostData.readP999, hostData.readMin, hostData.readMax
+            ];
+            const writeSeries = [
+              hostData.writeP50, hostData.writeP95, hostData.writeP99,
+              hostData.writeP999, hostData.writeMin, hostData.writeMax
+            ];
+            const hasRead = readSeries.some(v => v > 0);
+            const hasWrite = writeSeries.some(v => v > 0);
+            const series = [];
+            if (hasRead) series.push({
+              name: '读', type: 'bar', barMaxWidth: 24,
+              data: readSeries.map(v => Math.round(v * 100) / 100),
+              itemStyle: { color: '#3b82f6' },
+              label: { show: true, position: 'top', fontSize: 11, formatter: '{c}' }
+            });
+            if (hasWrite) series.push({
+              name: '写', type: 'bar', barMaxWidth: 24,
+              data: writeSeries.map(v => Math.round(v * 100) / 100),
+              itemStyle: { color: '#f59e0b' },
+              label: { show: true, position: 'top', fontSize: 11, formatter: '{c}' }
+            });
+            chart.setOption({
+              title: { text: jobname, textStyle: { fontSize: 13 } },
+              tooltip: { trigger: 'axis', formatter: params => {
+                let s = params[0].axisValue + '<br/>';
+                params.forEach(p => { s += p.marker + p.seriesName + ': ' + p.value + ' μs<br/>'; });
+                return s;
+              }},
+              legend: { show: series.length > 1, top: 0 },
+              xAxis: { type: 'category', data: categories },
+              yAxis: { type: 'value', name: 'μs' },
+              series: series
+            });
+          }
+
+          // Distribution histogram
+          if (hostData.readDist && hostData.readDist.length > 0) {
+            const chart = echarts.init(distDiv);
+            const labels = hostData.readDist.map(d => Math.round(d.edge));
+            const counts = hostData.readDist.map(d => Math.round(d.count));
+            chart.setOption({
+              title: { text: jobname + ' 读延迟分布', textStyle: { fontSize: 13 } },
+              tooltip: { trigger: 'axis', formatter: params => {
+                const p = params[0];
+                return '上界: ' + p.axisValue + ' μs<br/>I/O次数: ' + p.value;
+              }},
+              xAxis: { type: 'category', data: labels, name: 'μs',
+                axisLabel: { rotate: 45, fontSize: 10 } },
+              yAxis: { type: 'value', name: 'I/O次数' },
+              dataZoom: [{ type: 'inside' }, { type: 'slider' }],
+              series: [{ type: 'bar', data: counts, itemStyle: { color: '#6366f1' },
+                barMaxWidth: 16 }]
+            });
+          } else if (hostData.writeDist && hostData.writeDist.length > 0) {
+            const chart = echarts.init(distDiv);
+            const labels = hostData.writeDist.map(d => Math.round(d.edge));
+            const counts = hostData.writeDist.map(d => Math.round(d.count));
+            chart.setOption({
+              title: { text: jobname + ' 写延迟分布', textStyle: { fontSize: 13 } },
+              tooltip: { trigger: 'axis', formatter: params => {
+                const p = params[0];
+                return '上界: ' + p.axisValue + ' μs<br/>I/O次数: ' + p.value;
+              }},
+              xAxis: { type: 'category', data: labels, name: 'μs',
+                axisLabel: { rotate: 45, fontSize: 10 } },
+              yAxis: { type: 'value', name: 'I/O次数' },
+              dataZoom: [{ type: 'inside' }, { type: 'slider' }],
+              series: [{ type: 'bar', data: counts, itemStyle: { color: '#ec4899' },
+                barMaxWidth: 16 }]
+            });
+          } else {
+            distDiv.innerHTML = '<p style="font-size:13px;color:#9ca3af;padding:8px 0;">暂无分布数据</p>';
+          }
+        });
+      });
+    }
   </script>
 </body>
 </html>`

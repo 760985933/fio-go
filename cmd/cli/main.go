@@ -84,7 +84,7 @@ func main() {
 
 	// 4. Generate HTML
 	htmlPath := filepath.Join(*reportDir, "fio_report.html")
-	if err := report.GenerateHTML(chartGroups, res.SystemTexts, groupedRows, htmlPath); err != nil {
+	if err := report.GenerateHTML(chartGroups, res.SystemTexts, groupedRows, htmlPath, res.ClatAnalysis); err != nil {
 		fmt.Printf("[WARN] Failed to generate HTML: %v\n", err)
 	} else {
 		fmt.Printf("[INFO] HTML report generated: %s\n", htmlPath)
