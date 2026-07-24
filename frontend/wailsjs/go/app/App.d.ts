@@ -105,6 +105,8 @@ export function IsIperfMonitorRunning(arg1:string):Promise<boolean>;
 
 export function KillAll(arg1:string,arg2:Array<executor.HostConfig>):Promise<Array<app.ActionResult>>;
 
+export function MonitorFioTask(arg1:string,arg2:Array<executor.HostConfig>):Promise<void>;
+
 export function OpenDataDir():Promise<void>;
 
 export function OpenFile(arg1:string):Promise<void>;
@@ -139,16 +141,10 @@ export function Shutdown(arg1:context.Context):Promise<void>;
 
 export function StartIperfServer(arg1:executor.HostConfig,arg2:number):Promise<executor.ExecutionResult>;
 
+export function StopFioMonitor(arg1:string):Promise<void>;
+
 export function StopIperfServer(arg1:executor.HostConfig,arg2:number):Promise<executor.ExecutionResult>;
 
 export function StopIperfTest(arg1:string):Promise<void>;
 
 export function UpdateHost(arg1:number,arg2:executor.HostConfig):Promise<void>;
-
-export function CompareTaskMetrics(arg1:Array<string>):Promise<Array<app.TaskCompareResult>>;
-
-export function GenerateReportPDF(arg1:string):Promise<string>;
-
-export function MonitorFioTask(arg1:string,arg2:Array<executor.HostConfig>):Promise<void>;
-
-export function StopFioMonitor(arg1:string):Promise<void>;

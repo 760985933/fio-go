@@ -31,8 +31,22 @@ type FioStatus struct {
 type fioMonitor struct {
 	taskID   string
 	hosts    []executor.HostConfig
+	clients  map[string]*executor.SSHClient // hostKey → SSHClient
 	cancel   context.CancelFunc
 	stopOnce sync.Once
+	mu       sync.Mutex // 保护 clients
+}
+
+func hostKey(h executor.HostConfig) string {
+	p := h.Port
+	if p <= 0 {
+		p = 22
+	}
+	u := h.User
+	if u == "" {
+		u = "root"
+	}
+	return fmt.Sprintf("%s@%s:%d", u, h.Host, p)
 }
 
 var (
@@ -41,19 +55,29 @@ var (
 )
 
 // MonitorFioTask 启动 FIO 实时监控，通过 Wails 事件推送状态
+// taskID: 用于 Wails 事件名的唯一标识
+// fioTaskName: 远程主机上 /tmp/fio/tasks/{fioTaskName} 对应的目录名
+// hosts: 要监控的主机列表
 func (a *App) MonitorFioTask(taskID string, hosts []executor.HostConfig) {
 	fioMonitorsMu.Lock()
-	// 停止之前的监控
 	if old, ok := fioMonitors[taskID]; ok {
 		old.cancel()
 	}
 	ctx, cancel := context.WithCancel(a.ctx)
-	mon := &fioMonitor{taskID: taskID, hosts: hosts, cancel: cancel}
+	mon := &fioMonitor{
+		taskID:  taskID,
+		hosts:   hosts,
+		clients: make(map[string]*executor.SSHClient),
+		cancel:  cancel,
+	}
 	fioMonitors[taskID] = mon
 	fioMonitorsMu.Unlock()
 
 	go func() {
-		defer cancel()
+		defer func() {
+			mon.closeAll()
+			cancel()
+		}()
 		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
 
@@ -64,7 +88,7 @@ func (a *App) MonitorFioTask(taskID string, hosts []executor.HostConfig) {
 			case <-ticker.C:
 				allDone := true
 				for _, host := range hosts {
-					statuses := fetchFioStatus(taskID, host)
+					statuses := mon.fetchFioStatus(host)
 					for _, st := range statuses {
 						eventName := fmt.Sprintf("fio:status:%s", taskID)
 						runtime.EventsEmit(a.ctx, eventName, st)
@@ -77,7 +101,6 @@ func (a *App) MonitorFioTask(taskID string, hosts []executor.HostConfig) {
 					}
 				}
 				if allDone {
-					// 所有主机所有 job 都已完成
 					eventName := fmt.Sprintf("fio:status:%s", taskID)
 					runtime.EventsEmit(a.ctx, eventName, map[string]string{"event": "done"})
 					return
@@ -97,15 +120,46 @@ func (a *App) StopFioMonitor(taskID string) {
 	}
 }
 
-// fetchFioStatus 从远程主机获取 FIO 状态行并解析
-func fetchFioStatus(taskID string, host executor.HostConfig) []FioStatus {
-	client, err := executor.NewSSHClient(host)
+func (m *fioMonitor) getOrCreateClient(host executor.HostConfig) *executor.SSHClient {
+	key := hostKey(host)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if cli, ok := m.clients[key]; ok {
+		// 检测连接是否存活
+		if _, _, err := cli.Client.SendRequest("keepalive@openssh.com", true, nil); err == nil {
+			return cli
+		}
+		// 连接已断，关闭旧的
+		cli.Close()
+		delete(m.clients, key)
+	}
+
+	cli, err := executor.NewSSHClient(host)
 	if err != nil {
 		return nil
 	}
-	defer client.Close()
+	m.clients[key] = cli
+	return cli
+}
 
-	_, dataDir, logsDir, pidFile := executor.BuildTaskPaths(taskID)
+func (m *fioMonitor) closeAll() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for k, c := range m.clients {
+		c.Close()
+		delete(m.clients, k)
+	}
+}
+
+// fetchFioStatus 从远程主机获取 FIO 状态行并解析
+func (m *fioMonitor) fetchFioStatus(host executor.HostConfig) []FioStatus {
+	client := m.getOrCreateClient(host)
+	if client == nil {
+		return nil
+	}
+
+	_, dataDir, logsDir, pidFile := executor.BuildTaskPaths(m.taskID)
 
 	// 检查进程是否仍在运行
 	pidCheck := fmt.Sprintf(`if [ -f %[1]s ]; then pid="$(cat %[1]s)"; if ps -p "$pid" >/dev/null 2>&1; then echo "running"; else echo "stopped"; fi; else echo "stopped"; fi`, pidFile)

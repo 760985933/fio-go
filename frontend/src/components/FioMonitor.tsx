@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ExecutionTaskConfig, HostConfig } from '../types'
+import { HostConfig } from '../types'
 import * as App from '../wailsjs/go/app/App'
 import { EventsOn, EventsOff } from '../wailsjs/runtime/runtime'
 
@@ -18,48 +18,58 @@ interface FioStatus {
   event?: string
 }
 
-interface Props {
-  onShowResults: (title: string, content: string, wide?: boolean) => Promise<void>
-}
-
-export function FioMonitor({ onShowResults }: Props) {
-  const [tasks, setTasks] = useState<ExecutionTaskConfig[]>([])
-  const [selectedTaskId, setSelectedTaskId] = useState<string>('')
+export function FioMonitor() {
+  const [hosts, setHosts] = useState<HostConfig[]>([])
+  const [selectedHosts, setSelectedHosts] = useState<HostConfig[]>([])
+  const [taskName, setTaskName] = useState('')
   const [isMonitoring, setIsMonitoring] = useState(false)
   const [statuses, setStatuses] = useState<FioStatus[]>([])
   const [history, setHistory] = useState<Map<string, FioStatus[]>>(new Map())
-  const pollRef = useRef<number | null>(null)
+  const [error, setError] = useState('')
   const eventRef = useRef<string | null>(null)
 
-  useEffect(() => { loadTasks() }, [])
   useEffect(() => {
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current)
-      if (eventRef.current) EventsOff(eventRef.current)
-    }
+    loadHosts()
+    return () => { if (eventRef.current) EventsOff(eventRef.current) }
   }, [])
 
-  const loadTasks = async () => {
+  const loadHosts = async () => {
     try {
-      const list = await App.GetExecutionTasks()
-      setTasks(list || [])
+      const list = await App.GetHosts()
+      setHosts(list || [])
     } catch { /* ignore */ }
   }
 
-  const startMonitor = useCallback(async (task: ExecutionTaskConfig) => {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
-    if (eventRef.current) { EventsOff(eventRef.current); eventRef.current = null }
+  const toggleHost = (h: HostConfig) => {
+    setSelectedHosts(prev => {
+      const exists = prev.some(x => x.host === h.host && x.port === h.port)
+      if (exists) return prev.filter(x => !(x.host === h.host && x.port === h.port))
+      return [...prev, h]
+    })
+  }
 
-    setSelectedTaskId(task.id)
-    setStatuses([])
-    setHistory(new Map())
+  const selectAll = () => setSelectedHosts([...hosts])
+  const clearAll = () => setSelectedHosts([])
 
-    // 订阅实时状态事件
-    const eventName = `fio:status:${task.id}`
-    const handler = (payload: any) => {
+  const startMonitor = useCallback(async () => {
+    if (selectedHosts.length === 0) {
+      setError('请至少选择一台主机')
+      return
+    }
+    if (!taskName.trim()) {
+      setError('请输入任务名称')
+      return
+    }
+    setError('')
+
+    const taskId = taskName.trim()
+    const eventName = `fio:status:${taskId}`
+
+    if (eventRef.current) EventsOff(eventRef.current)
+
+    EventsOn(eventName, (payload: any) => {
       if (payload && payload.event === 'done') {
         setIsMonitoring(false)
-        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
         return
       }
       const st = payload as FioStatus
@@ -71,37 +81,31 @@ export function FioMonitor({ onShowResults }: Props) {
         })
         setHistory(prev => {
           const next = new Map(prev)
-          const key = st.host
-          const arr = next.get(key) || []
+          const arr = next.get(st.host) || []
           arr.push(st)
           if (arr.length > 300) arr.shift()
-          next.set(key, arr)
+          next.set(st.host, arr)
           return next
         })
       }
-    }
-    EventsOn(eventName, handler)
+    })
     eventRef.current = eventName
 
-    // 启动后端监控
     try {
-      await App.MonitorFioTask(task.id, task.hosts || [])
+      await App.MonitorFioTask(taskId, selectedHosts)
       setIsMonitoring(true)
+      setStatuses([])
+      setHistory(new Map())
     } catch (err: any) {
-      await onShowResults('监控启动失败', `错误: ${err.message || err}`)
+      setError(err.message || String(err))
     }
-  }, [])
+  }, [selectedHosts, taskName])
 
   const stopMonitor = useCallback(async () => {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
     if (eventRef.current) { EventsOff(eventRef.current); eventRef.current = null }
     setIsMonitoring(false)
-    if (selectedTaskId) {
-      try { await App.StopFioMonitor(selectedTaskId) } catch { /* ignore */ }
-    }
-  }, [selectedTaskId])
-
-  const selectedTask = tasks.find(t => t.id === selectedTaskId)
+    try { await App.StopFioMonitor(taskName.trim()) } catch { /* ignore */ }
+  }, [taskName])
 
   return (
     <div>
@@ -110,30 +114,63 @@ export function FioMonitor({ onShowResults }: Props) {
         {isMonitoring && (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <span style={{ fontSize: 13, color: '#22c55e' }}>● 监控中</span>
-            <button className="btn btn-danger btn-sm" onClick={stopMonitor}>停止</button>
+            <button className="btn btn-danger btn-sm" onClick={stopMonitor}>停止监控</button>
           </div>
         )}
       </div>
 
       <div className="panel" style={{ marginBottom: 16 }}>
-        <h4 style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>选择任务</h4>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {tasks.map(task => (
-            <button key={task.id}
-              className={`btn ${selectedTaskId === task.id ? 'btn-primary' : 'btn-outline'} btn-sm`}
-              onClick={() => startMonitor(task)}>
-              {task.name}
-            </button>
-          ))}
-          {tasks.length === 0 && (
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>暂无任务</span>
+        <h4 style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>监控配置</h4>
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 4 }}>任务标识</label>
+          <input type="text" value={taskName} onChange={e => setTaskName(e.target.value)}
+            placeholder="远程主机上的 FIO 任务目录名"
+            disabled={isMonitoring}
+            style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #d2d2d7', fontSize: 13 }} />
+        </div>
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <label style={{ fontSize: 13, fontWeight: 500 }}>选择主机 ({selectedHosts.length}/{hosts.length})</label>
+            {hosts.length > 0 && (
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '2px 6px' }}
+                  onClick={selectAll}>全选</button>
+                <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '2px 6px' }}
+                  onClick={clearAll}>全不选</button>
+              </div>
+            )}
+          </div>
+          {hosts.length === 0 ? (
+            <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>暂无主机，请先在主机管理中添加</p>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {hosts.map(h => {
+                const selected = selectedHosts.some(x => x.host === h.host && x.port === h.port)
+                return (
+                  <button key={`${h.host}:${h.port}`}
+                    className={`btn ${selected ? 'btn-primary' : 'btn-outline'} btn-sm`}
+                    onClick={() => toggleHost(h)}
+                    disabled={isMonitoring}
+                    style={{ fontSize: 12 }}>
+                    {h.host}:{h.port}
+                  </button>
+                )
+              })}
+            </div>
           )}
+        </div>
+        {error && <p style={{ color: '#dc2626', fontSize: 12, marginTop: 8 }}>{error}</p>}
+        <div style={{ marginTop: 12 }}>
+          <button className="btn btn-primary"
+            onClick={isMonitoring ? stopMonitor : startMonitor}
+            disabled={!isMonitoring && selectedHosts.length === 0}>
+            {isMonitoring ? '停止监控' : '开始监控'}
+          </button>
         </div>
       </div>
 
-      {selectedTaskId && statuses.length > 0 && (
+      {statuses.length > 0 && (
         <>
-          {/* 总览面板 */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
             <StatCard label="总读 IOPS" value={formatIOPS(statuses.reduce((s, st) => s + st.readIOPS, 0))} color="#3b82f6" />
             <StatCard label="总写 IOPS" value={formatIOPS(statuses.reduce((s, st) => s + st.writeIOPS, 0))} color="#f59e0b" />
@@ -141,7 +178,6 @@ export function FioMonitor({ onShowResults }: Props) {
             <StatCard label="总写带宽" value={formatBW(statuses.reduce((s, st) => s + st.writeBW, 0))} color="#ec4899" />
           </div>
 
-          {/* 每台主机的状态 */}
           {statuses.map(st => (
             <div key={st.host} className="panel" style={{ marginBottom: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -163,13 +199,11 @@ export function FioMonitor({ onShowResults }: Props) {
             </div>
           ))}
 
-          {/* IOPS 时序图 */}
           <div className="panel" style={{ marginBottom: 12 }}>
             <h4 style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>IOPS 趋势</h4>
             <FioChart history={history} type="iops" />
           </div>
 
-          {/* 带宽时序图 */}
           <div className="panel" style={{ marginBottom: 12 }}>
             <h4 style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>带宽趋势 (KB/s)</h4>
             <FioChart history={history} type="bw" />
@@ -177,15 +211,15 @@ export function FioMonitor({ onShowResults }: Props) {
         </>
       )}
 
-      {selectedTaskId && statuses.length === 0 && isMonitoring && (
+      {isMonitoring && statuses.length === 0 && (
         <div className="panel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200, color: 'var(--text-muted)' }}>
           <div className="spinner" style={{ marginRight: 8 }} /> 等待 FIO 状态数据...
         </div>
       )}
 
-      {!selectedTaskId && (
+      {!isMonitoring && statuses.length === 0 && (
         <div className="panel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300, color: 'var(--text-muted)' }}>
-          选择一个任务开始实时监控
+          输入任务标识并选择主机，点击「开始监控」
         </div>
       )}
     </div>
@@ -233,7 +267,6 @@ function FioChart({ history, type }: { history: Map<string, FioStatus[]>; type: 
 
     ctx.clearRect(0, 0, W, H)
 
-    // 收集所有数据点
     let maxVal = 0
     const allSeries: { color: string; data: number[] }[] = []
     const colors = ['#3b82f6', '#f59e0b', '#6366f1', '#ec4899', '#22c55e']
@@ -247,7 +280,6 @@ function FioChart({ history, type }: { history: Map<string, FioStatus[]>; type: 
 
     if (maxVal === 0) maxVal = 1
 
-    // 绘制网格
     ctx.strokeStyle = '#e8e8ed'
     ctx.lineWidth = 0.5
     for (let i = 0; i <= 4; i++) {
@@ -263,7 +295,6 @@ function FioChart({ history, type }: { history: Map<string, FioStatus[]>; type: 
       ctx.fillText(formatShortNum(maxVal * i / 4), pad.left - 6, y + 3)
     }
 
-    // 绘制数据线
     allSeries.forEach(({ color, data }) => {
       if (data.length < 2) return
       ctx.strokeStyle = color

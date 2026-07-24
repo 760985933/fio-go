@@ -202,6 +202,10 @@ export function KillAll(arg1, arg2) {
   return window['go']['app']['App']['KillAll'](arg1, arg2);
 }
 
+export function MonitorFioTask(arg1, arg2) {
+  return window['go']['app']['App']['MonitorFioTask'](arg1, arg2);
+}
+
 export function OpenDataDir() {
   return window['go']['app']['App']['OpenDataDir']();
 }
@@ -270,6 +274,10 @@ export function StartIperfServer(arg1, arg2) {
   return window['go']['app']['App']['StartIperfServer'](arg1, arg2);
 }
 
+export function StopFioMonitor(arg1) {
+  return window['go']['app']['App']['StopFioMonitor'](arg1);
+}
+
 export function StopIperfServer(arg1, arg2) {
   return window['go']['app']['App']['StopIperfServer'](arg1, arg2);
 }
@@ -280,16 +288,4 @@ export function StopIperfTest(arg1) {
 
 export function UpdateHost(arg1, arg2) {
   return window['go']['app']['App']['UpdateHost'](arg1, arg2);
-}
-
-export function MonitorFioTask(arg1, arg2) {
-  return window['go']['app']['App']['MonitorFioTask'](arg1, arg2);
-}
-
-export function StopFioMonitor(arg1) {
-  return window['go']['app']['App']['StopFioMonitor'](arg1);
-}
-
-export function GenerateReportPDF(arg1) {
-  return window['go']['app']['App']['GenerateReportPDF'](arg1);
 }

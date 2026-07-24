@@ -40,13 +40,13 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
   { id: 'script', icon: IconDoc, label: '配置模型' },
   { id: 'host', icon: IconServer, label: '主机管理' },
   { id: 'task', icon: IconClipboard, label: '任务管理' },
-  { id: 'fio-monitor', icon: IconChart, label: '实时监控' },
   { id: 'analysis', icon: IconChart, label: '分析报告' },
   { id: 'compare', icon: IconChart, label: '对比分析' },
 ]
 
 const SIDEBAR_ITEMS_TOOL: SidebarItem[] = [
   { id: 'orchestration', icon: IconRocket, label: '编排' },
+  { id: 'fio-monitor', icon: IconChart, label: 'FIO实时监控' },
 ]
 
 const SIDEBAR_ITEMS_IPERF: SidebarItem[] = [
@@ -153,7 +153,7 @@ function App() {
         {mountedSidebar.task && <TaskManager onAudit={handleAudit} onShowResults={showResults} />}
       </div>
       <div style={{ display: sidebarItem === 'fio-monitor' ? 'block' : 'none' }}>
-        {mountedSidebar['fio-monitor'] && <FioMonitor onShowResults={showResults} />}
+        {mountedSidebar['fio-monitor'] && <FioMonitor />}
       </div>
       <div style={{ display: sidebarItem === 'analysis' ? 'block' : 'none' }}>
         {mountedSidebar.analysis && <AnalysisView onAudit={handleAudit} onShowResults={showResults} />}
