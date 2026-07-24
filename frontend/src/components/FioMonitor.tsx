@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { HostConfig } from '../types'
+import { ExecutionTaskConfig } from '../types'
 import * as App from '../wailsjs/go/app/App'
 import { EventsOn, EventsOff } from '../wailsjs/runtime/runtime'
 
@@ -19,53 +19,35 @@ interface FioStatus {
 }
 
 export function FioMonitor() {
-  const [hosts, setHosts] = useState<HostConfig[]>([])
-  const [selectedHosts, setSelectedHosts] = useState<HostConfig[]>([])
-  const [taskName, setTaskName] = useState('')
+  const [tasks, setTasks] = useState<ExecutionTaskConfig[]>([])
+  const [selectedTask, setSelectedTask] = useState<ExecutionTaskConfig | null>(null)
   const [isMonitoring, setIsMonitoring] = useState(false)
   const [statuses, setStatuses] = useState<FioStatus[]>([])
   const [history, setHistory] = useState<Map<string, FioStatus[]>>(new Map())
-  const [error, setError] = useState('')
+  const [detailHost, setDetailHost] = useState<string | null>(null)
   const eventRef = useRef<string | null>(null)
 
   useEffect(() => {
-    loadHosts()
+    loadTasks()
     return () => { if (eventRef.current) EventsOff(eventRef.current) }
   }, [])
 
-  const loadHosts = async () => {
+  const loadTasks = async () => {
     try {
-      const list = await App.GetHosts()
-      setHosts(list || [])
+      const list = await App.GetExecutionTasks()
+      setTasks(list || [])
     } catch { /* ignore */ }
   }
 
-  const toggleHost = (h: HostConfig) => {
-    setSelectedHosts(prev => {
-      const exists = prev.some(x => x.host === h.host && x.port === h.port)
-      if (exists) return prev.filter(x => !(x.host === h.host && x.port === h.port))
-      return [...prev, h]
-    })
-  }
+  const startMonitor = useCallback(async (task: ExecutionTaskConfig) => {
+    if (eventRef.current) { EventsOff(eventRef.current); eventRef.current = null }
 
-  const selectAll = () => setSelectedHosts([...hosts])
-  const clearAll = () => setSelectedHosts([])
+    setSelectedTask(task)
+    setStatuses([])
+    setHistory(new Map())
+    setDetailHost(null)
 
-  const startMonitor = useCallback(async () => {
-    if (selectedHosts.length === 0) {
-      setError('请至少选择一台主机')
-      return
-    }
-    if (!taskName.trim()) {
-      setError('请输入任务名称')
-      return
-    }
-    setError('')
-
-    const taskId = taskName.trim()
-    const eventName = `fio:status:${taskId}`
-
-    if (eventRef.current) EventsOff(eventRef.current)
+    const eventName = `fio:status:${task.id}`
 
     EventsOn(eventName, (payload: any) => {
       if (payload && payload.event === 'done') {
@@ -92,26 +74,28 @@ export function FioMonitor() {
     eventRef.current = eventName
 
     try {
-      await App.MonitorFioTask(taskId, selectedHosts)
+      await App.MonitorFioTask(task.id, task.hosts || [])
       setIsMonitoring(true)
-      setStatuses([])
-      setHistory(new Map())
     } catch (err: any) {
-      setError(err.message || String(err))
+      alert(err.message || String(err))
     }
-  }, [selectedHosts, taskName])
+  }, [])
 
   const stopMonitor = useCallback(async () => {
     if (eventRef.current) { EventsOff(eventRef.current); eventRef.current = null }
     setIsMonitoring(false)
-    try { await App.StopFioMonitor(taskName.trim()) } catch { /* ignore */ }
-  }, [taskName])
+    if (selectedTask) {
+      try { await App.StopFioMonitor(selectedTask.id) } catch { /* ignore */ }
+    }
+  }, [selectedTask])
+
+  const viewingHistory = detailHost ? history.get(detailHost) : null
 
   return (
     <div>
       <div className="manager-header">
         <h2>FIO 实时监控</h2>
-        {isMonitoring && (
+        {isMonitoring && selectedTask && (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <span style={{ fontSize: 13, color: '#22c55e' }}>● 监控中</span>
             <button className="btn btn-danger btn-sm" onClick={stopMonitor}>停止监控</button>
@@ -119,108 +103,143 @@ export function FioMonitor() {
         )}
       </div>
 
-      <div className="panel" style={{ marginBottom: 16 }}>
-        <h4 style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>监控配置</h4>
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 4 }}>任务标识</label>
-          <input type="text" value={taskName} onChange={e => setTaskName(e.target.value)}
-            placeholder="远程主机上的 FIO 任务目录名"
-            disabled={isMonitoring}
-            style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #d2d2d7', fontSize: 13 }} />
-        </div>
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <label style={{ fontSize: 13, fontWeight: 500 }}>选择主机 ({selectedHosts.length}/{hosts.length})</label>
-            {hosts.length > 0 && (
-              <div style={{ display: 'flex', gap: 4 }}>
-                <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '2px 6px' }}
-                  onClick={selectAll}>全选</button>
-                <button className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: '2px 6px' }}
-                  onClick={clearAll}>全不选</button>
-              </div>
-            )}
-          </div>
-          {hosts.length === 0 ? (
-            <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>暂无主机，请先在主机管理中添加</p>
+      {/* 任务列表 */}
+      {!selectedTask && (
+        <div className="panel">
+          <h4 style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>选择任务开始监控</h4>
+          {tasks.length === 0 ? (
+            <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>暂无任务，请先在任务管理中创建</p>
           ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {hosts.map(h => {
-                const selected = selectedHosts.some(x => x.host === h.host && x.port === h.port)
-                return (
-                  <button key={`${h.host}:${h.port}`}
-                    className={`btn ${selected ? 'btn-primary' : 'btn-outline'} btn-sm`}
-                    onClick={() => toggleHost(h)}
-                    disabled={isMonitoring}
-                    style={{ fontSize: 12 }}>
-                    {h.host}:{h.port}
-                  </button>
-                )
-              })}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {tasks.map(task => (
+                <div key={task.id} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '10px 14px', borderRadius: 8, border: '1px solid #e8e8ed',
+                  background: '#fafafa', cursor: 'pointer', transition: 'border-color 0.15s'
+                }}
+                  onClick={() => startMonitor(task)}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = '#3b82f6')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#e8e8ed')}
+                >
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f' }}>{task.name}</div>
+                    <div style={{ fontSize: 12, color: '#86868b', marginTop: 2 }}>
+                      {task.scripts?.join(', ')} · {task.hosts?.length || 0} 台主机
+                    </div>
+                  </div>
+                  <button className="btn btn-primary btn-sm">监控</button>
+                </div>
+              ))}
             </div>
           )}
         </div>
-        {error && <p style={{ color: '#dc2626', fontSize: 12, marginTop: 8 }}>{error}</p>}
-        <div style={{ marginTop: 12 }}>
-          <button className="btn btn-primary"
-            onClick={isMonitoring ? stopMonitor : startMonitor}
-            disabled={!isMonitoring && selectedHosts.length === 0}>
-            {isMonitoring ? '停止监控' : '开始监控'}
-          </button>
-        </div>
-      </div>
+      )}
 
-      {statuses.length > 0 && (
+      {/* 监控详情 */}
+      {selectedTask && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
-            <StatCard label="总读 IOPS" value={formatIOPS(statuses.reduce((s, st) => s + st.readIOPS, 0))} color="#3b82f6" />
-            <StatCard label="总写 IOPS" value={formatIOPS(statuses.reduce((s, st) => s + st.writeIOPS, 0))} color="#f59e0b" />
-            <StatCard label="总读带宽" value={formatBW(statuses.reduce((s, st) => s + st.readBW, 0))} color="#6366f1" />
-            <StatCard label="总写带宽" value={formatBW(statuses.reduce((s, st) => s + st.writeBW, 0))} color="#ec4899" />
+          {/* 顶部：任务信息 + 返回 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <button className="btn btn-outline btn-sm" onClick={() => { stopMonitor(); setSelectedTask(null); setDetailHost(null); setStatuses([]); setHistory(new Map()) }}>
+              ← 返回任务列表
+            </button>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>{selectedTask.name}</span>
+            <span style={{ fontSize: 12, color: '#86868b' }}>
+              {selectedTask.hosts?.length || 0} 台主机
+            </span>
           </div>
 
-          {statuses.map(st => (
-            <div key={st.host} className="panel" style={{ marginBottom: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <h4 style={{ fontSize: 13, fontWeight: 600, color: '#1d1d1f' }}>{st.host}</h4>
-                <span style={{
-                  fontSize: 11, padding: '2px 8px', borderRadius: 4,
-                  background: st.jobStatus === 'done' ? '#dcfce7' : '#fef3c7',
-                  color: st.jobStatus === 'done' ? '#16a34a' : '#92400e'
-                }}>
-                  {st.jobStatus === 'done' ? '已完成' : '运行中'}
-                </span>
+          {/* 总览 */}
+          {statuses.length > 0 && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
+                <StatCard label="总读 IOPS" value={formatIOPS(statuses.reduce((s, st) => s + st.readIOPS, 0))} color="#3b82f6" />
+                <StatCard label="总写 IOPS" value={formatIOPS(statuses.reduce((s, st) => s + st.writeIOPS, 0))} color="#f59e0b" />
+                <StatCard label="总读带宽" value={formatBW(statuses.reduce((s, st) => s + st.readBW, 0))} color="#6366f1" />
+                <StatCard label="总写带宽" value={formatBW(statuses.reduce((s, st) => s + st.writeBW, 0))} color="#ec4899" />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-                <MetricItem label="读 IOPS" value={formatIOPS(st.readIOPS)} />
-                <MetricItem label="写 IOPS" value={formatIOPS(st.writeIOPS)} />
-                <MetricItem label="读带宽" value={formatBW(st.readBW)} />
-                <MetricItem label="写带宽" value={formatBW(st.writeBW)} />
+
+              {/* 整体趋势图 */}
+              <div className="panel" style={{ marginBottom: 12 }}>
+                <h4 style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>整体 IOPS 趋势</h4>
+                <FioChart history={history} type="iops" />
               </div>
+              <div className="panel" style={{ marginBottom: 12 }}>
+                <h4 style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>整体带宽趋势 (KB/s)</h4>
+                <FioChart history={history} type="bw" />
+              </div>
+
+              {/* 主机列表 */}
+              <div className="panel" style={{ marginBottom: 12 }}>
+                <h4 style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10 }}>主机状态</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {statuses.map(st => {
+                    const isDetail = detailHost === st.host
+                    return (
+                      <div key={st.host}
+                        style={{
+                          padding: '10px 14px', borderRadius: 8, border: `1px solid ${isDetail ? '#3b82f6' : '#e8e8ed'}`,
+                          background: isDetail ? '#eff6ff' : '#fff', cursor: 'pointer', transition: 'all 0.15s'
+                        }}
+                        onClick={() => setDetailHost(isDetail ? null : st.host)}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: '#1d1d1f' }}>{st.host}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{
+                              fontSize: 11, padding: '2px 8px', borderRadius: 4,
+                              background: st.jobStatus === 'done' ? '#dcfce7' : '#fef3c7',
+                              color: st.jobStatus === 'done' ? '#16a34a' : '#92400e'
+                            }}>
+                              {st.jobStatus === 'done' ? '已完成' : '运行中'}
+                            </span>
+                            <span style={{ fontSize: 11, color: '#86868b' }}>
+                              {isDetail ? '收起' : '详情'}
+                            </span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                          <MetricItem label="读 IOPS" value={formatIOPS(st.readIOPS)} />
+                          <MetricItem label="写 IOPS" value={formatIOPS(st.writeIOPS)} />
+                          <MetricItem label="读带宽" value={formatBW(st.readBW)} />
+                          <MetricItem label="写带宽" value={formatBW(st.writeBW)} />
+                        </div>
+
+                        {/* 展开的主机详情图 */}
+                        {isDetail && viewingHistory && viewingHistory.length > 0 && (
+                          <div style={{ marginTop: 12, borderTop: '1px solid #e8e8ed', paddingTop: 12 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                              <div>
+                                <div style={{ fontSize: 12, color: '#86868b', marginBottom: 6 }}>IOPS 趋势</div>
+                                <FioChart history={new Map([[st.host, viewingHistory]])} type="iops" />
+                              </div>
+                              <div>
+                                <div style={{ fontSize: 12, color: '#86868b', marginBottom: 6 }}>带宽趋势 (KB/s)</div>
+                                <FioChart history={new Map([[st.host, viewingHistory]])} type="bw" />
+                              </div>
+                            </div>
+                            {/* 延迟数据 */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginTop: 12 }}>
+                              <MetricItem label="读延迟" value={formatLat(st.readLat)} />
+                              <MetricItem label="写延迟" value={formatLat(st.writeLat)} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* 等待数据 */}
+          {isMonitoring && statuses.length === 0 && (
+            <div className="panel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200, color: 'var(--text-muted)' }}>
+              <div className="spinner" style={{ marginRight: 8 }} /> 等待 FIO 状态数据...
             </div>
-          ))}
-
-          <div className="panel" style={{ marginBottom: 12 }}>
-            <h4 style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>IOPS 趋势</h4>
-            <FioChart history={history} type="iops" />
-          </div>
-
-          <div className="panel" style={{ marginBottom: 12 }}>
-            <h4 style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>带宽趋势 (KB/s)</h4>
-            <FioChart history={history} type="bw" />
-          </div>
+          )}
         </>
-      )}
-
-      {isMonitoring && statuses.length === 0 && (
-        <div className="panel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200, color: 'var(--text-muted)' }}>
-          <div className="spinner" style={{ marginRight: 8 }} /> 等待 FIO 状态数据...
-        </div>
-      )}
-
-      {!isMonitoring && statuses.length === 0 && (
-        <div className="panel" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300, color: 'var(--text-muted)' }}>
-          输入任务标识并选择主机，点击「开始监控」
-        </div>
       )}
     </div>
   )
@@ -326,6 +345,11 @@ function formatBW(v: number): string {
   if (v >= 1024 * 1024) return (v / (1024 * 1024)).toFixed(1) + ' GB/s'
   if (v >= 1024) return (v / 1024).toFixed(1) + ' MB/s'
   return v.toFixed(0) + ' KB/s'
+}
+
+function formatLat(v: number): string {
+  if (v >= 1000) return (v / 1000).toFixed(2) + ' ms'
+  return v.toFixed(1) + ' us'
 }
 
 function formatShortNum(v: number): string {
