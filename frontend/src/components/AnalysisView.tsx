@@ -15,6 +15,8 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
   const [reportHtml, setReportHtml] = useState('')
   const [generating, setGenerating] = useState<string | null>(null)
   const [pulling, setPulling] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState<string | null>(null)
+  const [exportingPdf, setExportingPdf] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<AnalysisSummary | null>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
@@ -78,13 +80,15 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
   }
 
   const downloadReport = async (taskId: string) => {
+    setDownloading(taskId)
     try {
       const zipPath = await App.CreateReportZIP(taskId)
       await App.RevealFile(zipPath)
       onAudit('下载报告', `任务: ${taskId}`)
-    } catch (err) {
-      await onShowResults('下载失败', `错误: ${err}`)
+    } catch (err: any) {
+      await onShowResults('下载失败', `错误: ${err.message || err}`)
     }
+    setDownloading(null)
   }
 
   const viewLog = async (taskId: string) => {
@@ -96,14 +100,17 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
     }
   }
 
-  const exportPdf = () => {
+  const exportPdf = async () => {
+    if (!selectedReport) return
+    setExportingPdf(true)
     try {
-      const iframe = iframeRef.current
-      if (!iframe || !iframe.contentWindow) return
-      iframe.contentWindow.print()
-    } catch (err) {
-      onShowResults('导出失败', `无法触发打印: ${err}`)
+      const pdfPath = await App.GenerateReportPDF(selectedReport)
+      await App.RevealFile(pdfPath)
+      onAudit('导出 PDF', `任务: ${selectedReport}`)
+    } catch (err: any) {
+      await onShowResults('导出失败', `错误: ${err.message || err}`)
     }
+    setExportingPdf(false)
   }
 
   const confirmDelete = async () => {
@@ -131,7 +138,9 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
           <button className="btn btn-outline" onClick={() => { setSelectedReport(null); setReportHtml('') }}>← 返回列表</button>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>任务: {selectedReport}</span>
-            <button className="btn btn-primary btn-sm" onClick={exportPdf}>导出 PDF</button>
+            <button className="btn btn-primary btn-sm" onClick={exportPdf} disabled={exportingPdf}>
+              {exportingPdf ? '生成中...' : '导出 PDF'}
+            </button>
           </div>
         </div>
         <div className="panel" style={{ padding: 0, overflow: 'hidden' }}>
@@ -196,7 +205,10 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
                   </button>
                 )}
                 {task.hasReport && (
-                  <button className="btn btn-primary btn-sm" onClick={() => downloadReport(task.id)}>下载报告</button>
+                  <button className="btn btn-primary btn-sm" onClick={() => downloadReport(task.id)}
+                    disabled={downloading === task.id}>
+                    {downloading === task.id ? '打包中...' : '下载报告'}
+                  </button>
                 )}
                 {task.logAvailable && (
                   <button className="btn btn-outline btn-sm" onClick={() => viewLog(task.id)}>查看日志</button>

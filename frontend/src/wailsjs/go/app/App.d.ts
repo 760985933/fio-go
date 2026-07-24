@@ -233,3 +233,4 @@ export interface TaskCompareResult {
 }
 
 export function CompareTaskMetrics(taskIDs: string[]): Promise<TaskCompareResult[]>;
+export function GenerateReportPDF(taskID: string): Promise<string>;

@@ -59,6 +59,8 @@ export function GenerateIperfReport(arg1:string):Promise<void>;
 
 export function GenerateReport(arg1:string):Promise<string>;
 
+export function GenerateReportPDF(arg1:string):Promise<string>;
+
 export function GetAnalysisTasks():Promise<Array<app.AnalysisSummary>>;
 
 export function GetAuditLog():Promise<Array<app.AuditEntry>>;

@@ -110,6 +110,10 @@ export function GenerateReport(arg1) {
   return window['go']['app']['App']['GenerateReport'](arg1);
 }
 
+export function GenerateReportPDF(arg1) {
+  return window['go']['app']['App']['GenerateReportPDF'](arg1);
+}
+
 export function GetAnalysisTasks() {
   return window['go']['app']['App']['GetAnalysisTasks']();
 }

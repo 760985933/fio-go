@@ -16,6 +16,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/chromedp"
+
 	"fio-go/internal/executor"
 	"fio-go/internal/models"
 	"fio-go/internal/parser"
@@ -829,7 +832,31 @@ func (a *App) GenerateReport(taskID string) (string, error) {
 		return "", err
 	}
 
+	// Download echarts.min.js if not present
+	downloadEcharts(reportDir)
+
 	return taskReportDir(taskID), nil
+}
+
+// downloadEcharts downloads echarts.min.js to the specified directory
+func downloadEcharts(dir string) {
+	echartsPath := filepath.Join(dir, "echarts.min.js")
+	if _, err := os.Stat(echartsPath); err == nil {
+		return // already exists
+	}
+	urls := []string{
+		"https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js",
+		"https://registry.npmmirror.com/echarts/5.5.1/dist/echarts.min.js",
+	}
+	for _, u := range urls {
+		cmd := exec.Command("curl", "-sL", "-o", echartsPath, u)
+		if cmd.Run() == nil {
+			if info, err := os.Stat(echartsPath); err == nil && info.Size() > 1000 {
+				return
+			}
+		}
+	}
+	os.Remove(echartsPath)
 }
 
 // GetReportHTML 获取报告 HTML 内容
@@ -1302,6 +1329,30 @@ func (a *App) CreateReportZIP(taskID string) (string, error) {
 	w := zip.NewWriter(zipFile)
 	defer w.Close()
 
+	// Generate PDF from HTML report (use inlined echarts version) and add to ZIP
+	htmlPath := taskReportHTMLPath(taskID)
+	if htmlData, err := os.ReadFile(htmlPath); err == nil {
+	// Inline echarts.js into HTML before PDF generation
+	html := string(htmlData)
+	echartsPath := filepath.Join(reportDir, "echarts.min.js")
+	if echartsData, err := os.ReadFile(echartsPath); err == nil {
+		b64 := base64.StdEncoding.EncodeToString(echartsData)
+		html = strings.Replace(html, `<script src="echarts.min.js"></script>`,
+			fmt.Sprintf("<script>%s</script>", string(echartsData)), 1)
+		html = strings.Replace(html, `src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"`,
+			fmt.Sprintf("src=\"data:text/javascript;base64,%s\"", b64), 1)
+	}
+	// Remove CDN fallback script
+	html = strings.Replace(html,
+		`<script>if (!window.echarts) document.write('<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"><\/script>')</script>`,
+		"", 1)
+		if pdfBytes, err := htmlToPDF([]byte(html)); err == nil {
+			if f, err := w.Create("fio_report.pdf"); err == nil {
+				f.Write(pdfBytes)
+			}
+		}
+	}
+
 	err = filepath.Walk(reportDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return err
@@ -1328,6 +1379,101 @@ func (a *App) CreateReportZIP(taskID string) (string, error) {
 	}
 
 	return zipPath, nil
+}
+
+// htmlToPDF 使用 chromedp 将 HTML 内容渲染为 PDF
+func htmlToPDF(htmlContent []byte) ([]byte, error) {
+	ctx, cancel := chromedp.NewContext(context.Background())
+	defer cancel()
+
+	var pdfBuf []byte
+	// Write HTML to temp file so echarts.min.js can be loaded via file:// protocol
+	tmpHTML, err := os.CreateTemp("", "nettopo-report-*.html")
+	if err != nil {
+		return nil, fmt.Errorf("创建临时文件失败: %w", err)
+	}
+	tmpPath := tmpHTML.Name()
+	defer os.Remove(tmpPath)
+
+	// Inject print-specific CSS to center content in PDF page
+	printCSS := `<style>@media print{
+  body{max-width:100%!important;margin:0!important;padding:20px 40px!important;width:100%!important;}
+  .chart{width:100%!important;height:300px!important;}
+  .section{page-break-inside:avoid;}
+  .report-header{margin-bottom:16px!important;}
+  .float-nav{display:none!important;}
+  table{font-size:12px;}
+}</style>`
+	htmlStr := string(htmlContent)
+	htmlStr = strings.Replace(htmlStr, "</head>", printCSS+"\n</head>", 1)
+
+	if _, err := tmpHTML.WriteString(htmlStr); err != nil {
+		tmpHTML.Close()
+		return nil, fmt.Errorf("写入临时文件失败: %w", err)
+	}
+	tmpHTML.Close()
+
+	err = chromedp.Run(ctx,
+		chromedp.Navigate("file://"+tmpPath),
+		chromedp.WaitReady("body"),
+		chromedp.Sleep(5*time.Second),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			data, _, err := page.PrintToPDF().
+				WithPrintBackground(true).
+				WithPaperWidth(12).
+				WithPaperHeight(16).
+				WithMarginTop(0.4).
+				WithMarginBottom(0.4).
+				WithMarginLeft(0.4).
+				WithMarginRight(0.4).
+				Do(ctx)
+			if err != nil {
+				return err
+			}
+			pdfBuf = data
+			return nil
+		}),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("PDF 生成失败: %w", err)
+	}
+	return pdfBuf, nil
+}
+
+// GenerateReportPDF 生成报告 PDF 并返回文件路径
+func (a *App) GenerateReportPDF(taskID string) (string, error) {
+	reportDir := taskReportDir(taskID)
+	htmlPath := taskReportHTMLPath(taskID)
+	htmlData, err := os.ReadFile(htmlPath)
+	if err != nil {
+		return "", fmt.Errorf("读取报告失败: %w", err)
+	}
+
+	// Inline echarts.js
+	html := string(htmlData)
+	echartsPath := filepath.Join(reportDir, "echarts.min.js")
+	if echartsData, err := os.ReadFile(echartsPath); err == nil {
+		b64 := base64.StdEncoding.EncodeToString(echartsData)
+		html = strings.Replace(html, `<script src="echarts.min.js"></script>`,
+			fmt.Sprintf("<script>%s</script>", string(echartsData)), 1)
+		html = strings.Replace(html, `src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"`,
+			fmt.Sprintf("src=\"data:text/javascript;base64,%s\"", b64), 1)
+	}
+	// Remove CDN fallback script
+	html = strings.Replace(html,
+		`<script>if (!window.echarts) document.write('<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"><\/script>')</script>`,
+		"", 1)
+
+	pdfBytes, err := htmlToPDF([]byte(html))
+	if err != nil {
+		return "", err
+	}
+
+	pdfPath := filepath.Join(reportDir, "fio_report.pdf")
+	if err := os.WriteFile(pdfPath, pdfBytes, 0644); err != nil {
+		return "", fmt.Errorf("保存 PDF 失败: %w", err)
+	}
+	return pdfPath, nil
 }
 
 // GetReportHTMLWithEcharts 获取报告 HTML 内容（内联 echarts）

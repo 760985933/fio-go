@@ -268,3 +268,7 @@ export function GetIperfTaskLog(taskID) {
 export function CompareTaskMetrics(taskIDs) {
     return window['go']['app']['App']['CompareTaskMetrics'](taskIDs);
 }
+
+export function GenerateReportPDF(taskID) {
+    return window['go']['app']['App']['GenerateReportPDF'](taskID);
+}
