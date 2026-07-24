@@ -59,9 +59,9 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
 			txt := html.EscapeString(systemTexts[ip])
 			lineCount := strings.Count(txt, "\n") + 1
 			if lineCount > 12 {
-				cards = append(cards, "<details><summary>"+html.EscapeString(ip)+"</summary><pre style='white-space:pre-wrap;font-family:Menlo,monospace;font-size:12px;line-height:1.5;color:#111827;padding:12px 16px;margin:0;border-top:1px solid #e5e7eb;'>"+txt+"</pre></details>")
+				cards = append(cards, "<details><summary>"+html.EscapeString(ip)+"</summary><pre style='white-space:pre-wrap;font-family:Menlo,monospace;font-size:12px;line-height:1.5;color:#1d1d1f;padding:12px 16px;margin:0;border-top:1px solid #e8e8ed;'>"+txt+"</pre></details>")
 			} else {
-				cards = append(cards, "<div style='border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;padding:14px 16px;'><div style='font-weight:600;color:#374151;margin-bottom:8px;font-size:13px;'>"+html.EscapeString(ip)+"</div><pre style='white-space:pre-wrap;font-family:Menlo,monospace;font-size:12px;line-height:1.5;color:#111827;margin:0;'>"+txt+"</pre></div>")
+				cards = append(cards, "<div style='border:1px solid #e8e8ed;border-radius:8px;background:#fafafa;padding:14px 16px;'><div style='font-weight:600;color:#1d1d1f;margin-bottom:8px;font-size:13px;'>"+html.EscapeString(ip)+"</div><pre style='white-space:pre-wrap;font-family:Menlo,monospace;font-size:12px;line-height:1.5;color:#1d1d1f;margin:0;'>"+txt+"</pre></div>")
 			}
 		}
 		sysHtml = "<div class='section'><div class='section-title'>系统信息</div><div style=\"display:grid;grid-template-columns:repeat(3,1fr);gap:12px;\">" + strings.Join(cards, "") + "</div></div>\n"
@@ -76,40 +76,41 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
   <script>if (!window.echarts) document.write('<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"><\/script>')</script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 1100px; margin: 0 auto; padding: 32px 24px; background: #f5f5f7; color: #1d1d1f; line-height: 1.6; }
-    .report-header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); color: #fff; padding: 32px 40px; border-radius: 16px; margin-bottom: 24px; box-shadow: 0 4px 24px rgba(0,0,0,0.15); position: relative; text-align: center; }
-    .report-header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 12px; }
-    .version { position: absolute; top: 16px; right: 20px; background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.9); font-size: 13px; padding: 4px 12px; border-radius: 20px; backdrop-filter: blur(4px); }
-    .meta-info { display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; font-size: 13px; color: rgba(255,255,255,0.8); }
-    .meta-info span { display: flex; align-items: center; gap: 4px; }
-    .section { background: #fff; border-radius: 12px; padding: 24px 28px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
-    .section-title { font-size: 18px; font-weight: 600; color: #1d1d1f; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #007AFF; display: inline-block; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif; max-width: 1100px; margin: 0 auto; padding: 32px 24px; background: #f5f5f7; color: #1d1d1f; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    .report-header { background: #fff; color: #1d1d1f; padding: 40px 40px 32px; border-radius: 16px; margin-bottom: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04); position: relative; text-align: center; }
+    .report-header::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #007AFF, #5856D6, #AF52DE); border-radius: 16px 16px 0 0; }
+    .report-header h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.3px; color: #1d1d1f; margin-bottom: 16px; }
+    .version { position: absolute; top: 20px; right: 24px; background: #f5f5f7; color: #86868b; font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 6px; border: 1px solid #d2d2d7; }
+    .meta-info { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; font-size: 13px; color: #86868b; }
+    .meta-info span { display: flex; align-items: center; gap: 5px; }
+    .section { background: #fff; border-radius: 12px; padding: 24px 28px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.03); }
+    .section-title { font-size: 17px; font-weight: 600; color: #1d1d1f; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid #d2d2d7; display: inline-block; }
     h3 { color: #007AFF; font-size: 15px; font-weight: 600; margin: 20px 0 10px; }
-    table { border-collapse: collapse; width: 100%; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-    th, td { border: 1px solid #e5e7eb; padding: 10px 12px; text-align: center; font-size: 13px; }
-    th { background: #f8f9fa; font-weight: 600; color: #374151; border-bottom: 2px solid #d1d5db; }
-    td { color: #1f2937; }
-    tr:nth-child(even) { background: #f9fafb; }
-    tr:hover { background: #eff6ff; }
-    .bw-toggle { margin: 12px 0; display: flex; align-items: center; gap: 12px; font-size: 13px; color: #6b7280; }
+    table { border-collapse: collapse; width: 100%; border-radius: 8px; overflow: hidden; }
+    th, td { border: 1px solid #e8e8ed; padding: 10px 14px; text-align: center; font-size: 13px; }
+    th { background: #f5f5f7; font-weight: 600; color: #1d1d1f; border-bottom: 1px solid #d2d2d7; }
+    td { color: #1d1d1f; }
+    tr:nth-child(even) { background: #fafafa; }
+    tr:hover { background: #f0f0f5; }
+    .bw-toggle { margin: 12px 0; display: flex; align-items: center; gap: 12px; font-size: 13px; color: #86868b; }
     .bw-toggle label { display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 4px 12px; border-radius: 6px; transition: background 0.15s; }
-    .bw-toggle label:hover { background: #f3f4f6; }
+    .bw-toggle label:hover { background: #f5f5f7; }
     .chart { width: 100%; height: 320px; margin: 16px 0; }
-    details { border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb; margin-bottom: 8px; }
-    details > summary { padding: 10px 16px; font-weight: 600; color: #374151; cursor: pointer; }
-    details > summary:hover { background: #f3f4f6; border-radius: 8px; }
+    details { border: 1px solid #e8e8ed; border-radius: 8px; background: #fafafa; margin-bottom: 8px; }
+    details > summary { padding: 10px 16px; font-weight: 600; color: #1d1d1f; cursor: pointer; }
+    details > summary:hover { background: #f5f5f7; border-radius: 8px; }
     details > summary::-webkit-details-marker { display: none; }
-    details pre { padding: 12px 16px; margin: 0; font-size: 12px; line-height: 1.5; color: #111827; border-top: 1px solid #e5e7eb; }
+    details pre { padding: 12px 16px; margin: 0; font-size: 12px; line-height: 1.5; color: #1d1d1f; border-top: 1px solid #e8e8ed; }
     .glossary-table td:first-child { font-weight: 600; color: #007AFF; text-align: left; width: 80px; }
     .glossary-table td:last-child { text-align: left; }
     .float-nav { position: fixed; bottom: 24px; right: 24px; z-index: 100; }
-    .float-nav-toggle { width: 44px; height: 44px; border-radius: 50%; background: #007AFF; color: #fff; border: none; cursor: pointer; box-shadow: 0 4px 16px rgba(0,122,255,0.35); font-size: 20px; display: flex; align-items: center; justify-content: center; transition: transform 0.2s, box-shadow 0.2s; }
-    .float-nav-toggle:hover { transform: scale(1.08); box-shadow: 0 6px 24px rgba(0,122,255,0.45); }
-    .float-nav-menu { position: absolute; bottom: 56px; right: 0; background: #fff; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); padding: 8px 0; min-width: 180px; display: none; max-height: 400px; overflow-y: auto; }
+    .float-nav-toggle { width: 44px; height: 44px; border-radius: 50%; background: #007AFF; color: #fff; border: none; cursor: pointer; box-shadow: 0 4px 16px rgba(0,122,255,0.3); font-size: 20px; display: flex; align-items: center; justify-content: center; transition: transform 0.2s, box-shadow 0.2s; }
+    .float-nav-toggle:hover { transform: scale(1.08); box-shadow: 0 6px 24px rgba(0,122,255,0.4); }
+    .float-nav-menu { position: absolute; bottom: 56px; right: 0; background: #fff; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04); padding: 8px 0; min-width: 180px; display: none; max-height: 400px; overflow-y: auto; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
     .float-nav-menu.open { display: block; }
-    .float-nav-menu a { display: block; padding: 8px 16px; font-size: 13px; color: #374151; text-decoration: none; transition: background 0.12s; white-space: nowrap; }
-    .float-nav-menu a:hover { background: #eff6ff; color: #007AFF; }
-    .float-nav-menu a.active { color: #007AFF; font-weight: 600; background: #f0f7ff; }
+    .float-nav-menu a { display: block; padding: 8px 16px; font-size: 13px; color: #1d1d1f; text-decoration: none; transition: background 0.12s; white-space: nowrap; }
+    .float-nav-menu a:hover { background: #f0f0f5; color: #007AFF; }
+    .float-nav-menu a.active { color: #007AFF; font-weight: 600; background: #f0f5ff; }
     @media print {
       body { max-width: 100%; padding: 0; background: #fff; }
       .float-nav { display: none !important; }
