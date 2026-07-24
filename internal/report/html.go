@@ -78,7 +78,6 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif; max-width: 1100px; margin: 0 auto; padding: 32px 24px; background: #f5f5f7; color: #1d1d1f; line-height: 1.6; -webkit-font-smoothing: antialiased; }
     .report-header { background: #fff; color: #1d1d1f; padding: 40px 40px 32px; border-radius: 16px; margin-bottom: 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04); position: relative; text-align: center; }
-    .report-header::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #007AFF, #5856D6, #AF52DE); border-radius: 16px 16px 0 0; }
     .report-header h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.3px; color: #1d1d1f; margin-bottom: 16px; }
     .version { position: absolute; top: 20px; right: 24px; background: #f5f5f7; color: #86868b; font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 6px; border: 1px solid #d2d2d7; }
     .meta-info { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; font-size: 13px; color: #86868b; }
