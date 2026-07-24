@@ -7,6 +7,7 @@ import { HostManager } from './components/HostManager'
 import { TaskManager } from './components/TaskManager'
 import { AnalysisView } from './components/AnalysisView'
 import { TaskCompareView } from './components/TaskCompareView'
+import { FioMonitor } from './components/FioMonitor'
 import { SystemSettings } from './components/SystemSettings'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { Modal } from './components/Modal'
@@ -39,6 +40,7 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
   { id: 'script', icon: IconDoc, label: '配置模型' },
   { id: 'host', icon: IconServer, label: '主机管理' },
   { id: 'task', icon: IconClipboard, label: '任务管理' },
+  { id: 'fio-monitor', icon: IconChart, label: '实时监控' },
   { id: 'analysis', icon: IconChart, label: '分析报告' },
   { id: 'compare', icon: IconChart, label: '对比分析' },
 ]
@@ -149,6 +151,9 @@ function App() {
       </div>
       <div style={{ display: sidebarItem === 'task' ? 'block' : 'none' }}>
         {mountedSidebar.task && <TaskManager onAudit={handleAudit} onShowResults={showResults} />}
+      </div>
+      <div style={{ display: sidebarItem === 'fio-monitor' ? 'block' : 'none' }}>
+        {mountedSidebar['fio-monitor'] && <FioMonitor onShowResults={showResults} />}
       </div>
       <div style={{ display: sidebarItem === 'analysis' ? 'block' : 'none' }}>
         {mountedSidebar.analysis && <AnalysisView onAudit={handleAudit} onShowResults={showResults} />}

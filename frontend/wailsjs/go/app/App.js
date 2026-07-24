@@ -281,3 +281,15 @@ export function StopIperfTest(arg1) {
 export function UpdateHost(arg1, arg2) {
   return window['go']['app']['App']['UpdateHost'](arg1, arg2);
 }
+
+export function MonitorFioTask(arg1, arg2) {
+  return window['go']['app']['App']['MonitorFioTask'](arg1, arg2);
+}
+
+export function StopFioMonitor(arg1) {
+  return window['go']['app']['App']['StopFioMonitor'](arg1);
+}
+
+export function GenerateReportPDF(arg1) {
+  return window['go']['app']['App']['GenerateReportPDF'](arg1);
+}

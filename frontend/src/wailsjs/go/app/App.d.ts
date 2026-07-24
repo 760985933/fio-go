@@ -67,6 +67,7 @@ export interface ExecutionTaskConfig {
     name: string;
     scripts: string[];
     hosts: HostConfig[];
+    monitorEnabled: boolean;
     startedAt?: string;
     finishedAt?: string;
 }
@@ -234,3 +235,5 @@ export interface TaskCompareResult {
 
 export function CompareTaskMetrics(taskIDs: string[]): Promise<TaskCompareResult[]>;
 export function GenerateReportPDF(taskID: string): Promise<string>;
+export function MonitorFioTask(taskID: string, hosts: HostConfig[]): Promise<void>;
+export function StopFioMonitor(taskID: string): Promise<void>;

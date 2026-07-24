@@ -272,3 +272,11 @@ export function CompareTaskMetrics(taskIDs) {
 export function GenerateReportPDF(taskID) {
     return window['go']['app']['App']['GenerateReportPDF'](taskID);
 }
+
+export function MonitorFioTask(taskID, hosts) {
+    return window['go']['app']['App']['MonitorFioTask'](taskID, hosts);
+}
+
+export function StopFioMonitor(taskID) {
+    return window['go']['app']['App']['StopFioMonitor'](taskID);
+}

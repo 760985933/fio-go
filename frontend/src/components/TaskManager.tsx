@@ -20,6 +20,7 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
   const [newTaskName, setNewTaskName] = useState('')
   const [newTaskScripts, setNewTaskScripts] = useState<string[]>([])
   const [newTaskHostIds, setNewTaskHostIds] = useState<number[]>([])
+  const [newTaskMonitor, setNewTaskMonitor] = useState(false)
 
   const [progressOpen, setProgressOpen] = useState(false)
   const [progressTitle, setProgressTitle] = useState('')
@@ -47,6 +48,7 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
     setNewTaskName('')
     setNewTaskScripts([])
     setNewTaskHostIds(freshHosts.map((h: any) => h.id))
+    setNewTaskMonitor(false)
     setShowCreate(true)
   }
 
@@ -55,12 +57,19 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
     const selectedHosts = hosts.filter(h => newTaskHostIds.includes(h.id))
     if (selectedHosts.length === 0) return
 
+    if (newTaskMonitor && !window.confirm(
+      '已开启实时监控，任务运行期间会通过 SSH 轮询每台主机的 FIO 状态（约每 2 秒一次）。\n\n这可能会对测试性能产生轻微影响，尤其是对高负载或网络延迟较大的场景。\n\n是否继续创建？'
+    )) {
+      return
+    }
+
     const name = newTaskName.trim() || newTaskScripts.join('+')
     const task: ExecutionTaskConfig = {
       id: `task_${Date.now()}`,
       name,
       scripts: newTaskScripts,
       hosts: selectedHosts.map(h => ({ host: h.host, port: h.port, user: h.user, password: h.password })),
+      monitorEnabled: newTaskMonitor,
     }
     const newTasks = [...executionTasks, task]
     setExecutionTasks(newTasks)
@@ -351,6 +360,14 @@ export function TaskManager({ onAudit, onShowResults }: Props) {
                     ))}
                   </div>
                 )}
+              </div>
+              <div className="form-group" style={{ marginBottom: 0, marginTop: 8 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+                  <input type="checkbox" checked={newTaskMonitor}
+                    onChange={(e) => setNewTaskMonitor(e.target.checked)} />
+                  <span>开启实时监控</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>(会增加 SSH 轮询开销)</span>
+                </label>
               </div>
             </div>
             <div className="modal-footer">

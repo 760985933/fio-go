@@ -105,6 +105,7 @@ export namespace app {
 	    name: string;
 	    scripts: string[];
 	    hosts: executor.HostConfig[];
+	    monitorEnabled: boolean;
 	    startedAt?: string;
 	    finishedAt?: string;
 	
@@ -118,6 +119,7 @@ export namespace app {
 	        this.name = source["name"];
 	        this.scripts = source["scripts"];
 	        this.hosts = this.convertValues(source["hosts"], executor.HostConfig);
+	        this.monitorEnabled = source["monitorEnabled"];
 	        this.startedAt = source["startedAt"];
 	        this.finishedAt = source["finishedAt"];
 	    }

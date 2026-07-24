@@ -260,12 +260,13 @@ func generateFioText(cfg *FioConfig) string {
 // ========== 执行任务管理 ==========
 
 type ExecutionTaskConfig struct {
-	ID         string                `json:"id"`
-	Name       string                `json:"name"`
-	Scripts    []string              `json:"scripts"`
-	Hosts      []executor.HostConfig `json:"hosts"`
-	StartedAt  string                `json:"startedAt,omitempty"`
-	FinishedAt string                `json:"finishedAt,omitempty"`
+	ID             string                `json:"id"`
+	Name           string                `json:"name"`
+	Scripts        []string              `json:"scripts"`
+	Hosts          []executor.HostConfig `json:"hosts"`
+	MonitorEnabled bool                  `json:"monitorEnabled"`
+	StartedAt      string                `json:"startedAt,omitempty"`
+	FinishedAt     string                `json:"finishedAt,omitempty"`
 }
 
 type ExecutionTasksPayload struct {
