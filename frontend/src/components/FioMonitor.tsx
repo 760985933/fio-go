@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { ExecutionTaskConfig } from '../types'
 import * as App from '../wailsjs/go/app/App'
-import { EventsOn, EventsOff, EventsOffAll } from '../wailsjs/runtime/runtime'
+import { EventsOn, EventsOffAll } from '../wailsjs/runtime/runtime'
 
 interface FioStatus {
   host: string
@@ -24,18 +24,7 @@ interface Toast {
   type: 'info' | 'success' | 'error' | 'warn'
 }
 
-interface LogEntry {
-  ts: string
-  msg: string
-  color: string
-}
-
 let toastId = 0
-
-function tsNow() {
-  const d = new Date()
-  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}.${d.getMilliseconds().toString().padStart(3, '0')}`
-}
 
 export function FioMonitor() {
   const [tasks, setTasks] = useState<ExecutionTaskConfig[]>([])
@@ -45,22 +34,8 @@ export function FioMonitor() {
   const [history, setHistory] = useState<Map<string, FioStatus[]>>(new Map())
   const [detailHost, setDetailHost] = useState<string | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
-  const [logs, setLogs] = useState<LogEntry[]>([])
-  const [showDebug, setShowDebug] = useState(true)
   const eventRef = useRef<string | null>(null)
   const monitorTaskIdRef = useRef<string | null>(null)
-  const isMonitoringRef = useRef(false)
-  const logsEndRef = useRef<HTMLDivElement>(null)
-
-  const addLog = (msg: string, color = '#86868b') => {
-    const entry: LogEntry = { ts: tsNow(), msg, color }
-    setLogs(prev => [...prev.slice(-100), entry])
-    console.log(`[FioMon] ${msg}`)
-  }
-
-  useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [logs])
 
   const addToast = (msg: string, type: Toast['type'] = 'info') => {
     const id = ++toastId
@@ -69,54 +44,26 @@ export function FioMonitor() {
   }
 
   useEffect(() => {
-    addLog('组件挂载', '#3b82f6')
     loadTasks()
-    return () => {
-      addLog('组件卸载', '#ef4444')
-      EventsOffLocal()
-      fireStop()
-    }
+    return () => { EventsOffAll(); fireStop() }
   }, [])
-
-  const EventsOffLocal = () => {
-    if (eventRef.current) {
-      const name = eventRef.current
-      eventRef.current = null
-      addLog(`EventsOffAll()`, '#f59e0b')
-      EventsOffAll()
-    }
-  }
 
   const fireStop = () => {
     const tid = monitorTaskIdRef.current
     monitorTaskIdRef.current = null
-    isMonitoringRef.current = false
-    if (tid) {
-      addLog(`fireStop: StopFioMonitor(${tid})`, '#f59e0b')
-      App.StopFioMonitor(tid).catch(() => {})
-    }
+    if (tid) { App.StopFioMonitor(tid).catch(() => {}) }
   }
 
   const loadTasks = async () => {
-    addLog('加载任务列表...', '#3b82f6')
     try {
       const list = await App.GetExecutionTasks()
       setTasks(list || [])
-      addLog(`加载到 ${(list || []).length} 个任务`, '#22c55e')
-    } catch (e: any) {
-      addLog(`加载任务失败: ${e?.message || e}`, '#ef4444')
-    }
+    } catch { /* ignore */ }
   }
 
   const startMonitor = (task: ExecutionTaskConfig) => {
-    addLog(`>>> startMonitor("${task.id}")`, '#3b82f6')
-    addLog(`  eventRef旧值: ${eventRef.current}`, '#86868b')
-    addLog(`  monitorTaskIdRef旧值: ${monitorTaskIdRef.current}`, '#86868b')
-
-    EventsOffLocal()
+    EventsOffAll()
     fireStop()
-
-    addLog(`  setSelectedTask`, '#86868b')
     setSelectedTask(task)
     setStatuses([])
     setHistory(new Map())
@@ -124,16 +71,11 @@ export function FioMonitor() {
 
     const eventName = `fio:status:${task.id}`
     monitorTaskIdRef.current = task.id
-    addLog(`  monitorTaskIdRef = ${task.id}`, '#22c55e')
 
-    addLog(`  EventsOn(${eventName})`, '#3b82f6')
     EventsOn(eventName, (payload: any) => {
-      addLog(`  [事件] ${eventName}: ${payload?.event || 'data'}`, '#6366f1')
       if (payload && (payload.event === 'done' || payload.event === 'timeout')) {
-        addLog(`  监控结束: ${payload.event}`, payload.event === 'timeout' ? '#ef4444' : '#22c55e')
         eventRef.current = null
         monitorTaskIdRef.current = null
-        isMonitoringRef.current = false
         EventsOffAll()
         setIsMonitoring(false)
         addToast(payload.event === 'timeout' ? '监控超时：所有主机均未返回 FIO 数据' : 'FIO 任务已完成', payload.event === 'timeout' ? 'error' : 'success')
@@ -141,7 +83,6 @@ export function FioMonitor() {
       }
       const st = payload as FioStatus
       if (st && st.host) {
-        addLog(`  [数据] ${st.host}: R=${st.readIOPS.toFixed(0)} W=${st.writeIOPS.toFixed(0)}`, '#86868b')
         setStatuses(prev => {
           const next = prev.filter(s => s.host !== st.host)
           next.push(st)
@@ -158,65 +99,34 @@ export function FioMonitor() {
       }
     })
     eventRef.current = eventName
-    addLog(`  eventRef = ${eventName}`, '#22c55e')
-
     setIsMonitoring(true)
-    isMonitoringRef.current = true
-    addLog(`  setIsMonitoring(true)`, '#22c55e')
     addToast('正在启动监控...', 'info')
 
-    addLog(`  setTimeout 50ms 后调用 App.MonitorFioTask`, '#86868b')
     setTimeout(() => {
-      addLog(`  >>> App.MonitorFioTask 调用开始 (IPC)`, '#f59e0b')
-      const t0 = performance.now()
       App.MonitorFioTask(task.id, task.hosts || [])
-        .then(() => {
-          addLog(`  <<< App.MonitorFioTask 返回 OK (${(performance.now() - t0).toFixed(0)}ms)`, '#22c55e')
-          addToast('监控已启动', 'success')
-        })
+        .then(() => addToast('监控已启动', 'success'))
         .catch((err: any) => {
-          addLog(`  <<< App.MonitorFioTask 失败: ${err?.message || err} (${(performance.now() - t0).toFixed(0)}ms)`, '#ef4444')
-          addToast('启动失败: ' + (err?.message || String(err)), 'error')
-          EventsOff(eventName)
+          EventsOffAll()
           eventRef.current = null
           monitorTaskIdRef.current = null
-          isMonitoringRef.current = false
           setIsMonitoring(false)
+          addToast('启动失败: ' + (err?.message || String(err)), 'error')
         })
     }, 50)
   }
 
   const stopMonitor = () => {
-    addLog(`>>> stopMonitor 被调用!`, '#ef4444')
-    addLog(`  eventRef: ${eventRef.current}`, '#86868b')
-    addLog(`  monitorTaskIdRef: ${monitorTaskIdRef.current}`, '#86868b')
-
-    EventsOffLocal()
+    EventsOffAll()
     const tid = monitorTaskIdRef.current
     monitorTaskIdRef.current = null
-    isMonitoringRef.current = false
-    addLog(`  setIsMonitoring(false)`, '#22c55e')
     setIsMonitoring(false)
     setStatuses([])
     setHistory(new Map())
     addToast('监控已停止', 'warn')
-
-    if (tid) {
-      addLog(`  setTimeout 延迟调用 StopFioMonitor(${tid})`, '#f59e0b')
-      setTimeout(() => {
-        addLog(`  >>> StopFioMonitor 调用`, '#f59e0b')
-        App.StopFioMonitor(tid).catch(() => {
-          addLog(`  StopFioMonitor 失败`, '#ef4444')
-        })
-        addLog(`  <<< StopFioMonitor 返回`, '#22c55e')
-      }, 0)
-    } else {
-      addLog(`  无 taskId，跳过后端清理`, '#f59e0b')
-    }
+    if (tid) { setTimeout(() => App.StopFioMonitor(tid).catch(() => {}), 0) }
   }
 
   const goBack = () => {
-    addLog(`>>> goBack`, '#3b82f6')
     stopMonitor()
     setSelectedTask(null)
     setDetailHost(null)
@@ -258,17 +168,15 @@ export function FioMonitor() {
 
       <div className="manager-header">
         <h2>FIO 实时监控</h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {isMonitoring && (
-            <span style={{ fontSize: 13, color: '#22c55e', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{
-                width: 8, height: 8, borderRadius: '50%', background: '#22c55e',
-                animation: 'pulse 1.5s ease-in-out infinite'
-              }} />
-              监控中
-            </span>
-          )}
-        </div>
+        {isMonitoring && (
+          <span style={{ fontSize: 13, color: '#22c55e', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%', background: '#22c55e',
+              animation: 'pulse 1.5s ease-in-out infinite'
+            }} />
+            监控中
+          </span>
+        )}
       </div>
 
       {!selectedTask && (
@@ -284,15 +192,15 @@ export function FioMonitor() {
                   padding: '10px 14px', borderRadius: 8, border: '1px solid #e8e8ed',
                   background: '#fafafa'
                 }}>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f' }}>{task.name}</div>
-                      <div style={{ fontSize: 12, color: '#86868b', marginTop: 2 }}>
-                        {task.scripts?.join(', ')} · {task.hosts?.length || 0} 台主机
-                      </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: '#1d1d1f' }}>{task.name}</div>
+                    <div style={{ fontSize: 12, color: '#86868b', marginTop: 2 }}>
+                      {task.scripts?.join(', ')} · {task.hosts?.length || 0} 台主机
                     </div>
-                    <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); setSelectedTask(task) }}>
-                      {isMonitoring && monitorTaskIdRef.current === task.id ? '查看' : '监控'}
-                    </button>
+                  </div>
+                  <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); setSelectedTask(task) }}>
+                    {isMonitoring && monitorTaskIdRef.current === task.id ? '查看' : '监控'}
+                  </button>
                 </div>
               ))}
             </div>
@@ -306,17 +214,9 @@ export function FioMonitor() {
             <button className="btn btn-outline btn-sm" onClick={goBack}>← 返回</button>
             <span style={{ fontSize: 14, fontWeight: 600 }}>{selectedTask.name}</span>
             <span style={{ fontSize: 12, color: '#86868b' }}>{selectedTask.hosts?.length || 0} 台主机</span>
-            <span style={{ fontSize: 11, color: '#86868b', marginLeft: 4 }}>
-              isMon={isMonitoring ? 'T' : 'F'} | ref={isMonitoringRef.current ? 'T' : 'F'} | evt={eventRef.current ? 'Y' : 'N'} | tid={monitorTaskIdRef.current || 'null'}
-            </span>
             <div style={{ flex: 1 }} />
             {isMonitoring ? (
-              <button
-                className="btn btn-danger btn-sm"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); addLog('按钮 click 事件触发', '#ef4444'); stopMonitor() }}
-              >
-                停止监控
-              </button>
+              <button className="btn btn-danger btn-sm" onClick={stopMonitor}>停止监控</button>
             ) : (
               <button className="btn btn-primary btn-sm" onClick={() => startMonitor(selectedTask)}>开始监控</button>
             )}
@@ -413,52 +313,6 @@ export function FioMonitor() {
           )}
         </>
       )}
-
-      <div style={{
-        marginTop: 16, border: '1px solid #e8e8ed', borderRadius: 10,
-        background: '#1d1d1f', overflow: 'hidden'
-      }}>
-        <div
-          style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '8px 14px', cursor: 'pointer', userSelect: 'none',
-            borderBottom: showDebug ? '1px solid #333' : 'none'
-          }}
-          onClick={() => setShowDebug(!showDebug)}
-        >
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#86868b', fontFamily: 'monospace' }}>
-            调试日志 ({logs.length})
-          </span>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              style={{
-                fontSize: 10, color: '#86868b', background: '#333', border: '1px solid #555',
-                borderRadius: 4, padding: '2px 8px', cursor: 'pointer'
-              }}
-              onClick={(e) => { e.stopPropagation(); setLogs([]) }}
-            >
-              清空
-            </button>
-            <span style={{ fontSize: 11, color: '#86868b' }}>{showDebug ? '▼' : '▶'}</span>
-          </div>
-        </div>
-        {showDebug && (
-          <div style={{
-            height: 200, overflow: 'auto', padding: '8px 14px',
-            fontFamily: 'Menlo, Monaco, monospace', fontSize: 11, lineHeight: 1.6
-          }}>
-            {logs.length === 0 && (
-              <div style={{ color: '#555' }}>等待操作...</div>
-            )}
-            {logs.map((log, i) => (
-              <div key={i} style={{ color: log.color }}>
-                <span style={{ color: '#555' }}>{log.ts}</span> {log.msg}
-              </div>
-            ))}
-            <div ref={logsEndRef} />
-          </div>
-        )}
-      </div>
 
       <style>{`
         @keyframes pulse {
