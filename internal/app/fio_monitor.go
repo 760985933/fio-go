@@ -81,66 +81,109 @@ func (a *App) MonitorFioTask(taskID string, hosts []executor.HostConfig) {
 		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
 
+		eventName := fmt.Sprintf("fio:status:%s", taskID)
+		const maxNoDataTicks = 6 // 12秒无数据则超时
+		noDataTicks := 0
+		gotAnyData := false
+
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				allDone := true
+				// 并发查询所有主机，单轮最多10秒
+				type hostResult struct {
+					statuses []FioStatus
+				}
+				results := make(chan hostResult, len(hosts))
 				for _, host := range hosts {
-					statuses := mon.fetchFioStatus(host)
-					for _, st := range statuses {
-						eventName := fmt.Sprintf("fio:status:%s", taskID)
-						runtime.EventsEmit(a.ctx, eventName, st)
-						if st.JobStatus == "running" || st.JobStatus == "" {
+					go func(h executor.HostConfig) {
+						results <- hostResult{statuses: mon.fetchFioStatus(h)}
+					}(host)
+				}
+
+				anyThisTick := false
+				allDone := true
+				for range hosts {
+					select {
+					case r := <-results:
+						for _, st := range r.statuses {
+							runtime.EventsEmit(a.ctx, eventName, st)
+							anyThisTick = true
+							gotAnyData = true
+							if st.JobStatus == "running" || st.JobStatus == "" {
+								allDone = false
+							}
+						}
+						if len(r.statuses) == 0 {
 							allDone = false
 						}
-					}
-					if len(statuses) == 0 {
+					case <-time.After(10 * time.Second):
 						allDone = false
 					}
 				}
-				if allDone {
-					eventName := fmt.Sprintf("fio:status:%s", taskID)
+
+				if allDone && gotAnyData {
 					runtime.EventsEmit(a.ctx, eventName, map[string]string{"event": "done"})
 					return
+				}
+				if anyThisTick {
+					noDataTicks = 0
+				} else {
+					noDataTicks++
+					if gotAnyData && noDataTicks >= maxNoDataTicks {
+						runtime.EventsEmit(a.ctx, eventName, map[string]string{"event": "done"})
+						return
+					}
+					if !gotAnyData && noDataTicks >= maxNoDataTicks {
+						runtime.EventsEmit(a.ctx, eventName, map[string]string{"event": "timeout"})
+						return
+					}
 				}
 			}
 		}
 	}()
 }
 
-// StopFioMonitor 停止 FIO 监控
+// StopFioMonitor 停止 FIO 监控（不阻塞）
 func (a *App) StopFioMonitor(taskID string) {
 	fioMonitorsMu.Lock()
-	defer fioMonitorsMu.Unlock()
-	if mon, ok := fioMonitors[taskID]; ok {
-		mon.stopOnce.Do(func() { mon.cancel() })
+	mon, ok := fioMonitors[taskID]
+	if ok {
 		delete(fioMonitors, taskID)
+	}
+	fioMonitorsMu.Unlock()
+
+	if ok {
+		mon.stopOnce.Do(func() { mon.cancel() })
+		go mon.closeAll()
 	}
 }
 
 func (m *fioMonitor) getOrCreateClient(host executor.HostConfig) *executor.SSHClient {
 	key := hostKey(host)
 	m.mu.Lock()
-	defer m.mu.Unlock()
+	cli, ok := m.clients[key]
+	m.mu.Unlock()
 
-	if cli, ok := m.clients[key]; ok {
-		// 检测连接是否存活
+	if ok {
 		if _, _, err := cli.Client.SendRequest("keepalive@openssh.com", true, nil); err == nil {
 			return cli
 		}
-		// 连接已断，关闭旧的
+		m.mu.Lock()
 		cli.Close()
 		delete(m.clients, key)
+		m.mu.Unlock()
 	}
 
-	cli, err := executor.NewSSHClient(host)
+	newCli, err := executor.NewSSHClient(host)
 	if err != nil {
 		return nil
 	}
-	m.clients[key] = cli
-	return cli
+	m.mu.Lock()
+	m.clients[key] = newCli
+	m.mu.Unlock()
+	return newCli
 }
 
 func (m *fioMonitor) closeAll() {
@@ -161,23 +204,23 @@ func (m *fioMonitor) fetchFioStatus(host executor.HostConfig) []FioStatus {
 
 	_, dataDir, logsDir, pidFile := executor.BuildTaskPaths(m.taskID)
 
-	// 检查进程是否仍在运行
+	// 检查进程是否仍在运行（5秒超时）
 	pidCheck := fmt.Sprintf(`if [ -f %[1]s ]; then pid="$(cat %[1]s)"; if ps -p "$pid" >/dev/null 2>&1; then echo "running"; else echo "stopped"; fi; else echo "stopped"; fi`, pidFile)
-	out, _ := client.RunCommand(pidCheck)
+	out, _ := client.RunCommandWithTimeout(pidCheck, 5*time.Second)
 	if strings.TrimSpace(out) != "running" {
 		return nil
 	}
 
-	// 读取 fio_stdout.log 的最后 50 行，找最新状态行
+	// 读取 fio_stdout.log 的最后 50 行，找最新状态行（5秒超时）
 	cmd := fmt.Sprintf("tail -50 %s/fio_stdout.log 2>/dev/null || true", logsDir)
-	stdout, err := client.RunCommand(cmd)
+	stdout, err := client.RunCommandWithTimeout(cmd, 5*time.Second)
 	if err != nil || strings.TrimSpace(stdout) == "" {
 		return nil
 	}
 
 	// 同时尝试读取 JSON 输出获取 job 名称
 	jsonFilesCmd := fmt.Sprintf("ls %s/*.json 2>/dev/null || true", dataDir)
-	jsonFiles, _ := client.RunCommand(jsonFilesCmd)
+	jsonFiles, _ := client.RunCommandWithTimeout(jsonFilesCmd, 5*time.Second)
 
 	var statuses []FioStatus
 	lines := strings.Split(stdout, "\n")

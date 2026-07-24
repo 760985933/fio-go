@@ -111,6 +111,32 @@ func (s *SSHClient) RunCommand(cmd string) (string, error) {
 	return string(output), err
 }
 
+func (s *SSHClient) RunCommandWithTimeout(cmd string, timeout time.Duration) (string, error) {
+	session, err := s.Client.NewSession()
+	if err != nil {
+		return "", fmt.Errorf("failed to create session: %v", err)
+	}
+	defer session.Close()
+
+	type result struct {
+		output []byte
+		err    error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		out, e := session.CombinedOutput(cmd)
+		ch <- result{out, e}
+	}()
+
+	select {
+	case r := <-ch:
+		return string(r.output), r.err
+	case <-time.After(timeout):
+		session.Close()
+		return "", fmt.Errorf("command timed out after %v", timeout)
+	}
+}
+
 func (s *SSHClient) RunCommandNoWait(cmd string) error {
 	session, err := s.Client.NewSession()
 	if err != nil {
