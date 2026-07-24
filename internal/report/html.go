@@ -300,7 +300,13 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
     renderClatCharts();
 
     function renderClatCharts() {
-      if (!clatData || Object.keys(clatData).length === 0) return;
+      if (!clatData || Object.keys(clatData).length === 0) {
+        const pctSec = document.getElementById('clat_percentile_section');
+        const distSec = document.getElementById('clat_dist_section');
+        if (pctSec) pctSec.style.display = 'none';
+        if (distSec) distSec.style.display = 'none';
+        return;
+      }
 
       const pctRoot = document.getElementById('clat_percentile_root');
       const distRoot = document.getElementById('clat_dist_root');
@@ -396,15 +402,21 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
               yAxis: { type: 'value', name: 'μs' },
               series: series
             });
+          } else {
+            pctDiv.remove();
           }
 
           // Distribution histogram
-          if (hostData.readDist && hostData.readDist.length > 0) {
+          const hasReadDist = hostData.readDist && hostData.readDist.length > 0;
+          const hasWriteDist = hostData.writeDist && hostData.writeDist.length > 0;
+          if (hasReadDist || hasWriteDist) {
             const chart = echarts.init(distDiv);
-            const labels = hostData.readDist.map(d => Math.round(d.edge));
-            const counts = hostData.readDist.map(d => Math.round(d.count));
+            const dist = hasReadDist ? hostData.readDist : hostData.writeDist;
+            const isRead = hasReadDist;
+            const labels = dist.map(d => Math.round(d.edge));
+            const counts = dist.map(d => Math.round(d.count));
             chart.setOption({
-              title: { text: jobname + ' 读延迟分布', textStyle: { fontSize: 13 } },
+              title: { text: jobname + (isRead ? ' 读延迟分布' : ' 写延迟分布'), textStyle: { fontSize: 13 } },
               tooltip: { trigger: 'axis', formatter: params => {
                 const p = params[0];
                 return '上界: ' + p.axisValue + ' μs<br/>I/O次数: ' + p.value;
@@ -413,28 +425,11 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
                 axisLabel: { rotate: 45, fontSize: 10 } },
               yAxis: { type: 'value', name: 'I/O次数' },
               dataZoom: [{ type: 'inside' }, { type: 'slider' }],
-              series: [{ type: 'bar', data: counts, itemStyle: { color: '#6366f1' },
-                barMaxWidth: 16 }]
-            });
-          } else if (hostData.writeDist && hostData.writeDist.length > 0) {
-            const chart = echarts.init(distDiv);
-            const labels = hostData.writeDist.map(d => Math.round(d.edge));
-            const counts = hostData.writeDist.map(d => Math.round(d.count));
-            chart.setOption({
-              title: { text: jobname + ' 写延迟分布', textStyle: { fontSize: 13 } },
-              tooltip: { trigger: 'axis', formatter: params => {
-                const p = params[0];
-                return '上界: ' + p.axisValue + ' μs<br/>I/O次数: ' + p.value;
-              }},
-              xAxis: { type: 'category', data: labels, name: 'μs',
-                axisLabel: { rotate: 45, fontSize: 10 } },
-              yAxis: { type: 'value', name: 'I/O次数' },
-              dataZoom: [{ type: 'inside' }, { type: 'slider' }],
-              series: [{ type: 'bar', data: counts, itemStyle: { color: '#ec4899' },
+              series: [{ type: 'bar', data: counts, itemStyle: { color: isRead ? '#6366f1' : '#ec4899' },
                 barMaxWidth: 16 }]
             });
           } else {
-            distDiv.innerHTML = '<p style="font-size:13px;color:#9ca3af;padding:8px 0;">暂无分布数据</p>';
+            distDiv.remove();
           }
         });
       });

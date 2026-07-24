@@ -65,8 +65,8 @@ export function TaskCompareView({ onShowResults }: Props) {
     try {
       const res = await App.CompareTaskMetrics(selectedIds)
       setResults(res)
-    } catch (err) {
-      await onShowResults('对比失败', `错误: ${err}`)
+    } catch (err: any) {
+      await onShowResults('对比失败', `错误: ${err.message || err}`)
     }
     setLoading(false)
   }
@@ -120,12 +120,12 @@ export function TaskCompareView({ onShowResults }: Props) {
               <th style={thStyle}></th>
               <th style={thStyle}></th>
               {results.map(r => (
-                <Fragment key={r.taskId}>
+                <>
                   <th style={thSubStyle}>读IOPS(K)</th>
                   <th style={thSubStyle}>写IOPS(K)</th>
                   <th style={thSubStyle}>读延迟(us)</th>
                   <th style={thSubStyle}>写延迟(us)</th>
-                </Fragment>
+                </>
               ))}
             </tr>
           </thead>
@@ -142,22 +142,22 @@ export function TaskCompareView({ onShowResults }: Props) {
                     const rows = rowsByTask.get(r.taskId)
                     if (!rows || rows.length === 0) {
                       return (
-                        <Fragment key={r.taskId}>
+                        <>
                           <td style={tdStyle}>-</td>
                           <td style={tdStyle}>-</td>
                           <td style={tdStyle}>-</td>
                           <td style={tdStyle}>-</td>
-                        </Fragment>
+                        </>
                       )
                     }
                     const row = rows[0]
                     return (
-                      <Fragment key={r.taskId}>
+                      <>
                         <td style={tdStyle}>{fmtIOPS(row.ReadIOPS)}</td>
                         <td style={tdStyle}>{fmtIOPS(row.WriteIOPS)}</td>
                         <td style={tdStyle}>{fmtLat(row.ReadLatMS)}</td>
                         <td style={tdStyle}>{fmtLat(row.WriteLatMS)}</td>
-                      </Fragment>
+                      </>
                     )
                   })}
                 </tr>
@@ -239,8 +239,6 @@ export function TaskCompareView({ onShowResults }: Props) {
     </div>
   )
 }
-
-const Fragment = ({ children }: { children: React.ReactNode }) => <>{children}</>
 
 const thStyle: React.CSSProperties = {
   padding: '8px 10px', borderBottom: '2px solid #d1d5db', fontWeight: 600,

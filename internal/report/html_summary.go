@@ -26,11 +26,12 @@ func generateHtmlSummaryTables(groupedRows []models.GroupedMetric) string {
 
 		bkt := byBsDepth[bs][depth]
 		rowCopy := r
-		if rw == "read" || rw == "randread" {
+		switch rw {
+		case "read", "randread":
 			bkt.Read = &rowCopy
-		} else if rw == "write" || rw == "randwrite" {
+		case "write", "randwrite":
 			bkt.Write = &rowCopy
-		} else if rw == "readwrite" || rw == "rw" || rw == "randrw" {
+		case "readwrite", "rw", "randrw":
 			bkt.Mixed = &rowCopy
 		}
 	}
