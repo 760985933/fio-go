@@ -264,3 +264,7 @@ export function GetIperfIntervals(taskID) {
 export function GetIperfTaskLog(taskID) {
     return window['go']['app']['App']['GetIperfTaskLog'](taskID);
 }
+
+export function CompareTaskMetrics(taskIDs) {
+    return window['go']['app']['App']['CompareTaskMetrics'](taskIDs);
+}

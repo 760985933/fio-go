@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -177,6 +178,89 @@ type AnalysisResult struct {
 	SystemTexts map[string]string
 	NumJobsMap  map[string]int
 	ClatAnalysis map[string]map[string]*models.HostClatData
+}
+
+func (res *AnalysisResult) AggregatedToGroupedRows() []models.GroupedMetric {
+	var bsKeys []string
+	for k := range res.Aggregated {
+		bsKeys = append(bsKeys, k)
+	}
+	sort.Slice(bsKeys, func(i, j int) bool {
+		return BSToBytes(bsKeys[i]) < BSToBytes(bsKeys[j])
+	})
+
+	var groupedRows []models.GroupedMetric
+
+	for _, bs := range bsKeys {
+		jobMap := res.Aggregated[bs]
+		jobKeys := make([]string, 0, len(jobMap))
+		for j := range jobMap {
+			jobKeys = append(jobKeys, j)
+		}
+		sort.Slice(jobKeys, func(i, j int) bool {
+			var rw1, rw2 string
+			for _, n := range jobMap[jobKeys[i]] {
+				rw1 = n.RW
+				break
+			}
+			for _, n := range jobMap[jobKeys[j]] {
+				rw2 = n.RW
+				break
+			}
+			r1 := RWRank(rw1)
+			r2 := RWRank(rw2)
+			if r1 == r2 {
+				return jobKeys[i] < jobKeys[j]
+			}
+			return r1 < r2
+		})
+
+		for _, jobname := range jobKeys {
+			ipMap := jobMap[jobname]
+			var nodes []models.NodeMetric
+			for _, metric := range ipMap {
+				nodes = append(nodes, metric)
+			}
+			if len(nodes) == 0 {
+				continue
+			}
+
+			var rIopsSum, wIopsSum, rBwSum, wBwSum, rLatSum, wLatSum float64
+			rw := nodes[0].RW
+			iodepth := nodes[0].IODepth
+
+			for _, n := range nodes {
+				rIopsSum += n.ReadIOPS
+				wIopsSum += n.WriteIOPS
+				rBwSum += n.ReadBW
+				wBwSum += n.WriteBW
+				rLatSum += n.ReadClatMeanUS * n.ReadIOPS
+				wLatSum += n.WriteClatMeanUS * n.WriteIOPS
+			}
+
+			rLatAvg := 0.0
+			if rIopsSum > 0 {
+				rLatAvg = rLatSum / rIopsSum
+			}
+			wLatAvg := 0.0
+			if wIopsSum > 0 {
+				wLatAvg = wLatSum / wIopsSum
+			}
+
+			nj := res.NumJobsMap[MakeNumJobsKey(bs, strings.ToLower(rw), iodepth)]
+			if nj == 0 {
+				nj = ExtractNumJobs(FioJob{"jobname": jobname})
+			}
+
+			groupedRows = append(groupedRows, models.GroupedMetric{
+				BS: bs, Jobname: jobname, RW: rw, IODepth: iodepth, Numjobs: nj,
+				ReadIOPS: rIopsSum, WriteIOPS: wIopsSum,
+				ReadBWMB: rBwSum / 1024.0, WriteBWMB: wBwSum / 1024.0,
+				ReadLatMS: rLatAvg / 1000.0, WriteLatMS: wLatAvg / 1000.0,
+			})
+		}
+	}
+	return groupedRows
 }
 
 func MakeNumJobsKey(bs, rw string, iodepth int) string {

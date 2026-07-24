@@ -6,6 +6,7 @@ import { ScriptManager } from './components/ScriptManager'
 import { HostManager } from './components/HostManager'
 import { TaskManager } from './components/TaskManager'
 import { AnalysisView } from './components/AnalysisView'
+import { TaskCompareView } from './components/TaskCompareView'
 import { SystemSettings } from './components/SystemSettings'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { Modal } from './components/Modal'
@@ -39,6 +40,7 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
   { id: 'host', icon: IconServer, label: '主机管理' },
   { id: 'task', icon: IconClipboard, label: '任务管理' },
   { id: 'analysis', icon: IconChart, label: '分析报告' },
+  { id: 'compare', icon: IconChart, label: '对比分析' },
 ]
 
 const SIDEBAR_ITEMS_TOOL: SidebarItem[] = [
@@ -150,6 +152,9 @@ function App() {
       </div>
       <div style={{ display: sidebarItem === 'analysis' ? 'block' : 'none' }}>
         {mountedSidebar.analysis && <AnalysisView onAudit={handleAudit} onShowResults={showResults} />}
+      </div>
+      <div style={{ display: sidebarItem === 'compare' ? 'block' : 'none' }}>
+        {mountedSidebar.compare && <TaskCompareView onShowResults={showResults} />}
       </div>
       <div style={{ display: sidebarItem === 'orchestration' ? 'block' : 'none' }}>
         {mountedSidebar.orchestration && <OrchestrationManager onShowResults={showResults} />}

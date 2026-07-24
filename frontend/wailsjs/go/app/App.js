@@ -54,6 +54,10 @@ export function ClearExecutionLog(arg1) {
   return window['go']['app']['App']['ClearExecutionLog'](arg1);
 }
 
+export function CompareTaskMetrics(arg1) {
+  return window['go']['app']['App']['CompareTaskMetrics'](arg1);
+}
+
 export function CreateIperfTask(arg1) {
   return window['go']['app']['App']['CreateIperfTask'](arg1);
 }

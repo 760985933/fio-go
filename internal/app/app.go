@@ -713,6 +713,47 @@ func dirHasFiles(dir string) bool {
 	return found
 }
 
+type TaskCompareResult struct {
+	TaskID       string                 `json:"taskId"`
+	TaskName     string                 `json:"taskName"`
+	GroupedRows  []models.GroupedMetric `json:"groupedRows"`
+	Error        string                 `json:"error,omitempty"`
+}
+
+// CompareTaskMetrics 对比多个任务的性能数据
+func (a *App) CompareTaskMetrics(taskIDs []string) ([]TaskCompareResult, error) {
+	var results []TaskCompareResult
+	for _, taskID := range taskIDs {
+		res := TaskCompareResult{TaskID: taskID}
+
+		tasks, _ := a.GetExecutionTasks()
+		for _, t := range tasks {
+			if t.ID == taskID {
+				res.TaskName = t.Name
+				break
+			}
+		}
+
+		dataDir := taskRawDataDir(taskID)
+		if !dirHasFiles(dataDir) {
+			res.Error = "无数据"
+			results = append(results, res)
+			continue
+		}
+
+		analysisResult, err := parser.AnalyzeJSONFiles(dataDir)
+		if err != nil {
+			res.Error = err.Error()
+			results = append(results, res)
+			continue
+		}
+
+		res.GroupedRows = analysisResult.AggregatedToGroupedRows()
+		results = append(results, res)
+	}
+	return results, nil
+}
+
 // GetAnalysisTasks 获取分析任务列表
 func (a *App) GetAnalysisTasks() ([]AnalysisSummary, error) {
 	tasks, err := a.GetExecutionTasks()

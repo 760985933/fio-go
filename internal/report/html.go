@@ -110,6 +110,13 @@ func GenerateHTML(groups []models.ChartGroup, systemTexts map[string]string, gro
     .float-nav-menu a { display: block; padding: 8px 16px; font-size: 13px; color: #374151; text-decoration: none; transition: background 0.12s; white-space: nowrap; }
     .float-nav-menu a:hover { background: #eff6ff; color: #007AFF; }
     .float-nav-menu a.active { color: #007AFF; font-weight: 600; background: #f0f7ff; }
+    @media print {
+      body { max-width: 100%; padding: 0; background: #fff; }
+      .float-nav { display: none !important; }
+      .section { break-inside: avoid; page-break-inside: avoid; box-shadow: none; border: 1px solid #e5e7eb; }
+      .chart { height: 280px; }
+      .report-header { box-shadow: none; }
+    }
   </style>
 </head>
 <body>

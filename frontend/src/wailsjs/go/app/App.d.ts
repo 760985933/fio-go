@@ -210,3 +210,26 @@ export interface IperfInterval {
     cpuUser: number;
     cpuSys: number;
 }
+
+export interface GroupedMetric {
+    BS: string;
+    Jobname: string;
+    RW: string;
+    IODepth: number;
+    Numjobs: number;
+    ReadIOPS: number;
+    WriteIOPS: number;
+    ReadBWMB: number;
+    WriteBWMB: number;
+    ReadLatMS: number;
+    WriteLatMS: number;
+}
+
+export interface TaskCompareResult {
+    taskId: string;
+    taskName: string;
+    groupedRows: GroupedMetric[];
+    error?: string;
+}
+
+export function CompareTaskMetrics(taskIDs: string[]): Promise<TaskCompareResult[]>;

@@ -31,6 +31,8 @@ export function CleanRemote(arg1:string,arg2:Array<executor.HostConfig>):Promise
 
 export function ClearExecutionLog(arg1:string):Promise<void>;
 
+export function CompareTaskMetrics(arg1:Array<string>):Promise<Array<app.TaskCompareResult>>;
+
 export function CreateIperfTask(arg1:iperf.IperfTask):Promise<void>;
 
 export function CreateReportZIP(arg1:string):Promise<string>;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { AnalysisSummary } from '../types'
 import { ConfirmDialog } from './ConfirmDialog'
 import * as App from '../wailsjs/go/app/App'
@@ -16,6 +16,7 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
   const [generating, setGenerating] = useState<string | null>(null)
   const [pulling, setPulling] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<AnalysisSummary | null>(null)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
 
   useEffect(() => { loadTasks() }, [])
 
@@ -95,6 +96,16 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
     }
   }
 
+  const exportPdf = () => {
+    try {
+      const iframe = iframeRef.current
+      if (!iframe || !iframe.contentWindow) return
+      iframe.contentWindow.print()
+    } catch (err) {
+      onShowResults('导出失败', `无法触发打印: ${err}`)
+    }
+  }
+
   const confirmDelete = async () => {
     if (!deleteTarget) return
     const id = deleteTarget.id
@@ -114,14 +125,18 @@ export function AnalysisView({ onAudit, onShowResults }: Props) {
   }
 
   if (selectedReport && reportHtml) {
-    return (
+      return (
       <div>
         <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <button className="btn btn-outline" onClick={() => { setSelectedReport(null); setReportHtml('') }}>← 返回列表</button>
-          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>任务: {selectedReport}</span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>任务: {selectedReport}</span>
+            <button className="btn btn-primary btn-sm" onClick={exportPdf}>导出 PDF</button>
+          </div>
         </div>
         <div className="panel" style={{ padding: 0, overflow: 'hidden' }}>
           <iframe
+            ref={iframeRef}
             srcDoc={reportHtml}
             style={{ width: '100%', height: 'calc(100vh - 200px)', border: 'none' }}
             title="报告预览"

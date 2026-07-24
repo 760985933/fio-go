@@ -218,6 +218,42 @@ export namespace app {
 		    return a;
 		}
 	}
+	export class TaskCompareResult {
+	    taskId: string;
+	    taskName: string;
+	    groupedRows: models.GroupedMetric[];
+	    error?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TaskCompareResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.taskId = source["taskId"];
+	        this.taskName = source["taskName"];
+	        this.groupedRows = this.convertValues(source["groupedRows"], models.GroupedMetric);
+	        this.error = source["error"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 
 }
 
@@ -409,6 +445,43 @@ export namespace iperf {
 		    }
 		    return a;
 		}
+	}
+
+}
+
+export namespace models {
+	
+	export class GroupedMetric {
+	    BS: string;
+	    Jobname: string;
+	    RW: string;
+	    IODepth: number;
+	    Numjobs: number;
+	    ReadIOPS: number;
+	    WriteIOPS: number;
+	    ReadBWMB: number;
+	    WriteBWMB: number;
+	    ReadLatMS: number;
+	    WriteLatMS: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new GroupedMetric(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.BS = source["BS"];
+	        this.Jobname = source["Jobname"];
+	        this.RW = source["RW"];
+	        this.IODepth = source["IODepth"];
+	        this.Numjobs = source["Numjobs"];
+	        this.ReadIOPS = source["ReadIOPS"];
+	        this.WriteIOPS = source["WriteIOPS"];
+	        this.ReadBWMB = source["ReadBWMB"];
+	        this.WriteBWMB = source["WriteBWMB"];
+	        this.ReadLatMS = source["ReadLatMS"];
+	        this.WriteLatMS = source["WriteLatMS"];
+	    }
 	}
 
 }
